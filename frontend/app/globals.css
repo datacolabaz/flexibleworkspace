@@ -1,0 +1,49 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import '../styles/tokens.css';
+
+body {
+  background: var(--color-bg);
+  color: var(--color-text-primary);
+  font-family: var(--font-body);
+}
+
+h1, h2, h3 {
+  font-family: var(--font-display);
+}
+
+/*
+ * Theme-aware <Logo variant="auto" /> — mirrors the exact three-state
+ * pattern tokens.css already uses (bare :root = light, prefers-color-
+ * scheme = system dark, [data-theme] = explicit choice, wins both ways).
+ * Two images render; CSS decides which is visible, so there's no
+ * client-side flicker or JS needed for the common case.
+ */
+.spotva-logo-light { display: block; }
+.spotva-logo-dark { display: none; }
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) .spotva-logo-light { display: none; }
+  :root:not([data-theme='light']) .spotva-logo-dark { display: block; }
+}
+:root[data-theme='dark'] .spotva-logo-light { display: none; }
+:root[data-theme='dark'] .spotva-logo-dark { display: block; }
+
+/*
+ * <ThemeToggle>'s ☀️/🌙 glyph — the exact same three-state pattern as the
+ * logo above, so the icon is correct on first paint (no JS needed to
+ * decide which to show) and re-evaluates live if the OS theme changes
+ * mid-session, per 08_DESIGN_SYSTEM.md §8.5's "re-checked live" rule —
+ * the browser's own media-query engine does that for free.
+ */
+.theme-toggle-icon-light { display: block; }
+.theme-toggle-icon-dark { display: none; }
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) .theme-toggle-icon-light { display: none; }
+  :root:not([data-theme='light']) .theme-toggle-icon-dark { display: block; }
+}
+:root[data-theme='dark'] .theme-toggle-icon-light { display: none; }
+:root[data-theme='dark'] .theme-toggle-icon-dark { display: block; }

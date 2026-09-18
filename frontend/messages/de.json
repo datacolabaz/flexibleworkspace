@@ -1,0 +1,70 @@
+{
+  "$comment": "Deferred locale (20_I18N.md §20.7) — content-active work hasn't started yet. Only a couple of keys are translated here on purpose, to demonstrate lib/i18n/request.ts's fallback merge: every other key resolves from en.json rather than showing a raw key or blank text.",
+  "nav": {
+    "home": "Startseite"
+  },
+  "hero": {
+    "title": "Finde deinen Platz."
+  },
+  "account": {
+    "reviewsTabLabel": "Bewertungen",
+    "reviews": {
+      "pageTitle": "Meine Bewertungen",
+      "toReviewHeading": "Bewertung ausstehend",
+      "toReviewCta": "Bewertung schreiben",
+      "submittedHeading": "Deine Bewertungen",
+      "emptyTitle": "Noch keine Bewertungen",
+      "emptyMessage": "Bewertungen zu deinen abgeschlossenen Buchungen erscheinen hier.",
+      "emptyCta": "Raum finden",
+      "roomUnavailable": "Dieser Raum ist nicht mehr gelistet",
+      "ratingAriaLabel": "{rating} von 5 Sternen",
+      "starLabel": "{value} Sterne",
+      "reviewedOn": "Bewertet am {date}",
+      "moderationStatus": {
+        "PENDING": "Wird geprüft",
+        "REJECTED": "Nicht veröffentlicht"
+      },
+      "rejectedNote": "Diese Bewertung entsprach nicht unseren Richtlinien und wird nicht öffentlich angezeigt.",
+      "providerReplyLabel": "Antwort des Anbieters",
+      "ratingFieldLabel": "Deine Bewertung",
+      "textFieldLabel": "Dein Kommentar (optional)",
+      "textFieldHint": "Teile mit, wie es war, diesen Raum zu buchen.",
+      "submitButton": "Bewertung senden",
+      "submittingButton": "Wird gesendet…",
+      "cancelButton": "Abbrechen",
+      "ratingRequiredError": "Bitte wähle eine Bewertung.",
+      "alreadyReviewedError": "Diese Buchung wurde bereits bewertet.",
+      "signedOutError": "Du wurdest abgemeldet. Bitte melde dich erneut an.",
+      "genericError": "Etwas ist schiefgelaufen. Bitte versuche es erneut.",
+      "loadErrorMessage": "Deine Bewertungen konnten nicht geladen werden. Bitte versuche es erneut."
+    },
+    "paymentHistoryTabLabel": "Zahlungsverlauf",
+    "paymentHistory": {
+      "pageTitle": "Zahlungsverlauf",
+      "loadErrorMessage": "Dein Zahlungsverlauf konnte nicht geladen werden. Bitte versuche es erneut.",
+      "emptyTitle": "Noch keine Zahlungen",
+      "emptyMessage": "Zahlungen zu deinen Buchungen erscheinen hier.",
+      "emptyCta": "Raum finden",
+      "roomUnavailable": "Dieser Raum ist nicht mehr gelistet",
+      "statusLabel": {
+        "INITIATED": "Gestartet",
+        "AUTHORIZED": "Autorisiert",
+        "CAPTURED": "Bezahlt",
+        "FAILED": "Fehlgeschlagen",
+        "CANCELLED": "Storniert",
+        "REFUND_PENDING": "Rückerstattung ausstehend",
+        "PARTIALLY_REFUNDED": "Teilweise erstattet",
+        "REFUNDED": "Erstattet",
+        "CHARGEBACK": "Rückbuchung"
+      },
+      "refundLine": "Rückerstattung von {amount} — {status} ({date})",
+      "refundStatusLabel": {
+        "REQUESTED": "Angefragt",
+        "APPROVED": "Genehmigt",
+        "PROCESSING": "In Bearbeitung",
+        "COMPLETED": "Abgeschlossen",
+        "REJECTED": "Abgelehnt"
+      }
+    }
+  }
+}

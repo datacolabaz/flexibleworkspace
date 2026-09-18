@@ -1,0 +1,70 @@
+{
+  "$comment": "Deferred locale (20_I18N.md §20.7) — content-active work hasn't started yet. Only a couple of keys are translated here on purpose, to demonstrate lib/i18n/request.ts's fallback merge: every other key resolves from en.json rather than showing a raw key or blank text.",
+  "nav": {
+    "home": "Inicio"
+  },
+  "hero": {
+    "title": "Encuentra tu lugar."
+  },
+  "account": {
+    "reviewsTabLabel": "Reseñas",
+    "reviews": {
+      "pageTitle": "Mis reseñas",
+      "toReviewHeading": "Pendientes de reseña",
+      "toReviewCta": "Escribir una reseña",
+      "submittedHeading": "Tus reseñas",
+      "emptyTitle": "Aún no hay reseñas",
+      "emptyMessage": "Las reseñas de tus reservas completadas aparecerán aquí.",
+      "emptyCta": "Buscar un espacio",
+      "roomUnavailable": "Este espacio ya no está en la lista",
+      "ratingAriaLabel": "{rating} de 5 estrellas",
+      "starLabel": "{value} estrellas",
+      "reviewedOn": "Reseñado el {date}",
+      "moderationStatus": {
+        "PENDING": "En revisión",
+        "REJECTED": "No publicada"
+      },
+      "rejectedNote": "Esta reseña no cumplió con nuestras normas y no se muestra públicamente.",
+      "providerReplyLabel": "Respuesta del proveedor",
+      "ratingFieldLabel": "Tu calificación",
+      "textFieldLabel": "Tu reseña (opcional)",
+      "textFieldHint": "Cuéntanos cómo fue reservar este espacio.",
+      "submitButton": "Enviar reseña",
+      "submittingButton": "Enviando…",
+      "cancelButton": "Cancelar",
+      "ratingRequiredError": "Selecciona una calificación.",
+      "alreadyReviewedError": "Esta reserva ya ha sido reseñada.",
+      "signedOutError": "Se cerró tu sesión. Vuelve a iniciar sesión.",
+      "genericError": "Algo salió mal. Inténtalo de nuevo.",
+      "loadErrorMessage": "No se pudieron cargar tus reseñas. Inténtalo de nuevo."
+    },
+    "paymentHistoryTabLabel": "Historial de pagos",
+    "paymentHistory": {
+      "pageTitle": "Historial de pagos",
+      "loadErrorMessage": "No se pudo cargar tu historial de pagos. Inténtalo de nuevo.",
+      "emptyTitle": "Aún no hay pagos",
+      "emptyMessage": "Los pagos de tus reservas aparecerán aquí.",
+      "emptyCta": "Buscar un espacio",
+      "roomUnavailable": "Este espacio ya no está en la lista",
+      "statusLabel": {
+        "INITIATED": "Iniciado",
+        "AUTHORIZED": "Autorizado",
+        "CAPTURED": "Pagado",
+        "FAILED": "Fallido",
+        "CANCELLED": "Cancelado",
+        "REFUND_PENDING": "Reembolso pendiente",
+        "PARTIALLY_REFUNDED": "Reembolsado parcialmente",
+        "REFUNDED": "Reembolsado",
+        "CHARGEBACK": "Contracargo"
+      },
+      "refundLine": "Reembolso de {amount} — {status} ({date})",
+      "refundStatusLabel": {
+        "REQUESTED": "Solicitado",
+        "APPROVED": "Aprobado",
+        "PROCESSING": "En proceso",
+        "COMPLETED": "Completado",
+        "REJECTED": "Rechazado"
+      }
+    }
+  }
+}

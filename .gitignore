@@ -1,0 +1,32 @@
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Build output
+/backend/dist/
+/frontend/.next/
+/frontend/out/
+**/*.tsbuildinfo
+frontend/next-env.d.ts
+
+# Environment files — never commit real or placeholder secrets
+.env
+.env.*
+!.env.example
+!.env.*.example
+
+# Logs
+*.log
+npm-debug.log*
+
+# Test / coverage
+/coverage/
+**/coverage/
+
+# OS / editor
+.DS_Store
+.vscode/
+.idea/
+
+# Misc
+*.pid

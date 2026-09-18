@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Spotva social media avatar master. Icon-only S+dot mark, Cream on
+       an Oil Green field, sized and centered to survive both square and
+       circular platform crops (icon occupies ~46% of the canvas height,
+       comfortably inside the inscribed circle — verified by rendering
+       with a circular clip). -->
+  <rect x="0" y="0" width="512" height="512" fill="#26453A"/>
+  <g transform="translate(182.40,138.24) scale(2.944000)">
+    <path d="M 25 10 A 15 15 0 0 0 25 40 A 15 15 0 0 1 25 70" fill="none" stroke="#FBFAF6" stroke-width="20" stroke-linecap="round"/>
+    <circle cx="25" cy="10" r="11" fill="#DB8A2E"/>
+  </g>
+</svg>

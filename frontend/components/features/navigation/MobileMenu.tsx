@@ -1,0 +1,89 @@
+'use client';
+
+import { useEffect, useRef, useState } from 'react';
+import { useTranslations } from 'next-intl';
+import { Link } from '@/lib/i18n/navigation';
+import { IconButton } from '@/components/ui/IconButton';
+
+export interface NavItem {
+  href: string;
+  label: string;
+}
+
+/**
+ * The header's compact/hamburger pattern for narrow viewports
+ * (08_DESIGN_SYSTEM.md §8.6: "Compact nav (menu/hamburger)" — note that
+ * per that same table row, the language switcher and theme toggle are
+ * *not* folded in here; Header.tsx keeps both inline at every width so
+ * they stay "directly reachable, not buried two levels deep"). Only the
+ * primary nav links and the login/account link collapse into this panel.
+ */
+export function MobileMenu({ navItems, loginHref, loginLabel }: { navItems: NavItem[]; loginHref: string; loginLabel: string }) {
+  const t = useTranslations('nav');
+  const [open, setOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const firstLinkRef = useRef<HTMLAnchorElement>(null);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    firstLinkRef.current?.focus();
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') setOpen(false);
+    }
+    function handleClickOutside(event: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener('keydown', handleKeyDown);
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [open]);
+
+  return (
+    <div className="relative md:hidden" ref={containerRef}>
+      <IconButton
+        aria-label={open ? t('closeMenu') : t('openMenu')}
+        aria-expanded={open}
+        aria-controls="mobile-nav-panel"
+        onClick={() => setOpen((value) => !value)}
+      >
+        <span aria-hidden="true" className="text-xl leading-none">
+          {open ? '✕' : '☰'}
+        </span>
+      </IconButton>
+
+      {open && (
+        <div
+          id="mobile-nav-panel"
+          className="absolute right-0 top-full z-50 mt-2 w-56 rounded-md border border-border bg-surface p-2 shadow-md"
+        >
+          <nav aria-label={t('primaryNavigation')} className="flex flex-col gap-1">
+            {navItems.map((item, index) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                ref={index === 0 ? firstLinkRef : undefined}
+                onClick={() => setOpen(false)}
+                className="min-h-11 rounded-sm px-3 py-2.5 text-body text-text-primary hover:bg-surface-elevated"
+              >
+                {item.label}
+              </Link>
+            ))}
+            <Link
+              href={loginHref}
+              onClick={() => setOpen(false)}
+              className="min-h-11 rounded-sm px-3 py-2.5 text-label font-semibold text-primary hover:bg-surface-elevated"
+            >
+              {loginLabel}
+            </Link>
+          </nav>
+        </div>
+      )}
+    </div>
+  );
+}

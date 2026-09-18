@@ -1,0 +1,29 @@
+version: "3.9"
+
+# FlexSpace local development stack — Phase 4 implementation.
+# Matches 22_INFRASTRUCTURE.md §22.1 (LOW COST MVP ARCHITECTURE): a single
+# PostgreSQL instance with PostGIS, no additional infrastructure. This
+# compose file is for LOCAL DEVELOPMENT ONLY — production deployment uses a
+# managed Postgres provider per 23_COST_MODEL.md, not this container.
+
+services:
+  postgres:
+    image: postgis/postgis:16-3.4
+    container_name: flexspace-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: flexspace
+      POSTGRES_PASSWORD: flexspace_dev_password
+      POSTGRES_DB: flexspace
+    ports:
+      - "5433:5432" # host port 5433 to avoid clashing with a local Postgres on 5432
+    volumes:
+      - flexspace_pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U flexspace -d flexspace"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  flexspace_pg_data:

@@ -1,0 +1,364 @@
+<title>Spotva Identity</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Golos+Text:wght@400;500;600;700&display=swap');
+
+  :root {
+    --bg: #FBFAF6;
+    --surface: #FFFFFF;
+    --surface-elevated: #F4F1E9;
+    --border-default: #E4E0D5;
+    --border-strong: #8F8875;
+    --text-primary: #1C1B17;
+    --text-secondary: #55534A;
+    --text-muted: #89857A;
+
+    --oil-50: #EEF3EF;
+    --oil-100: #DCE7DF;
+    --oil-300: #8FB6A1;
+    --oil-500: #3E6E58;
+    --oil-700: #26453A;
+    --oil-900: #14261F;
+
+    --amber-100: #FBE8CF;
+    --amber-400: #E7A550;
+    --amber-600: #DB8A2E;
+    --amber-700: #D3820A;
+    --amber-900: #7A480E;
+
+    --success: #1F7A4D;
+    --warning: #966B12;
+    --error: #C23A3A;
+    --info: #2C6FA8;
+
+    --cream: #F3F1E9;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #14140F;
+      --surface: #1C1D17;
+      --surface-elevated: #242519;
+      --border-default: #33352A;
+      --border-strong: #6E7160;
+      --text-primary: #F3F1E9;
+      --text-secondary: #C7C3B5;
+      --text-muted: #8E8A7C;
+      --oil-300: #8FB6A1;
+      --oil-700: #6FA184;
+      --amber-600: #E7A550;
+      --amber-700: #EFBD7C;
+      --success: #5CC08B;
+      --warning: #E0B655;
+      --error: #E5807F;
+      --info: #79B4E8;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #14140F;
+    --surface: #1C1D17;
+    --surface-elevated: #242519;
+    --border-default: #33352A;
+    --border-strong: #6E7160;
+    --text-primary: #F3F1E9;
+    --text-secondary: #C7C3B5;
+    --text-muted: #8E8A7C;
+    --oil-300: #8FB6A1;
+    --oil-700: #6FA184;
+    --amber-600: #E7A550;
+    --amber-700: #EFBD7C;
+    --success: #5CC08B;
+    --warning: #E0B655;
+    --error: #E5807F;
+    --info: #79B4E8;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text-primary);
+    font-family: 'Golos Text', system-ui, sans-serif;
+    padding: 0 20px 80px;
+  }
+  .wrap { max-width: 980px; margin: 0 auto; }
+
+  header.top {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 28px 0 20px; border-bottom: 1px solid var(--border-default);
+    flex-wrap: wrap; gap: 12px;
+  }
+  .status-pill {
+    font-size: 12px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase;
+    color: var(--amber-900, var(--amber-600)); background: var(--amber-100, transparent);
+    border: 1px solid var(--amber-600); padding: 4px 10px; border-radius: 999px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) .status-pill { color: var(--bg); background: var(--amber-600); border-color: var(--amber-600); }
+  }
+  :root[data-theme="dark"] .status-pill { color: var(--bg); background: var(--amber-600); border-color: var(--amber-600); }
+
+  section { padding: 56px 0; border-bottom: 1px solid var(--border-default); }
+  section:last-of-type { border-bottom: none; }
+  .eyebrow {
+    font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--text-muted); margin: 0 0 10px;
+  }
+  h1 { font-family: 'Fraunces', serif; font-weight: 600; font-size: clamp(32px, 5vw, 44px); line-height: 1.1; margin: 0 0 12px; text-wrap: balance; }
+  h2 { font-family: 'Fraunces', serif; font-weight: 600; font-size: 28px; line-height: 1.2; margin: 0 0 8px; text-wrap: balance; }
+  h3 { font-family: 'Fraunces', serif; font-weight: 500; font-size: 20px; margin: 0 0 6px; }
+  p { line-height: 1.6; color: var(--text-secondary); max-width: 640px; }
+  .lede { font-size: 17px; }
+
+  /* --- Hero / lockup --- */
+  .hero-top { max-width: 640px; }
+  .lockup-row { display: flex; gap: 20px; flex-wrap: wrap; margin-top: 32px; }
+  .lockup-card {
+    flex: 1 1 260px; border-radius: 16px; padding: 40px 32px;
+    display: flex; align-items: center; justify-content: center; min-height: 140px;
+  }
+  .lockup-card.light { background: #FFFFFF; border: 1px solid #E4E0D5; }
+  .lockup-card.dark { background: var(--oil-900, #14261F); }
+  .lockup { display: flex; align-items: center; gap: 14px; }
+  .lockup .word { font-family: 'Fraunces', serif; font-weight: 600; font-size: 32px; letter-spacing: -0.01em; }
+  .lockup-card.light .word { color: #26453A; }
+  .lockup-card.dark .word { color: #F3F1E9; }
+  .caption { font-size: 12px; color: var(--text-muted); margin-top: 10px; text-align: center; }
+
+  /* --- Icon variants strip --- */
+  .icon-strip { display: flex; gap: 18px; flex-wrap: wrap; margin-top: 28px; }
+  .icon-tile { text-align: center; }
+  .icon-tile .swatch {
+    width: 88px; height: 88px; border-radius: 14px; display: flex; align-items: center; justify-content: center;
+  }
+  .icon-tile .swatch.on-light { background: #FFFFFF; border: 1px solid #E4E0D5; }
+  .icon-tile .swatch.on-oil { background: #26453A; }
+  .icon-tile .swatch.on-cream { background: #F4F1E9; border: 1px solid #E4E0D5; }
+  .icon-tile .swatch.mono-black { background: #1C1B17; }
+  .icon-tile figcaption { font-size: 11px; color: var(--text-muted); margin-top: 8px; }
+
+  /* --- Concept B comparison --- */
+  .concept-b-row { display: flex; gap: 24px; align-items: center; margin-top: 24px; flex-wrap: wrap; }
+  .concept-b-mark { width: 72px; height: 72px; background: #FFFFFF; border: 1px solid #E4E0D5; border-radius: 14px; display:flex; align-items:center; justify-content:center; flex: 0 0 auto; }
+
+  /* --- palette --- */
+  .palette-group { margin-bottom: 36px; }
+  .palette-group h3 { margin-bottom: 14px; }
+  .swatch-row { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 10px; }
+  .chip { border-radius: 10px; overflow: hidden; border: 1px solid var(--border-default); }
+  .chip .fill { height: 64px; }
+  .chip .label { padding: 8px 10px; background: var(--surface); }
+  .chip .label .name { font-size: 12px; font-weight: 600; display: block; }
+  .chip .label .hex { font-size: 11px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+
+  /* --- type specimen --- */
+  .type-row { display: flex; align-items: baseline; gap: 18px; padding: 14px 0; border-bottom: 1px dashed var(--border-default); flex-wrap: wrap; }
+  .type-row:last-child { border-bottom: none; }
+  .type-row .tag { font-size: 11px; color: var(--text-muted); width: 90px; flex: 0 0 90px; font-family: 'Golos Text', sans-serif; }
+  .type-row .sample { flex: 1 1 300px; }
+  .sample.h1s { font-family: 'Fraunces', serif; font-weight: 600; font-size: 40px; }
+  .sample.h2s { font-family: 'Fraunces', serif; font-weight: 600; font-size: 32px; }
+  .sample.h3s { font-family: 'Fraunces', serif; font-weight: 500; font-size: 24px; }
+  .sample.h4s { font-family: 'Golos Text', sans-serif; font-weight: 600; font-size: 20px; }
+  .sample.bodys { font-family: 'Golos Text', sans-serif; font-weight: 400; font-size: 16px; }
+  .sample.smalls { font-family: 'Golos Text', sans-serif; font-weight: 400; font-size: 14px; color: var(--text-secondary); }
+  .sample.labels { font-family: 'Golos Text', sans-serif; font-weight: 600; font-size: 13px; letter-spacing: 0.04em; text-transform: uppercase; }
+
+  /* --- CTA demo --- */
+  .cta-row { display: flex; gap: 16px; flex-wrap: wrap; align-items: center; margin-top: 20px; }
+  .btn {
+    font-family: 'Golos Text', sans-serif; font-weight: 600; font-size: 15px;
+    padding: 12px 22px; border-radius: 10px; border: none; cursor: default;
+  }
+  .btn.default { background: var(--amber-600); color: #1C1B17; }
+  .btn.hover { background: var(--amber-700); color: #1C1B17; }
+  .btn.pressed { background: #7A480E; color: #FFFFFF; }
+  .btn.primary { background: var(--oil-700); color: #FFFFFF; }
+  .btn-label { font-size: 11px; color: var(--text-muted); margin-top: 6px; text-align: center; }
+  .btn-col { display: flex; flex-direction: column; align-items: center; }
+
+  footer.note {
+    margin-top: 40px; padding-top: 24px; border-top: 1px solid var(--border-default);
+    font-size: 13px; color: var(--text-muted);
+  }
+</style>
+
+<div class="wrap">
+
+  <header class="top">
+    <div style="display:flex; align-items:center; gap:10px;">
+      <svg width="28" height="28" viewBox="0 0 64 64" aria-hidden="true">
+        <rect x="4" y="4" width="56" height="56" rx="14" fill="var(--oil-700)"/>
+        <circle cx="50" cy="50" r="13" fill="var(--bg)"/>
+        <circle cx="50" cy="50" r="13" fill="var(--oil-700)" opacity="0.001"/>
+      </svg>
+      <strong style="font-family:'Fraunces',serif; font-size:16px;">Spotva Identity — Concept Board</strong>
+    </div>
+    <span class="status-pill">Logo · Color · Type — Approved</span>
+  </header>
+
+  <section class="hero-top" style="padding-bottom: 0;">
+    <p class="eyebrow">Companion to SPOTVA_BRAND_IDENTITY_GUIDELINES_V1.md</p>
+    <h1>A place, and something arriving into it.</h1>
+    <p class="lede">The mark below is a rounded square — the spot, a space with edges — with a smaller circle docking into its lower-right corner: arrival, access, the moment a space becomes useful. <strong style="color:var(--text-primary);">Concept A, the color system, and the typography are approved</strong> as of this review pass; tagline and mission/vision wording are still open.</p>
+
+    <div class="lockup-row">
+      <div>
+        <div class="lockup-card light">
+          <div class="lockup">
+            <svg width="44" height="44" viewBox="0 0 64 64" aria-hidden="true">
+              <rect x="4" y="4" width="56" height="56" rx="14" fill="#26453A"/>
+              <circle cx="50" cy="50" r="13" fill="#FFFFFF"/>
+            </svg>
+            <span class="word">Spotva</span>
+          </div>
+        </div>
+        <p class="caption">Primary lockup — light background · <strong style="color:var(--oil-700);">Approved</strong></p>
+      </div>
+      <div>
+        <div class="lockup-card dark">
+          <div class="lockup">
+            <svg width="44" height="44" viewBox="0 0 64 64" aria-hidden="true">
+              <rect x="4" y="4" width="56" height="56" rx="14" fill="#F3F1E9"/>
+              <circle cx="50" cy="50" r="13" fill="#14261F"/>
+            </svg>
+            <span class="word">Spotva</span>
+          </div>
+        </div>
+        <p class="caption">Primary lockup — dark background · <strong style="color:var(--oil-700);">Approved</strong></p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <p class="eyebrow">§11 — Logo variations (Concept A)</p>
+    <h2>The mark, on its own, everywhere</h2>
+    <p>Same construction — rounded square, overlapping circle — reproduced without distortion across every context.</p>
+
+    <div class="icon-strip">
+      <figure class="icon-tile">
+        <div class="swatch on-light">
+          <svg width="48" height="48" viewBox="0 0 64 64"><rect x="4" y="4" width="56" height="56" rx="14" fill="#26453A"/><circle cx="50" cy="50" r="13" fill="#FFFFFF"/></svg>
+        </div>
+        <figcaption>Icon-only, light bg</figcaption>
+      </figure>
+      <figure class="icon-tile">
+        <div class="swatch on-oil">
+          <svg width="48" height="48" viewBox="0 0 64 64"><rect x="4" y="4" width="56" height="56" rx="14" fill="#F3F1E9"/><circle cx="50" cy="50" r="13" fill="#14261F"/></svg>
+        </div>
+        <figcaption>Icon-only, dark bg</figcaption>
+      </figure>
+      <figure class="icon-tile">
+        <div class="swatch mono-black">
+          <svg width="48" height="48" viewBox="0 0 64 64"><rect x="4" y="4" width="56" height="56" rx="14" fill="#FFFFFF"/><circle cx="50" cy="50" r="13" fill="#1C1B17"/></svg>
+        </div>
+        <figcaption>Monochrome, single ink</figcaption>
+      </figure>
+      <figure class="icon-tile">
+        <div class="swatch on-cream">
+          <svg width="48" height="48" viewBox="0 0 64 64"><rect x="4" y="4" width="56" height="56" rx="14" fill="#26453A"/><circle cx="50" cy="50" r="13" fill="#F4F1E9"/></svg>
+        </div>
+        <figcaption>Favicon / social avatar</figcaption>
+      </figure>
+      <figure class="icon-tile">
+        <div class="swatch on-light" style="padding:14px;">
+          <svg width="26" height="26" viewBox="0 0 64 64"><rect x="4" y="4" width="56" height="56" rx="14" fill="#26453A"/><circle cx="50" cy="50" r="13" fill="#FFFFFF"/></svg>
+        </div>
+        <figcaption>At ~24px (min UI size)</figcaption>
+      </figure>
+    </div>
+
+    <div class="concept-b-row" style="opacity: 0.55;">
+      <div class="concept-b-mark">
+        <svg width="44" height="44" viewBox="0 0 64 64" aria-hidden="true">
+          <path d="M 20 4 H 46 A 14 14 0 0 1 60 18 V 46 A 14 14 0 0 1 46 60 H 18 A 14 14 0 0 1 4 46 V 22" fill="none" stroke="#55534A" stroke-width="5" stroke-linecap="round"/>
+          <circle cx="10" cy="12" r="5.5" fill="#55534A"/>
+        </svg>
+      </div>
+      <p style="margin:0;"><strong style="color:var(--text-primary);">Concept B — "The Open Corner"</strong> — <strong>not selected</strong>, kept for the record. An outline left open at one corner, with a dot approaching the gap. Reviewed alongside Concept A and not chosen; final artwork proceeds from Concept A only.</p>
+    </div>
+  </section>
+
+  <section>
+    <p class="eyebrow">§15 — Color palette</p>
+    <h2>Oil Green, Amber, and a warm neutral base</h2>
+    <p>Every text/background pairing in the written guidelines was checked against WCAG contrast targets, not eyeballed. This page is itself built from these exact tokens.</p>
+
+    <div class="palette-group">
+      <h3>Primary — Oil Green</h3>
+      <div class="swatch-row">
+        <div class="chip"><div class="fill" style="background:#EEF3EF;"></div><div class="label"><span class="name">oil-50</span><span class="hex">#EEF3EF</span></div></div>
+        <div class="chip"><div class="fill" style="background:#DCE7DF;"></div><div class="label"><span class="name">oil-100</span><span class="hex">#DCE7DF</span></div></div>
+        <div class="chip"><div class="fill" style="background:#8FB6A1;"></div><div class="label"><span class="name">oil-300</span><span class="hex">#8FB6A1</span></div></div>
+        <div class="chip"><div class="fill" style="background:#3E6E58;"></div><div class="label"><span class="name">oil-500</span><span class="hex">#3E6E58</span></div></div>
+        <div class="chip"><div class="fill" style="background:#26453A;"></div><div class="label"><span class="name">oil-700</span><span class="hex">#26453A</span></div></div>
+        <div class="chip"><div class="fill" style="background:#14261F;"></div><div class="label"><span class="name">oil-900</span><span class="hex">#14261F</span></div></div>
+      </div>
+    </div>
+
+    <div class="palette-group">
+      <h3>CTA — Amber (reserved for calls-to-action only)</h3>
+      <div class="swatch-row">
+        <div class="chip"><div class="fill" style="background:#FBE8CF;"></div><div class="label"><span class="name">amber-100</span><span class="hex">#FBE8CF</span></div></div>
+        <div class="chip"><div class="fill" style="background:#E7A550;"></div><div class="label"><span class="name">amber-400</span><span class="hex">#E7A550</span></div></div>
+        <div class="chip"><div class="fill" style="background:#DB8A2E;"></div><div class="label"><span class="name">amber-600</span><span class="hex">#DB8A2E</span></div></div>
+        <div class="chip"><div class="fill" style="background:#D3820A;"></div><div class="label"><span class="name">amber-700</span><span class="hex">#D3820A</span></div></div>
+        <div class="chip"><div class="fill" style="background:#7A480E;"></div><div class="label"><span class="name">amber-900</span><span class="hex">#7A480E</span></div></div>
+      </div>
+    </div>
+
+    <div class="palette-group">
+      <h3>Neutrals — light mode</h3>
+      <div class="swatch-row">
+        <div class="chip"><div class="fill" style="background:#FBFAF6;"></div><div class="label"><span class="name">bg</span><span class="hex">#FBFAF6</span></div></div>
+        <div class="chip"><div class="fill" style="background:#FFFFFF; border-bottom:1px solid #E4E0D5;"></div><div class="label"><span class="name">surface</span><span class="hex">#FFFFFF</span></div></div>
+        <div class="chip"><div class="fill" style="background:#E4E0D5;"></div><div class="label"><span class="name">border-default</span><span class="hex">#E4E0D5</span></div></div>
+        <div class="chip"><div class="fill" style="background:#1C1B17;"></div><div class="label"><span class="name">text-primary</span><span class="hex">#1C1B17</span></div></div>
+        <div class="chip"><div class="fill" style="background:#55534A;"></div><div class="label"><span class="name">text-secondary</span><span class="hex">#55534A</span></div></div>
+      </div>
+    </div>
+
+    <div class="palette-group" style="margin-bottom:0;">
+      <h3>Semantic</h3>
+      <div class="swatch-row">
+        <div class="chip"><div class="fill" style="background:#1F7A4D;"></div><div class="label"><span class="name">success</span><span class="hex">#1F7A4D</span></div></div>
+        <div class="chip"><div class="fill" style="background:#966B12;"></div><div class="label"><span class="name">warning</span><span class="hex">#966B12</span></div></div>
+        <div class="chip"><div class="fill" style="background:#C23A3A;"></div><div class="label"><span class="name">error</span><span class="hex">#C23A3A</span></div></div>
+        <div class="chip"><div class="fill" style="background:#2C6FA8;"></div><div class="label"><span class="name">info</span><span class="hex">#2C6FA8</span></div></div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <p class="eyebrow">§16 — Typography</p>
+    <h2>Fraunces for headings, Golos Text for everything else</h2>
+    <p>Confirmed from the existing product direction, not replaced. Golos Text carries full Cyrillic support for AZ/RU.</p>
+
+    <div style="margin-top: 20px;">
+      <div class="type-row"><span class="tag">H1 · Fraunces 600</span><span class="sample h1s">Find your spot.</span></div>
+      <div class="type-row"><span class="tag">H2 · Fraunces 600</span><span class="sample h2s">Book a training room in Baku</span></div>
+      <div class="type-row"><span class="tag">H3 · Fraunces 500</span><span class="sample h3s">Meeting rooms near you</span></div>
+      <div class="type-row"><span class="tag">H4 · Golos 600</span><span class="sample h4s">Available this afternoon</span></div>
+      <div class="type-row"><span class="tag">Body · Golos 400</span><span class="sample bodys">A marketplace for discovering and booking the right space for work, learning, meetings, and events.</span></div>
+      <div class="type-row"><span class="tag">Small · Golos 400</span><span class="sample smalls">Free cancellation up to 24 hours before your booking.</span></div>
+      <div class="type-row"><span class="tag">Label · Golos 600</span><span class="sample labels">Verified provider</span></div>
+    </div>
+  </section>
+
+  <section style="border-bottom: none;">
+    <p class="eyebrow">§15.2 — CTA button states</p>
+    <h2>Amber pairs with dark text; only the pressed state flips</h2>
+    <p>The one rule that keeps every amber CTA accessible: default and hover states use dark text, and only the darkest pressed state — closer in value to the text itself — switches to white.</p>
+
+    <div class="cta-row">
+      <div class="btn-col"><button class="btn default">Book this room</button><span class="btn-label">Default</span></div>
+      <div class="btn-col"><button class="btn hover">Book this room</button><span class="btn-label">Hover</span></div>
+      <div class="btn-col"><button class="btn pressed">Book this room</button><span class="btn-label">Pressed</span></div>
+      <div class="btn-col"><button class="btn primary">View details</button><span class="btn-label">Secondary (Oil Green)</span></div>
+    </div>
+
+    <footer class="note">
+      Draft v1 — prepared for review alongside <code>SPOTVA_BRAND_IDENTITY_GUIDELINES_V1.md</code>. No application code has been changed; this page exists only to make the proposed identity easier to react to before any of it is implemented.
+    </footer>
+  </section>
+
+</div>

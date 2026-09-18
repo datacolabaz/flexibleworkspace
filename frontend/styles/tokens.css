@@ -1,0 +1,180 @@
+/**
+ * Spotva Design Tokens — CSS Custom Properties
+ * Source of truth: docs/SPOTVA_BRAND_IDENTITY_GUIDELINES_V1.md §15 (Color, APPROVED)
+ *                   and §16 (Typography, APPROVED)
+ *
+ * Status: color + typography tokens are approved. Tagline and mission/vision
+ * copy are NOT part of this file and remain open — see the guidelines doc.
+ *
+ * Naming follows the token scheme already specified in
+ * docs/08_DESIGN_SYSTEM.md §8.5 ("every color is a design token — never a
+ * literal hex value in component code"): color-bg-surface, color-text-primary,
+ * color-border-default, color-accent, etc. This file is the concrete fill-in
+ * of that existing structure, not a new one.
+ *
+ * Three-state theming, per 08_DESIGN_SYSTEM.md §8.5:
+ *   1. Bare :root            → light (default / first paint)
+ *   2. prefers-color-scheme  → dark, unless an explicit light choice overrides it
+ *   3. [data-theme="dark"]   → explicit dark, wins over system in both directions
+ * A component sets [data-theme="light"] or [data-theme="dark"] on the root
+ * element to persist the user's explicit choice (localStorage + cookie for
+ * SSR-correct first paint, per 08_DESIGN_SYSTEM.md §8.5) — this file only
+ * defines the token *values* for each state, not that persistence logic.
+ */
+
+:root {
+  /* ---- Primitives: Oil Green (brand primary) ---- */
+  --spotva-oil-50: #EEF3EF;
+  --spotva-oil-100: #DCE7DF;
+  --spotva-oil-300: #8FB6A1;
+  --spotva-oil-500: #3E6E58;
+  --spotva-oil-700: #26453A;
+  --spotva-oil-900: #14261F;
+
+  /* ---- Primitives: Amber (CTA accent — reserved for calls-to-action) ---- */
+  --spotva-amber-100: #FBE8CF;
+  --spotva-amber-400: #E7A550;
+  --spotva-amber-600: #DB8A2E;
+  --spotva-amber-700: #D3820A;
+  --spotva-amber-900: #7A480E;
+
+  /* ---- Semantic/role tokens: LIGHT (default) ---- */
+  --color-bg: #FBFAF6;
+  --color-bg-surface: #FFFFFF;
+  --color-bg-surface-elevated: #F4F1E9;
+  --color-border-default: #E4E0D5;      /* decorative — cards, dividers */
+  --color-border-strong: #8F8875;       /* actionable — input boundaries, 3:1+ */
+  --color-text-primary: #1C1B17;
+  --color-text-secondary: #55534A;
+  --color-text-muted: #89857A;          /* AA-large only — use at >=16px or non-essential text */
+
+  --color-primary: var(--spotva-oil-700);
+  --color-primary-on: #FFFFFF;          /* text/icon on top of --color-primary, 10.53:1 AAA */
+
+  /* CTA — default/hover pair with DARK text; only the pressed state flips to white. Do not swap. */
+  --color-accent: var(--spotva-amber-600);
+  --color-accent-hover: var(--spotva-amber-700);
+  --color-accent-active: var(--spotva-amber-900);
+  --color-accent-on: #1C1B17;           /* text on --color-accent and --color-accent-hover */
+  --color-accent-active-on: #FFFFFF;    /* text on --color-accent-active ONLY */
+
+  --color-success: #1F7A4D;
+  --color-success-bg: #E6F4EC;
+  --color-warning: #966B12;
+  --color-warning-bg: #FEF8ED;
+  --color-error: #C23A3A;
+  --color-error-bg: #FBEAEA;
+  --color-info: #2C6FA8;
+  --color-info-bg: #E8F1FA;
+
+  /* Verified-badge color — 08_DESIGN_SYSTEM.md §8.1: "a verified-badge
+   * color distinct from all of the above" (distinct from primary/oil-green,
+   * accent/amber, and info/blue — a teal reads as its own signal rather
+   * than borrowing "informational blue"). 5.9:1 on white (AA). */
+  --color-verified: #0C6E80;
+  --color-verified-bg: #E5F3F5;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --color-bg: #14140F;
+    --color-bg-surface: #1C1D17;
+    --color-bg-surface-elevated: #242519;
+    --color-border-default: #33352A;
+    --color-border-strong: #6E7160;
+    --color-text-primary: #F3F1E9;
+    --color-text-secondary: #C7C3B5;
+    --color-text-muted: #8E8A7C;
+
+    --color-primary: var(--spotva-oil-300);      /* oil-700 doesn't read on dark bg; oil-300 does */
+    --color-primary-on: #0E1712;
+
+    --color-accent: #E7A550;   /* amber-400 on dark — 8.71:1 AAA with dark text */
+    --color-accent-hover: #EFBD7C;  /* amber-300 on dark */
+    --color-accent-active: var(--spotva-amber-900);
+    --color-accent-on: #14140F;
+    --color-accent-active-on: #FFFFFF;
+
+    --color-success: #5CC08B;
+    --color-success-bg: color-mix(in srgb, #5CC08B 16%, var(--color-bg));
+    --color-warning: #E0B655;
+    --color-warning-bg: color-mix(in srgb, #E0B655 16%, var(--color-bg));
+    --color-error: #E5807F;
+    --color-error-bg: color-mix(in srgb, #E5807F 16%, var(--color-bg));
+    --color-info: #79B4E8;
+    --color-info-bg: color-mix(in srgb, #79B4E8 16%, var(--color-bg));
+
+    --color-verified: #5FD3DE;   /* 9.6:1 on dark surface (AAA) */
+    --color-verified-bg: color-mix(in srgb, #5FD3DE 16%, var(--color-bg));
+  }
+}
+
+:root[data-theme="dark"] {
+  --color-bg: #14140F;
+  --color-bg-surface: #1C1D17;
+  --color-bg-surface-elevated: #242519;
+  --color-border-default: #33352A;
+  --color-border-strong: #6E7160;
+  --color-text-primary: #F3F1E9;
+  --color-text-secondary: #C7C3B5;
+  --color-text-muted: #8E8A7C;
+
+  --color-primary: var(--spotva-oil-300);
+  --color-primary-on: #0E1712;
+
+  --color-accent: #E7A550;
+  --color-accent-hover: #EFBD7C;
+  --color-accent-active: var(--spotva-amber-900);
+  --color-accent-on: #14140F;
+  --color-accent-active-on: #FFFFFF;
+
+  --color-success: #5CC08B;
+  --color-success-bg: color-mix(in srgb, #5CC08B 16%, var(--color-bg));
+  --color-warning: #E0B655;
+  --color-warning-bg: color-mix(in srgb, #E0B655 16%, var(--color-bg));
+  --color-error: #E5807F;
+  --color-error-bg: color-mix(in srgb, #E5807F 16%, var(--color-bg));
+  --color-info: #79B4E8;
+  --color-info-bg: color-mix(in srgb, #79B4E8 16%, var(--color-bg));
+
+  --color-verified: #5FD3DE;
+  --color-verified-bg: color-mix(in srgb, #5FD3DE 16%, var(--color-bg));
+}
+
+:root {
+  /* ---- Typography ---- */
+  --font-display: 'Fraunces', Georgia, 'Times New Roman', serif;   /* H1–H3, wordmark, hero */
+  --font-body: 'Golos Text', system-ui, -apple-system, 'Segoe UI', sans-serif; /* everything else */
+
+  --text-h1-size: 40px;   --text-h1-line: 48px;   --text-h1-weight: 600;
+  --text-h2-size: 32px;   --text-h2-line: 40px;   --text-h2-weight: 600;
+  --text-h3-size: 24px;   --text-h3-line: 32px;   --text-h3-weight: 500;
+  --text-h4-size: 20px;   --text-h4-line: 28px;   --text-h4-weight: 600;
+  --text-body-size: 16px; --text-body-line: 24px; --text-body-weight: 400;
+  --text-small-size: 14px; --text-small-line: 20px; --text-small-weight: 400;
+  --text-label-size: 14px; --text-label-line: 20px; --text-label-weight: 600;
+  --text-nav-size: 15px;  --text-nav-line: 24px;  --text-nav-weight: 500;
+  --text-caption-size: 12px; --text-caption-line: 16px; --text-caption-weight: 400;
+}
+
+/*
+ * Spacing: not restated here — use docs/08_DESIGN_SYSTEM.md §8.1 directly
+ * (4px base unit, 4/8/12/16/24/32/48/64 scale). Not part of the brand
+ * color/type approval pass this file otherwise mirrors.
+ *
+ * ---- Radius / elevation — added at frontend build time (FRONTEND_
+ * IMPLEMENTATION_PLAN.md §5), per the go-ahead: "radius/elevation/shadow
+ * tokens YES but minimal only, don't broaden the design system, don't
+ * alter approved brand identity." This is the first time these get real
+ * values — 08_DESIGN_SYSTEM.md §8.1 deliberately left them unfixed until
+ * now. Deliberately small: three radii, three shadows, nothing else.
+ */
+:root {
+  --radius-sm: 6px;   /* inputs, small buttons, badges */
+  --radius-md: 10px;  /* buttons, cards */
+  --radius-lg: 16px;  /* modals, elevated panels */
+
+  --shadow-sm: 0 1px 2px rgba(20, 20, 15, 0.06);   /* resting cards */
+  --shadow-md: 0 4px 16px rgba(20, 20, 15, 0.10);  /* dropdowns, popovers */
+  --shadow-lg: 0 12px 32px rgba(20, 20, 15, 0.14); /* modals */
+}

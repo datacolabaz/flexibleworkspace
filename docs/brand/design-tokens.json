@@ -1,0 +1,98 @@
+{
+  "$schema": "Spotva design tokens — machine-readable form of design-tokens.css",
+  "source": "docs/SPOTVA_BRAND_IDENTITY_GUIDELINES_V1.md §15 (Color, APPROVED) and §16 (Typography, APPROVED)",
+  "status": "Color and typography approved. Tagline and mission/vision are NOT design tokens and are tracked separately in the guidelines doc as still open.",
+  "primitives": {
+    "oil": {
+      "50": "#EEF3EF",
+      "100": "#DCE7DF",
+      "300": "#8FB6A1",
+      "500": "#3E6E58",
+      "700": "#26453A",
+      "900": "#14261F"
+    },
+    "amber": {
+      "100": "#FBE8CF",
+      "400": "#E7A550",
+      "600": "#DB8A2E",
+      "700": "#D3820A",
+      "900": "#7A480E"
+    }
+  },
+  "semantic": {
+    "light": {
+      "bg": "#FBFAF6",
+      "bgSurface": "#FFFFFF",
+      "bgSurfaceElevated": "#F4F1E9",
+      "borderDefault": "#E4E0D5",
+      "borderStrong": "#8F8875",
+      "textPrimary": "#1C1B17",
+      "textSecondary": "#55534A",
+      "textMuted": "#89857A",
+      "primary": "#26453A",
+      "primaryOn": "#FFFFFF",
+      "accent": "#DB8A2E",
+      "accentHover": "#D3820A",
+      "accentActive": "#7A480E",
+      "accentOn": "#1C1B17",
+      "accentActiveOn": "#FFFFFF",
+      "success": "#1F7A4D",
+      "successBg": "#E6F4EC",
+      "warning": "#966B12",
+      "warningBg": "#FEF8ED",
+      "error": "#C23A3A",
+      "errorBg": "#FBEAEA",
+      "info": "#2C6FA8",
+      "infoBg": "#E8F1FA"
+    },
+    "dark": {
+      "bg": "#14140F",
+      "bgSurface": "#1C1D17",
+      "bgSurfaceElevated": "#242519",
+      "borderDefault": "#33352A",
+      "borderStrong": "#6E7160",
+      "textPrimary": "#F3F1E9",
+      "textSecondary": "#C7C3B5",
+      "textMuted": "#8E8A7C",
+      "primary": "#8FB6A1",
+      "primaryOn": "#0E1712",
+      "accent": "#E7A550",
+      "accentHover": "#EFBD7C",
+      "accentActive": "#7A480E",
+      "accentOn": "#14140F",
+      "accentActiveOn": "#FFFFFF",
+      "success": "#5CC08B",
+      "successBg": "color-mix(in srgb, #5CC08B 16%, #14140F)",
+      "warning": "#E0B655",
+      "warningBg": "color-mix(in srgb, #E0B655 16%, #14140F)",
+      "error": "#E5807F",
+      "errorBg": "color-mix(in srgb, #E5807F 16%, #14140F)",
+      "info": "#79B4E8",
+      "infoBg": "color-mix(in srgb, #79B4E8 16%, #14140F)"
+    }
+  },
+  "contrastNotes": {
+    "textMuted": "AA-large only (3.53:1 light / 5.35:1 dark) — use at >=16px or for non-essential text, not for body copy at 14px or smaller.",
+    "ctaText": "amber default and hover states pair with dark text (accentOn); only the pressed/active state (accentActive) pairs with white (accentActiveOn). Never swap this — a mid-tone amber fails AA with white text at any state but the darkest."
+  },
+  "typography": {
+    "fontDisplay": "'Fraunces', Georgia, 'Times New Roman', serif",
+    "fontBody": "'Golos Text', system-ui, -apple-system, 'Segoe UI', sans-serif",
+    "googleFontsUrl": "https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Golos+Text:wght@400;500;600;700&display=swap",
+    "scale": {
+      "h1": { "font": "display", "size": "40px", "lineHeight": "48px", "weight": 600 },
+      "h2": { "font": "display", "size": "32px", "lineHeight": "40px", "weight": 600 },
+      "h3": { "font": "display", "size": "24px", "lineHeight": "32px", "weight": 500 },
+      "h4": { "font": "body", "size": "20px", "lineHeight": "28px", "weight": 600 },
+      "body": { "font": "body", "size": "16px", "lineHeight": "24px", "weight": 400 },
+      "small": { "font": "body", "size": "14px", "lineHeight": "20px", "weight": 400 },
+      "label": { "font": "body", "size": "14px", "lineHeight": "20px", "weight": 600, "note": "uppercase tracking on standalone labels only, not buttons" },
+      "nav": { "font": "body", "size": "15px", "lineHeight": "24px", "weight": 500 },
+      "caption": { "font": "body", "size": "12px", "lineHeight": "16px", "weight": 400 }
+    }
+  },
+  "outOfScope": {
+    "spacing": "Already defined in docs/08_DESIGN_SYSTEM.md §8.1 (4px base unit; 4/8/12/16/24/32/48/64 scale) — not restated here, reuse directly.",
+    "radiusAndElevation": "Deliberately left unfixed in docs/08_DESIGN_SYSTEM.md §8.1 pending real component build; not part of this brand-approval pass."
+  }
+}

@@ -1,0 +1,45 @@
+{
+  "name": "spotva-frontend",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Spotva customer/provider/admin web app (Next.js App Router). Internal package name kept generic; public brand is Spotva — see docs/SPOTVA_BRAND_IDENTITY_GUIDELINES_V1.md.",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "generate:api": "openapi-typescript ../docs/phase2/29_API_OPENAPI.yaml -o lib/api-client/schema.d.ts"
+  },
+  "dependencies": {
+    "next": "^15.1.6",
+    "next-intl": "^3.26.3",
+    "openapi-fetch": "^0.13.4",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "server-only": "^0.0.1"
+  },
+  "devDependencies": {
+    "@eslint/eslintrc": "^3.2.0",
+    "@testing-library/jest-dom": "^6.6.3",
+    "@testing-library/react": "^16.2.0",
+    "@types/google.maps": "^3.66.3",
+    "@types/node": "^22.10.7",
+    "@types/react": "^19.0.7",
+    "@types/react-dom": "^19.0.3",
+    "@typescript-eslint/eslint-plugin": "^8.20.0",
+    "@typescript-eslint/parser": "^8.20.0",
+    "@vitejs/plugin-react": "^4.3.4",
+    "autoprefixer": "^10.4.20",
+    "eslint": "^9.18.0",
+    "eslint-config-next": "^15.1.6",
+    "jsdom": "^25.0.1",
+    "openapi-typescript": "^7.6.1",
+    "postcss": "^8.5.1",
+    "tailwindcss": "^3.4.17",
+    "typescript": "^5.7.3",
+    "vitest": "^3.0.4"
+  }
+}

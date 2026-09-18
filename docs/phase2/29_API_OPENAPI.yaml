@@ -1,0 +1,1571 @@
+openapi: 3.0.3
+info:
+  title: FlexSpace API
+  version: "1.0.0"
+  description: >
+    FlexSpace Flexible Workspace Marketplace — Phase 2 API contract.
+    Implements the decisions in 11_API_CONTRACTS.md. REST/JSON, versioned base path,
+    JWT bearer auth, consistent error envelope, idempotency keys on mutating
+    financial/booking endpoints. This is a contract, not an implementation —
+    no server code exists yet.
+servers:
+  - url: https://api.flexspace.az/api/v1
+    description: Production (placeholder domain)
+  - url: https://staging-api.flexspace.az/api/v1
+    description: Staging
+
+tags:
+  - name: Search
+  - name: Rooms
+  - name: Bookings
+  - name: Payments
+  - name: Account
+  - name: Reviews
+  - name: Provider
+  - name: Admin
+  - name: Auth
+  - name: Partner
+
+security:
+  - bearerAuth: []
+
+paths:
+  # ------------------------------------------------------------------------
+  # AUTH
+  # ------------------------------------------------------------------------
+  /auth/otp/request:
+    post:
+      tags: [Auth]
+      summary: Request an OTP code (passwordless auth, 11_API_CONTRACTS.md §11.4)
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [identifier]
+              properties:
+                identifier: { type: string, description: "email or phone" }
+      responses:
+        # The shipped AuthController returns 204 (@HttpCode(HttpStatus.NO_
+        # CONTENT)), not 200 as this line previously said — a second
+        # spec/implementation drift found alongside the missing /auth/logout
+        # path above, both while building the frontend's typed client
+        # against this file.
+        "204": { description: OTP sent }
+        "429": { $ref: "#/components/responses/RateLimited" }
+
+  /auth/otp/verify:
+    post:
+      tags: [Auth]
+      summary: Verify OTP and receive tokens
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [identifier, code]
+              properties:
+                identifier: { type: string }
+                code: { type: string }
+      responses:
+        "200":
+          description: Authenticated
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AuthTokens" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        # AuthService also throws these for this route (OTP_TOO_MANY_ATTEMPTS,
+        # USER_NOT_FOUND) — added for the same drift-correction reason as
+        # the other changes in this section.
+        "404": { $ref: "#/components/responses/NotFound" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+
+  /auth/refresh:
+    post:
+      tags: [Auth]
+      summary: Rotate access token using a refresh token
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [refreshToken]
+              properties:
+                refreshToken: { type: string }
+      responses:
+        "200":
+          description: New token pair
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AuthTokens" }
+        # AuthService throws UnauthorizedException (INVALID_REFRESH_TOKEN /
+        # ACCOUNT_INACTIVE) for this route — missing from the original spec.
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /auth/logout:
+    post:
+      tags: [Auth]
+      summary: Revoke a refresh token (18_SECURITY.md)
+      # Documented here to match the shipped AuthController, which has
+      # implemented and tested this route (23/23 unit, 79/79 e2e passing)
+      # since before this contract file was last touched — a genuine
+      # spec/implementation drift, not a new endpoint being proposed.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [refreshToken]
+              properties:
+                refreshToken: { type: string }
+      responses:
+        "204": { description: Refresh token revoked }
+
+  # ------------------------------------------------------------------------
+  # PUBLIC / CUSTOMER — SEARCH & ROOMS
+  # ------------------------------------------------------------------------
+  /spaces:
+    get:
+      tags: [Search]
+      summary: Search rooms with structured filters + live availability (16_SEARCH_ARCHITECTURE.md)
+      security: []
+      parameters:
+        - { name: city, in: query, schema: { type: string } }
+        - { name: district, in: query, schema: { type: string } }
+        - { name: roomType, in: query, schema: { type: string } }
+        - { name: date, in: query, schema: { type: string, format: date } }
+        - { name: startTime, in: query, schema: { type: string, example: "15:00" } }
+        - { name: durationMinutes, in: query, schema: { type: integer } }
+        - { name: participants, in: query, schema: { type: integer } }
+        - { name: priceMax, in: query, schema: { type: integer, description: "minor units" } }
+        - { name: amenities, in: query, schema: { type: array, items: { type: string } }, style: form, explode: false }
+        - { name: sort, in: query, schema: { type: string, enum: [relevance, price, distance, rating] } }
+        - { name: lat, in: query, schema: { type: number, format: double } }
+        - { name: lng, in: query, schema: { type: number, format: double } }
+        - { name: radiusKm, in: query, schema: { type: number, format: double } }
+        - { name: page, in: query, schema: { type: integer, default: 1 } }
+        - { name: pageSize, in: query, schema: { type: integer, default: 20 } }
+      responses:
+        "200":
+          description: Paginated search results
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  results: { type: array, items: { $ref: "#/components/schemas/RoomSummary" } }
+                  page: { type: integer }
+                  pageSize: { type: integer }
+                  totalCount: { type: integer }
+
+  /spaces/{roomId}:
+    get:
+      tags: [Rooms]
+      summary: Full room detail
+      security: []
+      parameters:
+        - { $ref: "#/components/parameters/RoomId" }
+      responses:
+        "200":
+          description: Room detail
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RoomDetail" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /spaces/{roomId}/reviews:
+    # Missing from this file entirely until the /account/reviews pass —
+    # ReviewsController.listForRoom() is real and already @Public(), the
+    # path simply had never been documented. Added as doc-only completion,
+    # not a new endpoint.
+    get:
+      tags: [Reviews]
+      summary: Public reviews for a room (APPROVED moderation status only)
+      security: []
+      parameters:
+        - { $ref: "#/components/parameters/RoomId" }
+      responses:
+        "200":
+          description: Reviews list
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: "#/components/schemas/Review" } }
+
+  /spaces/{roomId}/availability:
+    get:
+      tags: [Rooms]
+      summary: Live availability for a room/date (12_RESERVATION_ENGINE.md §12.1)
+      security: []
+      parameters:
+        - { $ref: "#/components/parameters/RoomId" }
+        - { name: date, in: query, required: true, schema: { type: string, format: date } }
+      responses:
+        "200":
+          description: >-
+            Open windows for the given local calendar date, already
+            filtered to windows that can fit at least the room's own
+            `minBookingMinutes` (BookingsController.getAvailability /
+            AvailabilityService.getOpenWindows — takes only `roomId` and
+            `date`; a previously-documented required `durationMinutes`
+            param was doc-only drift, found and removed while building
+            the room detail page's booking widget — the real endpoint
+            never read it). Each window may be longer than one booking;
+            picking a specific `startAt`/duration within a window, and
+            keeping it within `[minBookingMinutes, maxBookingMinutes]`,
+            is the caller's job.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  slots:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        startAt: { type: string, format: date-time }
+                        endAt: { type: string, format: date-time }
+
+  # ------------------------------------------------------------------------
+  # BOOKINGS & PAYMENTS
+  # ------------------------------------------------------------------------
+  /bookings:
+    post:
+      tags: [Bookings]
+      summary: Create a booking hold (DRAFT/PENDING) — 12_RESERVATION_ENGINE.md §12.3
+      parameters:
+        - { $ref: "#/components/parameters/IdempotencyKey" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [roomId, startAt, endAt]
+              properties:
+                roomId: { type: string, format: uuid }
+                startAt: { type: string, format: date-time }
+                endAt: { type: string, format: date-time }
+                participants: { type: integer }
+                purpose: { type: string }
+                customer:
+                  type: object
+                  description: >-
+                    Not required in the schema — `CreateBookingDto.customer`
+                    is `@IsOptional()`. Only conditionally required, and only
+                    at runtime: an unauthenticated (guest) caller must supply
+                    `email` or `phone` here, or `BookingsService.create`
+                    throws `CUSTOMER_IDENTIFIER_REQUIRED` (400). An
+                    authenticated caller's JWT already identifies the
+                    customer, so this object is ignored either way once a
+                    session exists. Fixed as doc-only drift — a previous
+                    version of this doc listed `customer` under the
+                    top-level `required` array, which doesn't match
+                    `CreateBookingDto`.
+                  properties:
+                    name: { type: string }
+                    email: { type: string }
+                    phone: { type: string }
+      responses:
+        "201":
+          description: Booking created (PENDING), price breakdown included
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BookingSummary" }
+        "409":
+          description: Slot no longer available (race condition — 12_RESERVATION_ENGINE.md §12.2)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
+  /bookings/{bookingId}:
+    get:
+      tags: [Bookings]
+      summary: Get booking detail — guest (by opaque id) or the owning authenticated customer
+      security: []
+      description: >-
+        `@Public()` with an optional bearer token, not a hard auth wall
+        (`BookingsController.getOne`). `POST /bookings` is itself public
+        (guest checkout, 05_USER_FLOWS.md §5.2) and provisions a user
+        account with no JWT issued, so a guest who just booked has no
+        session to prove ownership with — the frontend's payment-
+        confirmation page (`/booking/{bookingId}/confirming`, driven by
+        `payments.successUrlTemplate`) depends on this endpoint working for
+        that guest. Possession of the opaque booking UUID is the gate for
+        an anonymous caller; a caller who *does* send a valid bearer token
+        still gets the ownership check — a non-owning authenticated caller
+        gets 404, never revealing that the booking exists. Fixed as doc-only
+        drift while building the payment-confirmation page: this endpoint
+        previously required auth unconditionally, which would have 401'd
+        every guest booking, the primary case `POST /bookings` supports.
+      parameters:
+        - { $ref: "#/components/parameters/BookingId" }
+      responses:
+        "200":
+          description: Booking detail
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BookingSummary" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /payments:
+    post:
+      tags: [Payments]
+      summary: Create a hosted checkout session (13_PAYMENT_ARCHITECTURE.md §13.3)
+      parameters:
+        - { $ref: "#/components/parameters/IdempotencyKey" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [bookingId, provider]
+              properties:
+                bookingId: { type: string, format: uuid }
+                provider: { type: string, enum: [EPOINT, PAYRIFF] }
+      responses:
+        "200":
+          description: Redirect URL to hosted checkout
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  checkoutUrl: { type: string, format: uri }
+                  paymentId: { type: string, format: uuid }
+
+  /payments/webhook/{provider}:
+    post:
+      tags: [Payments]
+      summary: Provider webhook receiver (signature-verified, idempotent — 18_SECURITY.md §18.3)
+      security: []
+      parameters:
+        - name: provider
+          in: path
+          required: true
+          schema: { type: string, enum: [epoint, payriff] }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, description: "Raw provider-specific payload" }
+      responses:
+        "200": { description: Acknowledged }
+        "400": { description: "Invalid signature — rejected, no state change" }
+
+  /refunds:
+    post:
+      tags: [Payments]
+      summary: Request a refund (computed per cancellation policy — 05_USER_FLOWS.md §5.6)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [bookingId, reason]
+              properties:
+                bookingId: { type: string, format: uuid }
+                reason: { type: string }
+      responses:
+        "202":
+          description: Refund requested
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Refund" }
+
+  # ------------------------------------------------------------------------
+  # CUSTOMER ACCOUNT
+  # ------------------------------------------------------------------------
+  /account/bookings:
+    get:
+      tags: [Account]
+      summary: List my bookings
+      parameters:
+        - { name: status, in: query, schema: { type: string, enum: [upcoming, past, cancelled] } }
+      responses:
+        "200":
+          description: Bookings list
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: "#/components/schemas/BookingSummary" } }
+
+  /account/me:
+    # New this pass (search-results-favorite-toggle milestone's follow-up,
+    # /account/profile page): AccountController, auth-gated by the global
+    # JwtAuthGuard like every other /account/* route — no @Public().
+    get:
+      tags: [Account]
+      summary: My own profile
+      responses:
+        "200":
+          description: Profile
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Profile" }
+    patch:
+      tags: [Account]
+      summary: Update my own profile (displayName/locale only)
+      description: >-
+        Deliberately excludes email/phone — those are the OTP-login
+        identifiers, and changing one needs its own re-verification flow
+        (proving continued control of the new value), which isn't built
+        yet. Same allowlist AdminUpdateUserDto already uses for the
+        admin-side equivalent edit.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UpdateProfile" }
+      responses:
+        "200":
+          description: Updated profile
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Profile" }
+
+  /account/payments:
+    # New this pass (continuation of the /account milestones — payment
+    # history). PaymentsController, auth-gated by the global JwtAuthGuard
+    # like every other /account/* route — no @Public(). One row per
+    # checkout attempt (PaymentsService.createCheckoutSession creates a
+    # new `payment` row on every retry, so a failed-then-retried payment
+    # shows both attempts), each with its own transaction history and any
+    # refund against that booking nested in. Investigated before building:
+    # `payment`/`payment_transaction`/`refund` (28_DATABASE_DDL.sql §6) are
+    # a real, complete data model — unlike `/account/invoices/{bookingId}`
+    # below, this was a missing *endpoint*, not a missing *data model*, so
+    # it was built rather than documented as blocked.
+    get:
+      tags: [Account]
+      summary: My own payment history — every checkout attempt on my bookings, with its transactions and any refund
+      responses:
+        "200":
+          description: Payment history
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: "#/components/schemas/PaymentHistoryEntry" } }
+
+  # Real paths are `/favorites/*`, not `/account/favorites/*` — fixed as
+  # doc-only drift (found while wiring the room detail page's bookmark
+  # button against the real, already-shipped FavoritesController).
+  /favorites/me:
+    get:
+      tags: [Favorites]
+      summary: List favorited rooms
+      responses:
+        "200":
+          description: >-
+            Favorites list. Uses `FavoriteRoomSummary`, not `RoomSummary` —
+            FavoritesService.listForUser()'s raw SQL join (favorite+room+
+            location+photo) returns a narrower shape (no roomType, verified,
+            capacityMin/Max, lat/lng, available, relevanceScore). A prior
+            version of this doc claimed `RoomSummary[]`; fixed as doc-only
+            drift found while wiring the room detail page's bookmark button.
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: "#/components/schemas/FavoriteRoomSummary" } }
+
+  /favorites/{roomId}:
+    get:
+      tags: [Favorites]
+      summary: Whether I have favorited this room
+      parameters: [{ $ref: "#/components/parameters/RoomId" }]
+      responses:
+        "200":
+          description: Favorite status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  favorited: { type: boolean }
+    post:
+      tags: [Favorites]
+      summary: Favorite a room
+      description: Idempotent — favoriting an already-favorited room just returns the same result.
+      parameters: [{ $ref: "#/components/parameters/RoomId" }]
+      responses:
+        "201":
+          # FavoritesController.add() has no @HttpCode() override and
+          # FavoritesService.add() returns a value, so Nest's default for
+          # a POST handler applies (201, not the previously-documented
+          # bare 204) with the returned JSON body. Fixed as doc-only drift
+          # found while wiring the room detail page's bookmark button.
+          description: Added (or already favorited)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  favorited: { type: boolean, enum: [true] }
+    delete:
+      tags: [Favorites]
+      summary: Unfavorite a room
+      description: Idempotent — unfavoriting a room that isn't favorited just returns the same result.
+      parameters: [{ $ref: "#/components/parameters/RoomId" }]
+      responses:
+        "200":
+          # Same fix as POST above: no @HttpCode() on remove(), so Nest's
+          # default GET/DELETE status (200) applies, not 204, and the
+          # response has a JSON body.
+          description: Removed (or already not favorited)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  favorited: { type: boolean, enum: [false] }
+
+  /account/invoices/{bookingId}:
+    # NOT IMPLEMENTED — doc-only drift, confirmed during the
+    # search-results-favorite-toggle/account-profile pass (grepped all of
+    # backend/src for "Invoice"/"invoice"/"receipt": the `invoice` DB table
+    # exists (InitSchema migration), but no controller route or service
+    # method anywhere wires it up — this path 404s against the real
+    # backend today, despite a prior version of PHASE4_REPORT.md claiming
+    # it "has a real backend endpoint already." Left documented (the
+    # sitemap and DB table both commit to it existing eventually) but
+    # flagged here so the next reader doesn't build a frontend page
+    # against a path that doesn't respond, the same "surface it, don't
+    # silently build around it" discipline as every other drift fix in
+    # this file.
+    get:
+      tags: [Account]
+      summary: "Download booking receipt/invoice — NOT YET IMPLEMENTED, see note above"
+      parameters: [{ $ref: "#/components/parameters/BookingId" }]
+      responses:
+        "200":
+          description: Invoice PDF metadata / signed URL
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Invoice" }
+
+  /reviews:
+    post:
+      tags: [Reviews]
+      summary: Create a review (only for COMPLETED bookings — 18_SECURITY.md §18.6)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [bookingId, rating]
+              properties:
+                bookingId: { type: string, format: uuid }
+                rating: { type: integer, minimum: 1, maximum: 5 }
+                text: { type: string }
+                photos: { type: array, items: { type: string, format: uri } }
+      responses:
+        "201":
+          description: Review created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Review" }
+        "403":
+          description: Booking not eligible for review
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
+  /reviews/me:
+    # New this pass (/account/reviews page) — ReviewsController.listMine(),
+    # auth-gated by the global JwtAuthGuard like every other /account/*-
+    # style self-service route (no @Public()).
+    get:
+      tags: [Reviews]
+      summary: My own submitted reviews, any moderation status
+      description: >-
+        Unlike GET /spaces/{roomId}/reviews (public, APPROVED-only), this
+        returns every review the caller has submitted regardless of
+        moderation_status — a REJECTED review is still the customer's own
+        content, and they're entitled to see it.
+      responses:
+        "200":
+          description: My reviews
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: "#/components/schemas/Review" } }
+
+  # ------------------------------------------------------------------------
+  # PROVIDER
+  # ------------------------------------------------------------------------
+  # --------------------------------------------------------------------------
+  # Provider / Location onboarding — filling a gap in the original Phase 2
+  # contract: 11_API_CONTRACTS.md documented room management endpoints but
+  # never the endpoints that create the Provider or Location a Room requires.
+  # Additive completion (P4-2), not a business-rule change — no path above
+  # this section is affected.
+  # --------------------------------------------------------------------------
+
+  /providers:
+    post:
+      tags: [Provider]
+      summary: Register as a provider (self-service — starts PENDING, 09_DOMAIN_MODEL.md §9.2)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ProviderCreateRequest" }
+      responses:
+        "201":
+          description: Provider created, verification_status = PENDING
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Provider" }
+
+  /providers/me:
+    get:
+      tags: [Provider]
+      summary: My provider profile (for the caller's PROVIDER_OWNER/PROVIDER_STAFF role)
+      responses:
+        "200":
+          description: Provider
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Provider" }
+
+  /provider/locations:
+    get:
+      tags: [Provider]
+      summary: List my locations
+      responses:
+        "200":
+          description: Locations
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: "#/components/schemas/Location" } }
+    post:
+      tags: [Provider]
+      summary: Create a location (requires verification_status != REJECTED — 25_PROVIDER_ARCHITECTURE.md)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/LocationInput" }
+      responses:
+        "201":
+          description: Location created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Location" }
+
+  /provider/locations/{locationId}:
+    patch:
+      tags: [Provider]
+      summary: Update a location
+      parameters:
+        - { name: locationId, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/LocationInput" }
+      responses: { "200": { description: Updated } }
+
+  /provider/bookings:
+    get:
+      tags: [Provider]
+      summary: List bookings across my rooms
+      parameters:
+        - { name: locationId, in: query, schema: { type: string, format: uuid } }
+        - { name: roomId, in: query, schema: { type: string, format: uuid } }
+        - { name: status, in: query, schema: { type: string } }
+        - { name: from, in: query, schema: { type: string, format: date } }
+        - { name: to, in: query, schema: { type: string, format: date } }
+      responses:
+        "200":
+          description: Bookings
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: "#/components/schemas/BookingSummary" } }
+
+  /provider/rooms:
+    post:
+      tags: [Provider]
+      summary: Create a room (subject to plan-tier limits — 25_PROVIDER_ARCHITECTURE.md §25.2)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RoomInput" }
+      responses:
+        "201":
+          description: Room created (DRAFT)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RoomDetail" }
+        "402":
+          description: Plan tier limit reached
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
+  /provider/rooms/{roomId}:
+    patch:
+      tags: [Provider]
+      summary: Update a room
+      parameters: [{ $ref: "#/components/parameters/RoomId" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RoomInput" }
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RoomDetail" }
+
+  /provider/rooms/{roomId}/status:
+    patch:
+      tags: [Provider]
+      summary: Change room status (DRAFT/ACTIVE/INACTIVE) — additive completion (P4-2) of 09_DOMAIN_MODEL.md §9.2's Room lifecycle, which had no API surface in the original contract
+      parameters: [{ $ref: "#/components/parameters/RoomId" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status: { type: string, enum: [DRAFT, ACTIVE, INACTIVE] }
+      responses:
+        "200":
+          description: Status updated
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RoomDetail" }
+        "403":
+          description: "Cannot activate: owning provider is not VERIFIED"
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
+  /provider/rooms/{roomId}/photos:
+    post:
+      tags: [Provider]
+      summary: Upload a room photo (18_SECURITY.md §18.4 secure upload pipeline)
+      parameters: [{ $ref: "#/components/parameters/RoomId" }]
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file: { type: string, format: binary }
+      responses:
+        "201":
+          description: Photo queued for moderation
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Photo" }
+
+  /provider/rooms/{roomId}/availability-rules:
+    put:
+      tags: [Provider]
+      summary: Set recurring availability rules for a room
+      parameters: [{ $ref: "#/components/parameters/RoomId" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              items: { $ref: "#/components/schemas/AvailabilityRule" }
+      responses: { "200": { description: Updated } }
+
+  /provider/rooms/{roomId}/blocked-periods:
+    post:
+      tags: [Provider]
+      summary: Manually block a time range (05_USER_FLOWS.md §5.5)
+      parameters: [{ $ref: "#/components/parameters/RoomId" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [startAt, endAt]
+              properties:
+                startAt: { type: string, format: date-time }
+                endAt: { type: string, format: date-time }
+                reason: { type: string }
+      responses:
+        "201":
+          description: Blocked period created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BlockedPeriod" }
+
+  /provider/revenue:
+    get:
+      tags: [Provider]
+      summary: Revenue summary (ledger-derived, plan-gated — 21_ANALYTICS.md §21.4)
+      parameters:
+        - { name: from, in: query, schema: { type: string, format: date } }
+        - { name: to, in: query, schema: { type: string, format: date } }
+      responses:
+        "200":
+          description: Revenue summary
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RevenueSummary" }
+
+  /provider/payouts:
+    get:
+      tags: [Provider]
+      summary: List my payouts
+      responses:
+        "200":
+          description: Payouts
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: "#/components/schemas/Payout" } }
+
+  /provider/staff:
+    post:
+      tags: [Provider]
+      summary: Invite a staff member (subject to plan-tier seat limit)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, permissionScope]
+              properties:
+                email: { type: string }
+                locationId: { type: string, format: uuid }
+                permissionScope: { type: array, items: { type: string } }
+      responses:
+        "201": { description: Staff invited }
+
+  /provider/analytics/overview:
+    get:
+      tags: [Provider]
+      summary: Views, search appearances, conversion, occupancy (21_ANALYTICS.md §21.4)
+      responses:
+        "200":
+          description: Analytics overview
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ProviderAnalyticsOverview" }
+
+  # ------------------------------------------------------------------------
+  # ADMIN
+  # ------------------------------------------------------------------------
+  /admin/providers:
+    get:
+      tags: [Admin]
+      summary: List providers by verification status
+      parameters:
+        - { name: verificationStatus, in: query, schema: { type: string } }
+      responses:
+        "200":
+          description: Providers
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: "#/components/schemas/Provider" } }
+
+  /admin/providers/{providerId}/verify:
+    post:
+      tags: [Admin]
+      summary: Approve/reject provider verification (24_ADMIN_ARCHITECTURE.md §24.2)
+      parameters:
+        - { name: providerId, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [decision]
+              properties:
+                decision: { type: string, enum: [VERIFIED, REJECTED] }
+                notes: { type: string }
+      responses: { "200": { description: Verification decision recorded } }
+
+  /admin/bookings:
+    get:
+      tags: [Admin]
+      summary: Search/list all bookings
+      responses:
+        "200":
+          description: Bookings
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: "#/components/schemas/BookingSummary" } }
+
+  /admin/payments:
+    get:
+      tags: [Admin]
+      summary: List payments
+      responses: { "200": { description: Payments } }
+
+  /admin/refunds/{refundId}/approve:
+    post:
+      tags: [Admin]
+      summary: Approve a refund above the Support/Ops authorized limit (18_SECURITY.md §18.2)
+      parameters:
+        - { name: refundId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses: { "200": { description: Refund approved } }
+
+  /admin/payouts:
+    get:
+      tags: [Admin]
+      summary: Payout queue (14_PAYOUT_LEDGER.md §14.5), filterable by payee type
+      description: >
+        31_PARTNER_REFERRAL_ARCHITECTURE.md §31.6 — the payeeType filter is
+        additive; omitting it returns both provider and partner payouts as
+        before this addendum.
+      parameters:
+        - name: payeeType
+          in: query
+          required: false
+          schema: { type: string, enum: [PROVIDER, PARTNER] }
+      responses:
+        "200":
+          description: Payouts
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: "#/components/schemas/Payout" } }
+
+  /admin/payouts/{payoutId}/mark-paid:
+    post:
+      tags: [Admin]
+      summary: Mark a payout as paid with a bank reference
+      parameters:
+        - { name: payoutId, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [bankReference]
+              properties:
+                bankReference: { type: string }
+      responses: { "200": { description: Payout marked paid } }
+
+  /admin/disputes:
+    get:
+      tags: [Admin]
+      summary: List disputes (24_ADMIN_ARCHITECTURE.md §24.3)
+      responses: { "200": { description: Disputes } }
+
+  /admin/audit-logs:
+    get:
+      tags: [Admin]
+      summary: Query the audit trail (18_SECURITY.md §18.5)
+      parameters:
+        - { name: entityType, in: query, schema: { type: string } }
+        - { name: entityId, in: query, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Audit log entries
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: "#/components/schemas/AuditLogEntry" } }
+
+  # --------------------------------------------------------------------------
+  # Partner / Affiliate / Referral (31_PARTNER_REFERRAL_ARCHITECTURE.md §31.6)
+  # Additive only — no path above this section changes shape.
+  # --------------------------------------------------------------------------
+
+  /r/{code}:
+    get:
+      tags: [Partner]
+      summary: Public referral tracking redirect (31_PARTNER_REFERRAL_ARCHITECTURE.md §31.4)
+      description: >
+        Looks up the ACTIVE ReferralCampaign by code, records a ReferralClick
+        server-side, sets an httpOnly/Secure/SameSite=Lax cookie carrying only
+        an opaque attribution_token, and redirects. No request/response body —
+        the cookie is the only client-visible artifact, and it proves nothing
+        by itself (the authoritative record is the server-side ReferralClick row).
+      security: []
+      parameters:
+        - { name: code, in: path, required: true, schema: { type: string } }
+      responses:
+        "302":
+          description: Redirect to the marketplace homepage or landing path; Set-Cookie carries the attribution token
+        "404":
+          description: Unknown or inactive campaign code — redirects to the homepage without setting a cookie
+
+  /admin/partners:
+    get:
+      tags: [Admin, Partner]
+      summary: List/filter partners
+      parameters:
+        - { name: status, in: query, schema: { type: string, enum: [PENDING, ACTIVE, SUSPENDED] } }
+        - { name: type, in: query, schema: { type: string, enum: [AFFILIATE, AGENCY, CORPORATE, COMMUNITY, STRATEGIC_PARTNER] } }
+      responses:
+        "200":
+          description: Partners
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: "#/components/schemas/Partner" } }
+    post:
+      tags: [Admin, Partner]
+      summary: Create partner (admin-provisioned — no self-signup in V1, §31.7)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PartnerCreateRequest" }
+      responses:
+        "201":
+          description: Partner created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Partner" }
+
+  /admin/partners/{partnerId}:
+    patch:
+      tags: [Admin, Partner]
+      summary: Update a partner, including status transitions (PENDING/ACTIVE/SUSPENDED)
+      parameters:
+        - { name: partnerId, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PartnerUpdateRequest" }
+      responses: { "200": { description: Partner updated } }
+
+  /admin/partners/{partnerId}/campaigns:
+    get:
+      tags: [Admin, Partner]
+      summary: List a partner's referral campaigns
+      parameters:
+        - { name: partnerId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Campaigns
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: "#/components/schemas/ReferralCampaign" } }
+    post:
+      tags: [Admin, Partner]
+      summary: Create a referral campaign (trackable code/link) for a partner
+      parameters:
+        - { name: partnerId, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ReferralCampaignCreateRequest" }
+      responses:
+        "201":
+          description: Campaign created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ReferralCampaign" }
+
+  /admin/partners/{partnerId}/analytics:
+    get:
+      tags: [Admin, Partner]
+      summary: Clicks, attributed bookings, commission earned/paid (§31.7 — admin-facing only in V1)
+      parameters:
+        - { name: partnerId, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: from, in: query, schema: { type: string, format: date } }
+        - { name: to, in: query, schema: { type: string, format: date } }
+      responses:
+        "200":
+          description: Partner analytics summary
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PartnerAnalytics" }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    RoomId:
+      name: roomId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    BookingId:
+      name: bookingId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: false
+      schema: { type: string }
+      description: 11_API_CONTRACTS.md §11.2 — required in practice for booking/payment mutations
+
+  responses:
+    Unauthorized:
+      description: Not authenticated
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    NotFound:
+      description: Resource not found (or not owned by caller — 11_API_CONTRACTS.md §11.4)
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    RateLimited:
+      description: Too many requests
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+
+  schemas:
+    Error:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code: { type: string, example: "SLOT_UNAVAILABLE" }
+            message: { type: string }
+            details: { type: object }
+
+    AuthTokens:
+      type: object
+      # All three are always present — AuthService.verifyOtp/refreshTokens
+      # return the `TokenPair` interface (backend/src/modules/auth/
+      # auth.service.ts), which has them as non-optional fields. Marked
+      # `required` here to match (previously unmarked, which made the
+      # generated frontend client treat them as possibly-undefined).
+      required: [accessToken, refreshToken, expiresIn]
+      properties:
+        accessToken: { type: string }
+        refreshToken: { type: string }
+        expiresIn: { type: integer, description: "access token lifetime in seconds" }
+
+    Money:
+      type: object
+      properties:
+        amount: { type: integer, description: "minor units (qəpik)" }
+        currency: { type: string, example: "AZN" }
+
+    RoomSummary:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        roomType: { type: string }
+        providerName: { type: string }
+        verified: { type: boolean }
+        city: { type: string }
+        district: { type: string }
+        lat: { type: number }
+        lng: { type: number }
+        distanceKm: { type: number }
+        capacityMin: { type: integer }
+        capacityMax: { type: integer }
+        pricePerHour: { $ref: "#/components/schemas/Money" }
+        averageRating: { type: number }
+        reviewCount: { type: integer }
+        coverPhotoUrl: { type: string, format: uri }
+        available: { type: boolean }
+        relevanceScore: { type: number }
+
+    Profile:
+      # AccountService.getProfile()'s real shape — deliberately a
+      # projection of AppUserEntity, not the raw entity: the entity also
+      # carries `passwordHash`, which this endpoint (reachable by every
+      # authenticated customer, not just admins) must never return.
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        email: { type: string, nullable: true }
+        phone: { type: string, nullable: true }
+        displayName: { type: string, nullable: true }
+        locale: { type: string, example: "az" }
+        createdAt: { type: string, format: date-time }
+
+    UpdateProfile:
+      type: object
+      properties:
+        displayName: { type: string, minLength: 1, maxLength: 255 }
+        locale: { type: string, enum: [az, en, ru, tr, es, de] }
+
+    FavoriteRoomSummary:
+      # Real shape returned by FavoritesService.listForUser() — narrower
+      # than RoomSummary (see /favorites/me above for why).
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        city: { type: string }
+        district: { type: string }
+        pricePerHour: { $ref: "#/components/schemas/Money" }
+        averageRating: { type: number }
+        reviewCount: { type: integer }
+        coverPhotoUrl: { type: string, format: uri }
+        favoritedAt: { type: string, format: date-time }
+
+    RoomDetail:
+      allOf:
+        - $ref: "#/components/schemas/RoomSummary"
+        - type: object
+          properties:
+            description: { type: string }
+            sizeSqm: { type: number }
+            # `amenities` is the room's full amenity list (including the
+            # EQUIPMENT-category ones per 30_SEED_DATA.sql's taxonomy) —
+            # there is no separate `equipment` field or `room.rules` TEXT
+            # column anywhere in 28_DATABASE_DDL.sql or the real
+            # SearchService.getRoomDetail() SQL. A prior version of this
+            # schema documented both; removed as doc-only drift (found
+            # while building the room detail page) rather than left to
+            # mislead a future client into requesting fields that will
+            # never be populated.
+            amenities: { type: array, items: { type: string } }
+            cancellationPolicy: { type: object }
+            photos: { type: array, items: { type: string, format: uri } }
+            minBookingMinutes: { type: integer }
+            maxBookingMinutes: { type: integer }
+
+    RoomInput:
+      type: object
+      required: [locationId, roomTypeId, name, capacityMax, basePriceAmount]
+      properties:
+        locationId: { type: string, format: uuid }
+        roomTypeId: { type: string, format: uuid }
+        name: { type: string }
+        description: { type: string }
+        capacityMin: { type: integer }
+        capacityMax: { type: integer }
+        sizeSqm: { type: number }
+        basePriceAmount: { type: integer }
+        basePriceCurrency: { type: string, default: "AZN" }
+        amenityIds: { type: array, items: { type: string, format: uuid } }
+        cancellationPolicy: { type: object }
+
+    AvailabilityRule:
+      type: object
+      properties:
+        recurrenceType: { type: string, enum: [WEEKLY, DATE_SPECIFIC] }
+        dayOfWeek: { type: integer }
+        specificDate: { type: string, format: date }
+        startTime: { type: string }
+        endTime: { type: string }
+        isOpen: { type: boolean }
+
+    BlockedPeriod:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        startAt: { type: string, format: date-time }
+        endAt: { type: string, format: date-time }
+        reason: { type: string }
+
+    Photo:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        url: { type: string, format: uri }
+        moderationStatus: { type: string }
+
+    BookingSummary:
+      type: object
+      description: >-
+        Matches the real shape returned by `BookingsService.create` /
+        `findById` / `listForCustomer` — the raw `BookingEntity` plus its
+        `items` relation, not a hand-assembled DTO. Fixed as doc-only
+        drift: a previous version of this schema had a single `room` (a
+        full `RoomSummary`) and top-level `startAt`/`endAt`, and priced
+        `grossAmount`/`serviceFeeAmount`/`totalAmount` as three separate
+        `Money` objects. The entity has neither — pricing is one shared
+        `currency` column plus three plain integer (minor-unit) amount
+        columns, and the room/time range live per line-item on
+        `booking_item` (`items[]`), not on the booking itself; a booking
+        may in principle cover more than one item/room. `booking_item`
+        only stores `roomId`, not a full room summary — the frontend
+        already has the room's display details from the room detail page
+        it booked from.
+      properties:
+        id: { type: string, format: uuid }
+        customerUserId: { type: string, format: uuid }
+        status: { type: string, enum: [DRAFT, PENDING, PAYMENT_PENDING, CONFIRMED, COMPLETED, CANCELLED, EXPIRED, NO_SHOW, REFUND_PENDING, REFUNDED] }
+        currency: { type: string, example: "AZN" }
+        grossAmount: { type: integer, description: "minor units (qəpik)" }
+        serviceFeeAmount: { type: integer, description: "minor units (qəpik)" }
+        totalAmount: { type: integer, description: "minor units (qəpik)" }
+        purpose: { type: string, nullable: true }
+        participantsCount: { type: integer, nullable: true }
+        holdExpiresAt: { type: string, format: date-time, nullable: true }
+        createdAt: { type: string, format: date-time }
+        items:
+          type: array
+          items:
+            type: object
+            properties:
+              id: { type: string, format: uuid }
+              roomId: { type: string, format: uuid }
+              startAt: { type: string, format: date-time }
+              endAt: { type: string, format: date-time }
+              unitPriceAmount: { type: integer, description: "minor units (qəpik)" }
+              quantity: { type: integer }
+              status: { type: string, enum: [DRAFT, PENDING, PAYMENT_PENDING, CONFIRMED, COMPLETED, CANCELLED, EXPIRED, NO_SHOW, REFUND_PENDING, REFUNDED] }
+
+    Refund:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        bookingId: { type: string, format: uuid }
+        amount: { $ref: "#/components/schemas/Money" }
+        status: { type: string, enum: [REQUESTED, APPROVED, PROCESSING, COMPLETED, REJECTED] }
+
+    Invoice:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        invoiceNumber: { type: string }
+        amount: { $ref: "#/components/schemas/Money" }
+        pdfUrl: { type: string, format: uri }
+
+    PaymentHistoryEntry:
+      # Matches PaymentsService.listForCustomer's real raw-SQL response
+      # exactly — flat amount/currency fields (same convention
+      # BookingSummary already uses), not a nested Money object like
+      # Refund uses elsewhere in this file; documented as the actual
+      # runtime shape rather than forced into a schema it doesn't match.
+      type: object
+      properties:
+        id: { type: string, format: uuid, description: "payment id (one per checkout attempt)" }
+        bookingId: { type: string, format: uuid }
+        providerAdapter: { type: string, enum: [EPOINT, PAYRIFF, STRIPE] }
+        status: { type: string, enum: [INITIATED, AUTHORIZED, CAPTURED, FAILED, CANCELLED, REFUND_PENDING, PARTIALLY_REFUNDED, REFUNDED, CHARGEBACK] }
+        bookingTotalAmount: { type: integer, description: "minor units (qəpik)" }
+        bookingCurrency: { type: string, example: "AZN" }
+        bookingStatus: { type: string, enum: [DRAFT, PENDING, PAYMENT_PENDING, CONFIRMED, COMPLETED, CANCELLED, EXPIRED, NO_SHOW, REFUND_PENDING, REFUNDED] }
+        roomId: { type: string, format: uuid, nullable: true, description: "the booking's first booking_item.room_id" }
+        createdAt: { type: string, format: date-time }
+        transactions:
+          type: array
+          items:
+            type: object
+            properties:
+              id: { type: string, format: uuid }
+              type: { type: string, enum: [CHARGE, REFUND] }
+              amount: { type: integer, description: "minor units (qəpik)" }
+              currency: { type: string, example: "AZN" }
+              status: { type: string, enum: [INITIATED, AUTHORIZED, CAPTURED, FAILED, CANCELLED] }
+              createdAt: { type: string, format: date-time }
+        refunds:
+          type: array
+          items:
+            type: object
+            properties:
+              id: { type: string, format: uuid }
+              amount: { type: integer, description: "minor units (qəpik)" }
+              currency: { type: string, example: "AZN" }
+              status: { type: string, enum: [REQUESTED, APPROVED, PROCESSING, COMPLETED, REJECTED] }
+              reason: { type: string, nullable: true }
+              createdAt: { type: string, format: date-time }
+
+    Review:
+      # Matches ReviewEntity exactly (backend/src/modules/reviews/entities/
+      # review.entity.ts) — a prior version of this schema only had
+      # id/bookingId/rating/text/createdAt, missing roomId/customerUserId/
+      # photos/providerReplyText/providerReplyAt/moderationStatus. Fixed as
+      # doc-only drift found while adding /reviews/me and
+      # /spaces/{roomId}/reviews to this file.
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        bookingId: { type: string, format: uuid }
+        customerUserId: { type: string, format: uuid }
+        roomId: { type: string, format: uuid }
+        rating: { type: integer, minimum: 1, maximum: 5 }
+        text: { type: string, nullable: true }
+        photos: { type: array, items: { type: string, format: uri }, nullable: true }
+        providerReplyText: { type: string, nullable: true }
+        providerReplyAt: { type: string, format: date-time, nullable: true }
+        moderationStatus: { type: string, enum: [PENDING, APPROVED, REJECTED] }
+        createdAt: { type: string, format: date-time }
+
+    Provider:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        legalName: { type: string }
+        displayName: { type: string }
+        slug: { type: string }
+        category: { type: string, nullable: true }
+        verificationStatus: { type: string, enum: [PENDING, VERIFIED, REJECTED, SUSPENDED] }
+        planTier: { type: string, enum: [FREE, STARTER, PRO, ENTERPRISE] }
+        commissionPercentage: { type: number, nullable: true }
+
+    ProviderCreateRequest:
+      type: object
+      required: [legalName, displayName]
+      properties:
+        legalName: { type: string }
+        displayName: { type: string }
+        category: { type: string }
+
+    Location:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        providerId: { type: string, format: uuid }
+        name: { type: string }
+        addressLine: { type: string }
+        city: { type: string }
+        district: { type: string, nullable: true }
+        countryCode: { type: string, example: "AZ" }
+        lat: { type: number }
+        lng: { type: number }
+        timezone: { type: string, example: "Asia/Baku" }
+        openingHours: { type: object, nullable: true }
+
+    LocationInput:
+      type: object
+      required: [name, addressLine, city, lat, lng]
+      properties:
+        name: { type: string }
+        addressLine: { type: string }
+        city: { type: string }
+        district: { type: string }
+        countryCode: { type: string, default: "AZ" }
+        lat: { type: number }
+        lng: { type: number }
+        timezone: { type: string, default: "Asia/Baku" }
+        openingHours: { type: object }
+
+    RevenueSummary:
+      type: object
+      properties:
+        grossTotal: { $ref: "#/components/schemas/Money" }
+        platformFeeTotal: { $ref: "#/components/schemas/Money" }
+        netTotal: { $ref: "#/components/schemas/Money" }
+        bookingCount: { type: integer }
+
+    Payout:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        periodStart: { type: string, format: date-time }
+        periodEnd: { type: string, format: date-time }
+        amount: { $ref: "#/components/schemas/Money" }
+        status: { type: string, enum: [PENDING, AVAILABLE, PROCESSING, PAID, FAILED, REVERSED] }
+
+    ProviderAnalyticsOverview:
+      type: object
+      properties:
+        views: { type: integer }
+        searchAppearances: { type: integer }
+        bookingConversionRate: { type: number }
+        occupancyRate: { type: number }
+
+    AuditLogEntry:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        actorUserId: { type: string, format: uuid }
+        action: { type: string }
+        entityType: { type: string }
+        entityId: { type: string, format: uuid }
+        createdAt: { type: string, format: date-time }
+
+    # --------------------------------------------------------------------
+    # Partner / Affiliate / Referral (31_PARTNER_REFERRAL_ARCHITECTURE.md)
+    # --------------------------------------------------------------------
+
+    Partner:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        type: { type: string, enum: [AFFILIATE, AGENCY, CORPORATE, COMMUNITY, STRATEGIC_PARTNER] }
+        status: { type: string, enum: [PENDING, ACTIVE, SUSPENDED] }
+        contactEmail: { type: string, format: email, nullable: true }
+        contactPhone: { type: string, nullable: true }
+        defaultCommissionType: { type: string, enum: [PERCENTAGE_OF_PLATFORM_FEE, FIXED_PER_BOOKING] }
+        defaultCommissionValue: { type: integer, description: "Minor units if FIXED_PER_BOOKING, basis points if PERCENTAGE_OF_PLATFORM_FEE" }
+        createdAt: { type: string, format: date-time }
+
+    PartnerCreateRequest:
+      type: object
+      required: [name, type, defaultCommissionType, defaultCommissionValue]
+      properties:
+        name: { type: string }
+        type: { type: string, enum: [AFFILIATE, AGENCY, CORPORATE, COMMUNITY, STRATEGIC_PARTNER] }
+        contactEmail: { type: string, format: email }
+        contactPhone: { type: string }
+        defaultCommissionType: { type: string, enum: [PERCENTAGE_OF_PLATFORM_FEE, FIXED_PER_BOOKING] }
+        defaultCommissionValue: { type: integer }
+
+    PartnerUpdateRequest:
+      type: object
+      properties:
+        name: { type: string }
+        status: { type: string, enum: [PENDING, ACTIVE, SUSPENDED] }
+        contactEmail: { type: string, format: email }
+        contactPhone: { type: string }
+        defaultCommissionType: { type: string, enum: [PERCENTAGE_OF_PLATFORM_FEE, FIXED_PER_BOOKING] }
+        defaultCommissionValue: { type: integer }
+
+    ReferralCampaign:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        partnerId: { type: string, format: uuid }
+        name: { type: string }
+        code: { type: string, example: "BLOGGER123" }
+        status: { type: string, enum: [ACTIVE, PAUSED, ENDED] }
+        attributionWindowDays: { type: integer, example: 30 }
+        commissionTypeOverride: { type: string, enum: [PERCENTAGE_OF_PLATFORM_FEE, FIXED_PER_BOOKING], nullable: true }
+        commissionValueOverride: { type: integer, nullable: true }
+        startsAt: { type: string, format: date-time, nullable: true }
+        endsAt: { type: string, format: date-time, nullable: true }
+        createdAt: { type: string, format: date-time }
+
+    ReferralCampaignCreateRequest:
+      type: object
+      required: [name, code]
+      properties:
+        name: { type: string }
+        code: { type: string, description: "Unique, human-facing (e.g. a blogger's handle)" }
+        attributionWindowDays: { type: integer, default: 30 }
+        commissionTypeOverride: { type: string, enum: [PERCENTAGE_OF_PLATFORM_FEE, FIXED_PER_BOOKING] }
+        commissionValueOverride: { type: integer }
+        startsAt: { type: string, format: date-time }
+        endsAt: { type: string, format: date-time }
+
+    PartnerAnalytics:
+      type: object
+      properties:
+        partnerId: { type: string, format: uuid }
+        totalClicks: { type: integer }
+        attributedBookings: { type: integer }
+        commissionEarned: { $ref: "#/components/schemas/Money" }
+        commissionPaid: { $ref: "#/components/schemas/Money" }
+        commissionPending: { $ref: "#/components/schemas/Money" }
+        byCampaign:
+          type: array
+          items:
+            type: object
+            properties:
+              campaignId: { type: string, format: uuid }
+              code: { type: string }
+              clicks: { type: integer }
+              attributedBookings: { type: integer }
+              commissionEarned: { $ref: "#/components/schemas/Money" }
