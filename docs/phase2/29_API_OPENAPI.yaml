@@ -84,6 +84,54 @@ paths:
         "404": { $ref: "#/components/responses/NotFound" }
         "429": { $ref: "#/components/responses/RateLimited" }
 
+  /auth/google:
+    post:
+      tags: [Auth]
+      summary: Sign in (or silently register) with a verified Google ID token
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [idToken]
+              properties:
+                idToken: { type: string, description: "ID token from Google Identity Services' Sign in with Google button" }
+      responses:
+        "201":
+          description: Authenticated
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AuthTokens" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Unauthorized" }
+        "503": { description: Google sign-in is not configured on this environment }
+
+  /auth/facebook:
+    post:
+      tags: [Auth]
+      summary: Sign in (or silently register) with a verified Facebook access token
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [accessToken]
+              properties:
+                accessToken: { type: string, description: "User access token from Facebook's JS SDK after FB.login()" }
+      responses:
+        "201":
+          description: Authenticated
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AuthTokens" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Unauthorized" }
+        "503": { description: Facebook sign-in is not configured on this environment }
+
   /auth/refresh:
     post:
       tags: [Auth]

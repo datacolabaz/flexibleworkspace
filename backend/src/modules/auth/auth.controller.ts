@@ -7,6 +7,8 @@ import { Public } from '../../common/decorators/public.decorator';
 import { RequestOtpDto } from './dto/request-otp.dto';
 import { VerifyOtpDto } from './dto/verify-otp.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
+import { GoogleLoginDto } from './dto/google-login.dto';
+import { FacebookLoginDto } from './dto/facebook-login.dto';
 
 /**
  * 11_API_CONTRACTS.md §11.4 — passwordless OTP auth. All routes here are
@@ -41,6 +43,27 @@ export class AuthController {
   @ApiOperation({ summary: 'Verify a one-time code and receive a token pair' })
   async verifyOtp(@Body() dto: VerifyOtpDto): Promise<TokenPair> {
     return this.authService.verifyOtp(dto.identifier, dto.code);
+  }
+
+  @Public()
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @Post('google')
+  @ApiOperation({
+    summary: 'Sign in (or silently register) with a verified Google ID token',
+  })
+  async loginWithGoogle(@Body() dto: GoogleLoginDto): Promise<TokenPair> {
+    return this.authService.loginWithGoogle(dto.idToken);
+  }
+
+  @Public()
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @Post('facebook')
+  @ApiOperation({
+    summary:
+      'Sign in (or silently register) with a verified Facebook access token',
+  })
+  async loginWithFacebook(@Body() dto: FacebookLoginDto): Promise<TokenPair> {
+    return this.authService.loginWithFacebook(dto.accessToken);
   }
 
   @Public()

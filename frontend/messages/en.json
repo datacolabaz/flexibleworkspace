@@ -45,12 +45,18 @@
       "resendCooldown": "Resend code in {seconds}s",
       "resendSuccess": "New code sent.",
       "successRedirect": "You're logged in. Redirecting…",
+      "orDivider": "or",
+      "continueWithFacebook": "Continue with Facebook",
       "errors": {
         "validationError": "Enter a valid email or phone number.",
         "invalidCode": "That code isn't right. Check the digits and try again, or request a new one.",
         "tooManyAttempts": "Too many incorrect attempts. Request a new code to keep trying.",
         "rateLimited": "Too many requests. Wait a moment and try again.",
         "userNotFound": "We couldn't find an account for that email or phone.",
+        "oauthNotConfigured": "This sign-in method isn't available right now.",
+        "oauthEmailNotVerified": "Your account's email isn't verified.",
+        "oauthEmailRequired": "Please allow access to your email address to sign in.",
+        "oauthFailed": "We couldn't sign you in. Please try again.",
         "generic": "Something went wrong. Please try again."
       }
     }

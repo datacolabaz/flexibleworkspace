@@ -21,6 +21,10 @@ export interface AppConfig {
     ttlSeconds: number;
     length: number;
   };
+  oauth: {
+    google: { clientId: string };
+    facebook: { appId: string; appSecret: string };
+  };
   payments: {
     primaryProvider: 'EPOINT' | 'PAYRIFF';
     epoint: { merchantId: string; secretKey: string; apiBaseUrl: string };
@@ -130,6 +134,21 @@ export default (): AppConfig => ({
   otp: {
     ttlSeconds: parseInt(process.env.OTP_TTL_SECONDS || '300', 10),
     length: parseInt(process.env.OTP_LENGTH || '6', 10),
+  },
+  oauth: {
+    google: {
+      // Only the Client ID is needed server-side — verifying a Google ID
+      // token (an already-signed JWT the client obtained directly from
+      // Google) needs no client secret at all, unlike the redirect-code
+      // OAuth flow. Empty string = feature off; AuthService.loginWithGoogle
+      // refuses with a clear error rather than silently misbehaving (same
+      // "REQUIRES USER ACTION" posture as SmsChannel).
+      clientId: process.env.GOOGLE_CLIENT_ID || '',
+    },
+    facebook: {
+      appId: process.env.FACEBOOK_APP_ID || '',
+      appSecret: process.env.FACEBOOK_APP_SECRET || '',
+    },
   },
   payments: {
     primaryProvider:

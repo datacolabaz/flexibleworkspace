@@ -9,9 +9,20 @@ import { AppUserEntity } from './entities/app-user.entity';
 import { UserRoleEntity } from './entities/user-role.entity';
 import { OtpCodeEntity } from './entities/otp-code.entity';
 import { RefreshTokenEntity } from './entities/refresh-token.entity';
+import { OAuthIdentityEntity } from './entities/oauth-identity.entity';
 import { NotificationsService } from '../notifications/notifications.service';
 import { RoleName } from '../../common/constants/roles.enum';
 import { DomainException } from '../../common/exceptions/domain.exception';
+
+// Google's SDK talks to Google's own key-fetching/JWT-verification
+// internals we don't want a unit test depending on — only AuthService's
+// handling of what verifyIdToken() returns is ours to test.
+const mockVerifyIdToken = jest.fn();
+jest.mock('google-auth-library', () => ({
+  OAuth2Client: jest.fn().mockImplementation(() => ({
+    verifyIdToken: mockVerifyIdToken,
+  })),
+}));
 
 /**
  * Covers the highest-risk logic in the Auth module (18_SECURITY.md):
@@ -28,6 +39,7 @@ describe('AuthService', () => {
   const roles: UserRoleEntity[] = [];
   const otps: OtpCodeEntity[] = [];
   const refreshTokens: RefreshTokenEntity[] = [];
+  const oauthIdentities: OAuthIdentityEntity[] = [];
   let idCounter = 0;
   const nextId = () => `id-${++idCounter}`;
 
@@ -63,7 +75,10 @@ describe('AuthService', () => {
     roles.length = 0;
     otps.length = 0;
     refreshTokens.length = 0;
+    oauthIdentities.length = 0;
     idCounter = 0;
+    mockVerifyIdToken.mockReset();
+    (global as any).fetch = jest.fn();
 
     const configValues: Record<string, any> = {
       'otp.length': 6,
@@ -72,6 +87,9 @@ describe('AuthService', () => {
       'jwt.accessExpiresIn': '15m',
       'jwt.refreshSecret': 'test-refresh-secret',
       'jwt.refreshExpiresIn': '30d',
+      'oauth.google.clientId': 'test-google-client-id',
+      'oauth.facebook.appId': 'test-fb-app-id',
+      'oauth.facebook.appSecret': 'test-fb-app-secret',
     };
 
     const moduleRef = await Test.createTestingModule({
@@ -92,6 +110,10 @@ describe('AuthService', () => {
         {
           provide: getRepositoryToken(RefreshTokenEntity),
           useValue: makeRepo(refreshTokens),
+        },
+        {
+          provide: getRepositoryToken(OAuthIdentityEntity),
+          useValue: makeRepo(oauthIdentities),
         },
         {
           provide: JwtService,
@@ -279,6 +301,121 @@ describe('AuthService', () => {
 
     it('rejects an unknown refresh token', async () => {
       await expect(service.refreshTokens('not-a-real-token')).rejects.toThrow();
+    });
+  });
+
+  describe('loginWithGoogle', () => {
+    it('provisions a new account for a first-time verified Google sign-in', async () => {
+      mockVerifyIdToken.mockResolvedValue({
+        getPayload: () => ({
+          sub: 'google-sub-1',
+          email: 'gina@example.com',
+          email_verified: true,
+          name: 'Gina',
+        }),
+      });
+
+      const result = await service.loginWithGoogle('fake-id-token');
+
+      expect(result.accessToken).toBe('signed.jwt.token');
+      expect(users).toHaveLength(1);
+      expect(users[0].email).toBe('gina@example.com');
+      expect(roles).toHaveLength(1);
+      expect(oauthIdentities).toHaveLength(1);
+      expect(oauthIdentities[0]).toMatchObject({
+        provider: 'GOOGLE',
+        providerUserId: 'google-sub-1',
+      });
+    });
+
+    it('links to (never duplicates) an existing account with the same email', async () => {
+      await service.requestOtp('heidi@example.com'); // pre-existing OTP account
+      expect(users).toHaveLength(1);
+
+      mockVerifyIdToken.mockResolvedValue({
+        getPayload: () => ({
+          sub: 'google-sub-2',
+          email: 'heidi@example.com',
+          email_verified: true,
+        }),
+      });
+      await service.loginWithGoogle('fake-id-token');
+
+      expect(users).toHaveLength(1); // still one account, now linked
+      expect(oauthIdentities).toHaveLength(1);
+      expect(oauthIdentities[0].userId).toBe(users[0].id);
+    });
+
+    it('rejects an unverified Google email', async () => {
+      mockVerifyIdToken.mockResolvedValue({
+        getPayload: () => ({
+          sub: 'google-sub-3',
+          email: 'ivan@example.com',
+          email_verified: false,
+        }),
+      });
+
+      await expect(service.loginWithGoogle('fake-id-token')).rejects.toMatchObject({
+        code: 'OAUTH_EMAIL_NOT_VERIFIED',
+      });
+      expect(users).toHaveLength(0);
+    });
+
+    it('rejects a token that fails signature verification', async () => {
+      mockVerifyIdToken.mockRejectedValue(new Error('invalid signature'));
+
+      await expect(service.loginWithGoogle('bad-token')).rejects.toMatchObject({
+        code: 'OAUTH_TOKEN_INVALID',
+      });
+    });
+  });
+
+  describe('loginWithFacebook', () => {
+    function mockGraphApi(profile: { id: string; email?: string; name?: string }) {
+      (global.fetch as jest.Mock).mockImplementation(async (url: string) => {
+        if (url.includes('debug_token')) {
+          return {
+            ok: true,
+            json: async () => ({ data: { is_valid: true, app_id: 'test-fb-app-id' } }),
+          };
+        }
+        return { ok: true, json: async () => profile };
+      });
+    }
+
+    it('provisions a new account for a first-time verified Facebook sign-in', async () => {
+      mockGraphApi({ id: 'fb-id-1', email: 'jack@example.com', name: 'Jack' });
+
+      const result = await service.loginWithFacebook('fake-access-token');
+
+      expect(result.accessToken).toBe('signed.jwt.token');
+      expect(users).toHaveLength(1);
+      expect(users[0].email).toBe('jack@example.com');
+      expect(oauthIdentities[0]).toMatchObject({
+        provider: 'FACEBOOK',
+        providerUserId: 'fb-id-1',
+      });
+    });
+
+    it('rejects a token whose app_id does not match ours (debug_token check)', async () => {
+      (global.fetch as jest.Mock).mockResolvedValue({
+        ok: true,
+        json: async () => ({ data: { is_valid: true, app_id: 'someone-elses-app' } }),
+      });
+
+      await expect(service.loginWithFacebook('foreign-token')).rejects.toMatchObject({
+        code: 'OAUTH_TOKEN_INVALID',
+      });
+      expect(users).toHaveLength(0);
+    });
+
+    it('rejects a profile with no email rather than creating an account without one', async () => {
+      mockGraphApi({ id: 'fb-id-2' });
+
+      await expect(service.loginWithFacebook('fake-access-token')).rejects.toMatchObject({
+        code: 'OAUTH_EMAIL_REQUIRED',
+      });
+      expect(users).toHaveLength(0);
     });
   });
 });

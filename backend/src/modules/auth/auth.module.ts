@@ -9,6 +9,7 @@ import { AppUserEntity } from './entities/app-user.entity';
 import { UserRoleEntity } from './entities/user-role.entity';
 import { OtpCodeEntity } from './entities/otp-code.entity';
 import { RefreshTokenEntity } from './entities/refresh-token.entity';
+import { OAuthIdentityEntity } from './entities/oauth-identity.entity';
 import { NotificationsModule } from '../notifications/notifications.module';
 
 @Module({
@@ -18,6 +19,7 @@ import { NotificationsModule } from '../notifications/notifications.module';
       UserRoleEntity,
       OtpCodeEntity,
       RefreshTokenEntity,
+      OAuthIdentityEntity,
     ]),
     NotificationsModule,
   ],

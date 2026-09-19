@@ -9,6 +9,8 @@ import { FormField, fieldDescribedBy } from '@/components/ui/FormField';
 import { Input } from '@/components/ui/Input';
 import { OtpInput } from '@/components/ui/OtpInput';
 import { isBannerLevelError, otpErrorMessageKey } from './otp-error-messages';
+import { GoogleSignInButton } from './GoogleSignInButton';
+import { FacebookSignInButton } from './FacebookSignInButton';
 
 type Step = 'identifier' | 'code' | 'success';
 
@@ -162,6 +164,10 @@ export function LoginForm({ redirectTo }: LoginFormProps) {
     }
   }
 
+  function handleOAuthError(message: string) {
+    setBanner({ variant: 'error', message });
+  }
+
   function handleChangeIdentifier() {
     setStep('identifier');
     setCode('');
@@ -228,8 +234,15 @@ export function LoginForm({ redirectTo }: LoginFormProps) {
     );
   }
 
+  // Google/Facebook render nothing when their env var isn't set (see each
+  // component), so this section can end up rendering zero buttons — the
+  // divider only makes sense when at least one actually appears.
+  const hasOAuthButtons = Boolean(
+    process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || process.env.NEXT_PUBLIC_FACEBOOK_APP_ID,
+  );
+
   return (
-    <form onSubmit={handleIdentifierSubmit} noValidate className="flex flex-col gap-5">
+    <div className="flex flex-col gap-5">
       <div>
         <h1 className="font-display text-h3 text-text-primary">{t('title')}</h1>
         <p className="mt-1 text-body text-text-secondary">{t('subtitle')}</p>
@@ -237,25 +250,41 @@ export function LoginForm({ redirectTo }: LoginFormProps) {
 
       {banner && <Alert variant={banner.variant}>{banner.message}</Alert>}
 
-      <FormField id="login-identifier" label={t('identifierLabel')} hint={t('identifierHint')} error={identifierError}>
-        <Input
-          id="login-identifier"
-          name="identifier"
-          type="text"
-          autoComplete="username"
-          inputMode="email"
-          value={identifier}
-          disabled={isRequesting}
-          invalid={Boolean(identifierError)}
-          aria-describedby={fieldDescribedBy('login-identifier', { hint: t('identifierHint'), error: identifierError })}
-          onChange={(event) => setIdentifier(event.target.value)}
-          placeholder={t('identifierPlaceholder')}
-        />
-      </FormField>
+      {hasOAuthButtons && (
+        <>
+          <div className="flex flex-col gap-3">
+            <GoogleSignInButton redirectTo={redirectTo} onError={handleOAuthError} />
+            <FacebookSignInButton redirectTo={redirectTo} onError={handleOAuthError} />
+          </div>
+          <div className="flex items-center gap-3" role="separator" aria-label={t('orDivider')}>
+            <div className="h-px flex-1 bg-border-default" aria-hidden="true" />
+            <span className="text-small text-text-muted">{t('orDivider')}</span>
+            <div className="h-px flex-1 bg-border-default" aria-hidden="true" />
+          </div>
+        </>
+      )}
 
-      <Button type="submit" isLoading={isRequesting} fullWidth>
-        {isRequesting ? t('sendingButton') : t('continueButton')}
-      </Button>
-    </form>
+      <form onSubmit={handleIdentifierSubmit} noValidate className="flex flex-col gap-5">
+        <FormField id="login-identifier" label={t('identifierLabel')} hint={t('identifierHint')} error={identifierError}>
+          <Input
+            id="login-identifier"
+            name="identifier"
+            type="text"
+            autoComplete="username"
+            inputMode="email"
+            value={identifier}
+            disabled={isRequesting}
+            invalid={Boolean(identifierError)}
+            aria-describedby={fieldDescribedBy('login-identifier', { hint: t('identifierHint'), error: identifierError })}
+            onChange={(event) => setIdentifier(event.target.value)}
+            placeholder={t('identifierPlaceholder')}
+          />
+        </FormField>
+
+        <Button type="submit" isLoading={isRequesting} fullWidth>
+          {isRequesting ? t('sendingButton') : t('continueButton')}
+        </Button>
+      </form>
+    </div>
   );
 }
