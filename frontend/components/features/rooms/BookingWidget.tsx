@@ -218,7 +218,7 @@ export function BookingWidget({ roomId, pricePerHour, minBookingMinutes, maxBook
                   className={[
                     'min-h-11 rounded-md border px-3 text-small transition-colors',
                     isSelected
-                      ? 'border-primary bg-primary text-white'
+                      ? 'border-primary bg-primary text-primary-on'
                       : 'border-border-strong bg-surface text-text-primary hover:bg-surface-elevated',
                   ].join(' ')}
                 >

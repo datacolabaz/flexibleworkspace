@@ -23,6 +23,16 @@
  */
 
 :root {
+  /* Tells the browser which palette to use for native, non-token UI it
+   * draws itself — date/time input chrome (calendar/clock icons), number
+   * spinners, scrollbars, select dropdowns. Without this the browser
+   * defaults those to light chrome regardless of [data-theme], which is
+   * why they can go unreadable (dark icon on a dark input) in dark mode
+   * even though every color we draw ourselves already follows the token
+   * three-state pattern below.
+   */
+  color-scheme: light;
+
   /* ---- Primitives: Oil Green (brand primary) ---- */
   --spotva-oil-50: #EEF3EF;
   --spotva-oil-100: #DCE7DF;
@@ -77,6 +87,7 @@
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
+    color-scheme: dark;
     --color-bg: #14140F;
     --color-bg-surface: #1C1D17;
     --color-bg-surface-elevated: #242519;
@@ -110,6 +121,7 @@
 }
 
 :root[data-theme="dark"] {
+  color-scheme: dark;
   --color-bg: #14140F;
   --color-bg-surface: #1C1D17;
   --color-bg-surface-elevated: #242519;

@@ -71,3 +71,22 @@ h1, h2, h3 {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
   z-index: 10;
 }
+
+/*
+ * Native number-input spin buttons (İştirakçı sayı / Maks. saatlıq qiymət,
+ * etc.) render as raw unstyled OS chrome that sits outside our token
+ * system and reads as messy next to the rest of the input set — reported
+ * directly ("sol tərəfdə btn-lər səliqəsizdir"). Neither browser lets you
+ * restyle them to match the design, so the simplest correct fix is to
+ * remove them; the field stays a normal, fully editable number input.
+ */
+input[type='number'] {
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+input[type='number']::-webkit-outer-spin-button,
+input[type='number']::-webkit-inner-spin-button {
+  appearance: none;
+  -webkit-appearance: none;
+  margin: 0;
+}
