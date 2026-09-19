@@ -47,3 +47,27 @@ h1, h2, h3 {
 }
 :root[data-theme='dark'] .theme-toggle-icon-light { display: none; }
 :root[data-theme='dark'] .theme-toggle-icon-dark { display: block; }
+
+/*
+ * `SearchResultsMap`'s Mapbox pins — a plain dot rather than Mapbox's
+ * default pin, so the highlighted/hover state (synced with the results
+ * list, §8.6) can be a CSS class toggle instead of swapping marker
+ * images. Replaces the Google Maps version's `Animation.BOUNCE`, which
+ * Mapbox GL has no built-in equivalent for.
+ */
+.spotva-map-marker {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--color-accent);
+  border: 2px solid var(--color-bg-surface);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.spotva-map-marker--active {
+  transform: scale(1.6);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
+  z-index: 10;
+}
