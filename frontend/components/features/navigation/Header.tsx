@@ -3,6 +3,7 @@ import { getTranslations } from 'next-intl/server';
 import { Link } from '@/lib/i18n/navigation';
 import { Logo } from '@/components/ui/Logo';
 import { readSession } from '@/lib/auth/session';
+import { getMyProfile } from '@/lib/api-client/account';
 import { LanguageSwitcher } from './LanguageSwitcher';
 import { ThemeToggle } from './ThemeToggle';
 import { MobileMenu } from './MobileMenu';
@@ -38,6 +39,24 @@ export async function Header() {
   const { accessToken } = readSession(store);
   const isAuthenticated = Boolean(accessToken);
 
+  // Prefer the signed-in person's own name over the generic "Account"
+  // label — a real per-request lookup (not a JWT claim) so a profile
+  // edit (ProfileForm, `/account/profile`) shows up here immediately,
+  // without waiting for the person to sign in again. An OTP-only account
+  // that never set a display name, or an expired/invalid token (the
+  // page's own auth check — not this decorative header — is what
+  // actually redirects to /login), both fall back to the generic label
+  // rather than breaking the header.
+  let displayName: string | null = null;
+  if (accessToken) {
+    try {
+      const profile = await getMyProfile(accessToken);
+      displayName = profile.displayName ?? null;
+    } catch {
+      displayName = null;
+    }
+  }
+
   const navItems = [
     { href: '/search', label: t('search') },
     { href: '/how-it-works', label: t('howItWorks') },
@@ -45,7 +64,7 @@ export async function Header() {
   ];
 
   const loginHref = isAuthenticated ? '/account/bookings' : '/login';
-  const loginLabel = isAuthenticated ? t('account') : t('login');
+  const loginLabel = isAuthenticated ? (displayName ?? t('account')) : t('login');
 
   return (
     <>
@@ -78,7 +97,7 @@ export async function Header() {
             <ThemeToggle />
             <Link
               href={loginHref}
-              className="hidden min-h-11 items-center rounded-md bg-accent px-3 text-label font-semibold text-accent-on hover:bg-accent-hover md:inline-flex lg:px-4"
+              className="hidden min-h-11 max-w-[10rem] items-center truncate rounded-md bg-accent px-3 text-label font-semibold text-accent-on hover:bg-accent-hover md:inline-flex lg:px-4"
             >
               {loginLabel}
             </Link>

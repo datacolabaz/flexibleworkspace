@@ -44,6 +44,19 @@ vi.mock('@/lib/i18n/navigation', () => ({
   useRouter: () => ({ replace: vi.fn() }),
 }));
 
+// Header calls getMyProfile to show the signed-in person's own name
+// instead of the generic "Account" label. Defaults to a rejection (no
+// BACKEND_API_URL in this test env would throw the same way) so every
+// pre-existing test — which never sets displayNameToReturn — keeps
+// exercising the fallback-to-"Account" path unchanged.
+let displayNameToReturn: string | null | undefined;
+vi.mock('@/lib/api-client/account', () => ({
+  getMyProfile: async () => {
+    if (displayNameToReturn === undefined) throw new Error('BACKEND_API_URL is not set.');
+    return { displayName: displayNameToReturn };
+  },
+}));
+
 // Header returns a Promise (it's async) — calling it directly and
 // awaiting the result, rather than writing `<Header />` and letting
 // react-dom try to render an async component (which it can't, outside
@@ -57,6 +70,7 @@ async function renderHeader() {
 describe('Header', () => {
   beforeEach(() => {
     accessTokenCookieValue = undefined;
+    displayNameToReturn = undefined;
   });
 
   it('routes Search / How it works / For businesses to their real pages (06_INFORMATION_ARCHITECTURE.md §6.5)', async () => {
@@ -81,6 +95,23 @@ describe('Header', () => {
     expect(accountLinks.length).toBeGreaterThan(0);
     for (const link of accountLinks) expect(link).toHaveAttribute('href', '/account/bookings');
     expect(screen.queryByRole('link', { name: 'Log in' })).not.toBeInTheDocument();
+  });
+
+  it('shows the signed-in person\'s own name instead of "Account" when their profile has one', async () => {
+    accessTokenCookieValue = 'a-real-access-token';
+    displayNameToReturn = 'Telman';
+    await renderHeader();
+    const nameLinks = screen.getAllByRole('link', { name: 'Telman' });
+    expect(nameLinks.length).toBeGreaterThan(0);
+    for (const link of nameLinks) expect(link).toHaveAttribute('href', '/account/bookings');
+    expect(screen.queryByRole('link', { name: 'Account' })).not.toBeInTheDocument();
+  });
+
+  it('falls back to "Account" when the signed-in person has no display name set (e.g. an OTP-only account)', async () => {
+    accessTokenCookieValue = 'a-real-access-token';
+    displayNameToReturn = null;
+    await renderHeader();
+    expect(screen.getAllByRole('link', { name: 'Account' }).length).toBeGreaterThan(0);
   });
 
   it('renders a skip-to-content link targeting #main-content', async () => {
