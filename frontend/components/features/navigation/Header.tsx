@@ -101,7 +101,12 @@ export async function Header() {
             >
               {loginLabel}
             </Link>
-            <MobileMenu navItems={navItems} loginHref={loginHref} loginLabel={loginLabel} />
+            <MobileMenu
+              navItems={navItems}
+              loginHref={loginHref}
+              loginLabel={loginLabel}
+              isAuthenticated={isAuthenticated}
+            />
           </div>
         </div>
       </header>

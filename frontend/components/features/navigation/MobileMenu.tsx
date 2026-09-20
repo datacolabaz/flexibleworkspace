@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useTranslations } from 'next-intl';
-import { Link } from '@/lib/i18n/navigation';
+import { Link, useRouter } from '@/lib/i18n/navigation';
 import { IconButton } from '@/components/ui/IconButton';
 
 export interface NavItem {
@@ -16,13 +16,44 @@ export interface NavItem {
  * per that same table row, the language switcher and theme toggle are
  * *not* folded in here; Header.tsx keeps both inline at every width so
  * they stay "directly reachable, not buried two levels deep"). Only the
- * primary nav links and the login/account link collapse into this panel.
+ * primary nav links, the login/account link, and (when signed in) a
+ * logout action collapse into this panel.
  */
-export function MobileMenu({ navItems, loginHref, loginLabel }: { navItems: NavItem[]; loginHref: string; loginLabel: string }) {
+export function MobileMenu({
+  navItems,
+  loginHref,
+  loginLabel,
+  isAuthenticated,
+}: {
+  navItems: NavItem[];
+  loginHref: string;
+  loginLabel: string;
+  isAuthenticated: boolean;
+}) {
   const t = useTranslations('nav');
+  const tAccount = useTranslations('account');
+  const router = useRouter();
   const [open, setOpen] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const firstLinkRef = useRef<HTMLAnchorElement>(null);
+
+  // Same pattern as AccountTabs.tsx's handleLogout: POST clears the BFF
+  // session cookies (best-effort backend revoke, see that route), then
+  // leave wherever the person was and refresh so the header/page no
+  // longer show a signed-in state. This is the only sign-out control
+  // reachable on mobile — the desktop equivalent lives in AccountTabs,
+  // which isn't in the header at all.
+  async function handleLogout() {
+    setLoggingOut(true);
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' });
+    } finally {
+      setOpen(false);
+      router.push('/');
+      router.refresh();
+    }
+  }
 
   useEffect(() => {
     if (!open) return undefined;
@@ -81,6 +112,16 @@ export function MobileMenu({ navItems, loginHref, loginLabel }: { navItems: NavI
             >
               {loginLabel}
             </Link>
+            {isAuthenticated && (
+              <button
+                type="button"
+                onClick={handleLogout}
+                disabled={loggingOut}
+                className="min-h-11 rounded-sm px-3 py-2.5 text-left text-label font-semibold text-text-secondary transition-colors hover:bg-surface-elevated hover:text-text-primary disabled:opacity-60"
+              >
+                {loggingOut ? tAccount('loggingOutButton') : tAccount('logoutButton')}
+              </button>
+            )}
           </nav>
         </div>
       )}

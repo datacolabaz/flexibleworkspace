@@ -1,9 +1,12 @@
 import { forwardRef } from 'react';
-import { describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { NextIntlClientProvider } from 'next-intl';
 import messages from '../messages/en.json';
 import { MobileMenu } from '@/components/features/navigation/MobileMenu';
+
+const mockPush = vi.fn();
+const mockRefresh = vi.fn();
 
 // forwardRef here (not a plain function) to match the real next-intl
 // `Link`'s ref-forwarding — MobileMenu focuses the first nav link on
@@ -30,6 +33,7 @@ vi.mock('@/lib/i18n/navigation', () => ({
       </a>
     );
   }),
+  useRouter: () => ({ push: mockPush, refresh: mockRefresh }),
 }));
 
 const navItems = [
@@ -37,15 +41,21 @@ const navItems = [
   { href: '/how-it-works', label: 'How it works' },
 ];
 
-function renderMenu() {
+function renderMenu(isAuthenticated = false) {
   return render(
     <NextIntlClientProvider locale="en" messages={messages}>
-      <MobileMenu navItems={navItems} loginHref="/login" loginLabel="Log in" />
+      <MobileMenu navItems={navItems} loginHref="/login" loginLabel="Log in" isAuthenticated={isAuthenticated} />
     </NextIntlClientProvider>,
   );
 }
 
 describe('MobileMenu', () => {
+  beforeEach(() => {
+    mockPush.mockClear();
+    mockRefresh.mockClear();
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ success: true }), { status: 200 })));
+  });
+
   it('starts closed, with the toggle reporting aria-expanded=false', () => {
     renderMenu();
     expect(screen.getByRole('button', { name: 'Open menu' })).toHaveAttribute('aria-expanded', 'false');
@@ -86,12 +96,28 @@ describe('MobileMenu', () => {
       <NextIntlClientProvider locale="en" messages={messages}>
         <div>
           <button type="button">outside</button>
-          <MobileMenu navItems={navItems} loginHref="/login" loginLabel="Log in" />
+          <MobileMenu navItems={navItems} loginHref="/login" loginLabel="Log in" isAuthenticated={false} />
         </div>
       </NextIntlClientProvider>,
     );
     fireEvent.click(screen.getByRole('button', { name: 'Open menu' }));
     fireEvent.mouseDown(screen.getByRole('button', { name: 'outside' }));
     expect(screen.getByRole('button', { name: 'Open menu' })).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  it('does not show a logout action when signed out', () => {
+    renderMenu(false);
+    fireEvent.click(screen.getByRole('button', { name: 'Open menu' }));
+    expect(screen.queryByRole('button', { name: 'Log out' })).not.toBeInTheDocument();
+  });
+
+  it('shows a logout action when signed in, and logs out on click', async () => {
+    renderMenu(true);
+    fireEvent.click(screen.getByRole('button', { name: 'Open menu' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Log out' }));
+
+    await waitFor(() => expect(mockPush).toHaveBeenCalledWith('/'));
+    expect(fetch).toHaveBeenCalledWith('/api/auth/logout', { method: 'POST' });
+    expect(mockRefresh).toHaveBeenCalled();
   });
 });
