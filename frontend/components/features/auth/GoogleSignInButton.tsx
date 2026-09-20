@@ -104,13 +104,13 @@ export function GoogleSignInButton({ redirectTo, onError }: OAuthSignInButtonPro
         // Google's button has no CSS "100%" width — measuring the
         // container it's given (a full-width flex child) reproduces that
         // full-width look without hardcoding a guess.
-        const width = Math.min(Math.max(container.offsetWidth, 200), 400);
+        const width = Math.min(Math.max(container.offsetWidth, 240), 400);
         google.accounts.id.renderButton(container, {
           type: 'standard',
           theme: 'outline',
           size: 'large',
           text: 'continue_with',
-          shape: 'rectangular',
+          shape: 'pill',
           width,
         });
       })
@@ -127,5 +127,9 @@ export function GoogleSignInButton({ redirectTo, onError }: OAuthSignInButtonPro
 
   if (!clientId) return null;
 
-  return <div ref={containerRef} className="flex w-full justify-center" />;
+  return (
+    <div className="rounded-full border border-border bg-surface p-1 shadow-sm">
+      <div ref={containerRef} className="flex min-h-11 w-full items-center justify-center overflow-hidden rounded-full" />
+    </div>
+  );
 }

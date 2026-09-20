@@ -11,7 +11,11 @@
     "openMenu": "Menyunu aç",
     "closeMenu": "Menyunu bağla",
     "primaryNavigation": "Əsas naviqasiya",
-    "skipToContent": "Məzmuna keç"
+    "skipToContent": "Məzmuna keç",
+    "spaces": "Məkanlar",
+    "events": "Tədbirlər",
+    "partners": "Tərəfdaşlar",
+    "pricing": "Qiymətlər"
   },
   "hero": {
     "title": "Öz yerini tap.",
@@ -20,7 +24,20 @@
     "searchButton": "Axtar"
   },
   "footer": {
-    "rights": "Bütün hüquqlar qorunur."
+    "rights": "Bütün hüquqlar qorunur.",
+    "tagline": "İş, təlim, tədbir və yaradıcılıq üçün doğru məkanı tapın.",
+    "discoverTitle": "Kəşf et",
+    "spaces": "Məkanlar",
+    "events": "Tədbirlər",
+    "howItWorks": "Necə işləyir",
+    "businessTitle": "Biznes",
+    "listSpace": "Məkanını yerləşdir",
+    "pricing": "Monetizasiya",
+    "advertise": "Reklam ver",
+    "ecosystemTitle": "Ekosistem",
+    "partners": "Tərəfdaşlar",
+    "privacy": "Məxfilik",
+    "dataDeletion": "Məlumatların silinməsi"
   },
   "common": {
     "comingSoon": "Tezliklə."
@@ -28,7 +45,7 @@
   "auth": {
     "login": {
       "title": "Spotva-ya daxil olun",
-      "subtitle": "Google və ya Facebook hesabınızla davam edin — burada yadda saxlanacaq parol yoxdur.",
+      "subtitle": "Google hesabınızla təhlükəsiz və sürətli davam edin.",
       "noMethodsAvailable": "Giriş hazırda mümkün deyil. Bir az sonra yenidən cəhd edin.",
       "continueWithFacebook": "Facebook ilə davam et",
       "errors": {
@@ -39,6 +56,29 @@
         "popupBlocked": "Brauzeriniz giriş pəncərəsini blokladı. Zəhmət olmasa bu sayt üçün pop-up pəncərələrə icazə verib yenidən cəhd edin.",
         "loginTimedOut": "Giriş tamamlanmadı. Əgər bir pəncərə açılıbsa, onu bağlayıb yenidən cəhd edin.",
         "generic": "Nəsə səhv getdi. Zəhmət olmasa yenidən cəhd edin."
+      },
+      "secureBadge": "Təhlükəsiz giriş",
+      "oneStep": "bir addımlıq giriş",
+      "privacyPrefix": "Davam etməklə məxfilik şərtlərimizi qəbul edirsiniz.",
+      "privacyLink": "Məxfilik siyasəti",
+      "panel": {
+        "eyebrow": "Spotva hesabınız",
+        "title": "Planlarınız, məkanlarınız və tədbirləriniz bir yerdə",
+        "body": "Bir hesabla rezervasiyaları izləyin, sevimliləri saxlayın və təşkilatçı kimi böyüyün.",
+        "features": {
+          "bookings": {
+            "title": "Rezervasiyalar",
+            "body": "Tarix, ödəniş və təsdiqlər aydın görünür."
+          },
+          "favorites": {
+            "title": "Sevimlilər",
+            "body": "Məkanları saxlayın və sonra müqayisə edin."
+          },
+          "organizer": {
+            "title": "Təşkilatçı alətləri",
+            "body": "Tədbir və auditoriya imkanlarına hazır olun."
+          }
+        }
       }
     }
   },
@@ -459,5 +499,424 @@
     "successMessage": "Müraciətini nəzərdən keçirib səninlə əlaqə saxlayacağıq. Spotva-nı seçdiyin üçün təşəkkürlər.",
     "signedOutError": "Hesabınızdan çıxış edilib. Zəhmət olmasa yenidən daxil olun.",
     "genericError": "Xəta baş verdi. Zəhmət olmasa yenidən cəhd edin."
+  },
+  "home": {
+    "metaTitle": "Spotva — Bakıda məkan, tədbir və icma kəşfi",
+    "metaDescription": "Workshop, görüş, təlim, tədbir və podkast üçün məkan tapın; tədbirlərə qoşulun və ya öz fəaliyyətinizi təşkil edin.",
+    "eyebrow": "Bakıdan başlayan real-həyat platforması",
+    "title": "Məkanı tap. Tədbiri yarat. İnsanları bir araya gətir.",
+    "subtitle": "Workshop, dərs, seminar, görüş, tədbir və podkast üçün məkanları bir yerdə kəşf edin və bron edin.",
+    "quickLabel": "Tez axtarış:",
+    "search": {
+      "ariaLabel": "Spotva-da məkan axtar",
+      "purposeLabel": "Fəaliyyət",
+      "purposeAny": "Nə etmək istəyirsiniz?",
+      "cityLabel": "Şəhər",
+      "cityPlaceholder": "Bakı",
+      "dateLabel": "Tarix",
+      "guestsLabel": "İştirakçı",
+      "guestsPlaceholder": "1+",
+      "submit": "Axtar"
+    },
+    "purposeSection": {
+      "eyebrow": "İstifadə niyyəti",
+      "title": "Otaq yox, məqsədinizə uyğun məkan seçin",
+      "viewAll": "Bütün məkanlar",
+      "explore": "Kəşf et"
+    },
+    "purposes": {
+      "workshop": {
+        "title": "Workshop",
+        "body": "Təlim, ustad dərsi və interaktiv sessiyalar üçün çevik otaqlar."
+      },
+      "meeting": {
+        "title": "Görüş",
+        "body": "Komanda, müsahibə və müştəri görüşləri üçün peşəkar məkanlar."
+      },
+      "podcast": {
+        "title": "Podkast",
+        "body": "Səs izolyasiyası, mikrofon və video işığı olan hazır studiyalar."
+      },
+      "event": {
+        "title": "Tədbir",
+        "body": "Seminar, təqdimat, icma görüşü və kiçik tədbirlər üçün zallar."
+      }
+    },
+    "loop": {
+      "eyebrow": "Vahid dəyər zənciri",
+      "title": "Məkan, təşkilatçı və iştirakçı eyni axında",
+      "body": "Spotva sadəcə elan kataloqu deyil. Məkanın əlçatanlığını, tədbirin qeydiyyatını və tərəflərin etibarını bir əməliyyat axınında birləşdirir.",
+      "ownerCta": "Məkanını yerləşdir",
+      "organizerCta": "Tədbir formatlarını gör",
+      "steps": {
+        "discover": {
+          "title": "Kəşf",
+          "body": "Fəaliyyət, rayon, vaxt və iştirakçı sayına uyğun seçimlər."
+        },
+        "book": {
+          "title": "Bron və RSVP",
+          "body": "Aydın qiymət, qayda, təsdiq və təqvimə əlavə etmə."
+        },
+        "grow": {
+          "title": "Təkrar istifadə",
+          "body": "Rəylər, seriyalar, izləmə və təşkilatçı auditoriyası."
+        }
+      }
+    },
+    "partners": {
+      "eyebrow": "Tərəfdaş ekosistemi",
+      "title": "Media, təhsil və texnologiya birlikdə böyüyür",
+      "body": "Hər tərəfdaş loqo sətri kimi yox, ölçülə bilən dəyər və aydın rol ilə təqdim olunur.",
+      "cta": "Tərəfdaş modelinə bax",
+      "roles": {
+        "metbuat": "Media və xüsusi layihələr",
+        "mentorix": "Mentor və təhsil şəbəkəsi",
+        "saytaz": "Web, hostinq və texnologiya"
+      }
+    },
+    "sponsor": {
+      "label": "Sponsorlu",
+      "title": "Spotva auditoriyasına uyğun reklam verin",
+      "body": "Məkan, tədbir, təhsil, texnologiya və biznes kateqoriyalarında şəffaf yerləşdirmələr.",
+      "cta": "Reklam imkanları"
+    },
+    "dashboard": {
+      "viewAll": "Hamısına bax",
+      "sidebarLabel": "Kəşf paneli",
+      "venues": {
+        "eyebrow": "Məkan nümunələri",
+        "title": "Bakıda populyar məkanlar",
+        "capacity": "tutum",
+        "perHour": "/ saat",
+        "verified": "təsdiqli",
+        "available": "Bu gün boşdur",
+        "items": {
+          "workshop": {
+            "type": "Workshop otağı",
+            "name": "Creative Workshop Space",
+            "district": "Səbail",
+            "hours": "09:00–21:00"
+          },
+          "podcast": {
+            "type": "Səs studiyası",
+            "name": "Baku Podcast Studio",
+            "district": "Nizami",
+            "hours": "10:00–22:00"
+          },
+          "coworking": {
+            "type": "Coworking",
+            "name": "Caspian Co-work Loft",
+            "district": "İçərişəhər",
+            "hours": "08:00–20:00"
+          }
+        },
+        "disclaimer": "Kartlar dizayn önizləməsidir; canlı provayder məlumatı deyil."
+      },
+      "upcoming": {
+        "title": "Workshop və tədbir formatları",
+        "items": {
+          "workshop": {
+            "tag": "Workshop",
+            "title": "Yaradıcı sessiyalar",
+            "body": "Məkanı seç, proqramı qur və qrupunu topla."
+          },
+          "event": {
+            "tag": "Tədbir",
+            "title": "İcma və biznes görüşləri",
+            "body": "Seminardan məhsul təqdimatına qədər."
+          },
+          "podcast": {
+            "tag": "Podkast",
+            "title": "Canlı və studiya çəkilişi",
+            "body": "Səs, işıq və rahat qeyd mühiti."
+          }
+        }
+      },
+      "calendar": {
+        "title": "Yaxın tarixlər",
+        "weekdays": {
+          "mon": "Be",
+          "tue": "Ça",
+          "wed": "Ç",
+          "thu": "Ca",
+          "fri": "C",
+          "sat": "Ş",
+          "sun": "B"
+        }
+      },
+      "community": {
+        "eyebrow": "İcma fokusu",
+        "name": "Mentor və təşkilatçılar",
+        "role": "Təlim · Yaradıcılıq · Bakı",
+        "body": "Təsdiqlənmiş profillər, tədbir seriyaları və iştirakçı rəyləri eyni ekosistemdə.",
+        "cta": "Ekosistemi gör"
+      },
+      "map": {
+        "title": "Bakı xəritəsi",
+        "cta": "Xəritəni aç",
+        "ariaLabel": "Bakı üzrə məkanların xəritəsini aç"
+      }
+    }
+  },
+  "eventsPage": {
+    "metaTitle": "Tədbirlər və təşkilatçılar — Spotva",
+    "metaDescription": "Workshop, təlim, seminar, podkast və icma formatlarını məkan, RSVP və təşkilatçı alətləri ilə birləşdirin.",
+    "badge": "Təşkilatçı beta",
+    "title": "Tədbirin ideyasından iştirakçının check-in-inə qədər",
+    "subtitle": "Məkanı tapın, tədbiri dərc edin, qeydiyyatı idarə edin və növbəti sessiya üçün auditoriyanızı qoruyun.",
+    "organizerCta": "Təşkilatçı kimi başla",
+    "venueCta": "Tədbir məkanı tap",
+    "formatsTitle": "Spotva-da işləyəcək formatlar",
+    "formats": {
+      "workshop": {
+        "title": "Workshop",
+        "body": "İnteraktiv və praktiki sessiyalar."
+      },
+      "training": {
+        "title": "Təlim və dərs",
+        "body": "Tək sessiya və təkrarlanan kurs seriyaları."
+      },
+      "seminar": {
+        "title": "Seminar",
+        "body": "Ekspert çıxışları və peşəkar proqramlar."
+      },
+      "podcast": {
+        "title": "Podkast",
+        "body": "Canlı qeyd, studiya sessiyası və auditoriyalı buraxılış."
+      },
+      "community": {
+        "title": "İcma görüşü",
+        "body": "Klub, meetup və tematik şəbəkələşmə."
+      },
+      "corporate": {
+        "title": "Korporativ sessiya",
+        "body": "Komanda təlimi, offsite və strateji görüş."
+      }
+    },
+    "flowTitle": "Təşkilatçı axını",
+    "flow": {
+      "venue": {
+        "title": "Məkanı seç",
+        "body": "Tutum, avadanlıq və vaxtı müqayisə et."
+      },
+      "publish": {
+        "title": "Dərc et",
+        "body": "Pulsuz RSVP, ödənişli bilet və ya seriya yarat."
+      },
+      "manage": {
+        "title": "İdarə et",
+        "body": "Waitlist, xatırlatma, QR check-in və analitika."
+      }
+    },
+    "betaNote": "Qeyd: tədbir kataloqu və bilet domeni mərhələli şəkildə əlavə olunur; hazırkı bron sistemi məkan rezervasiyasının etibarlı nüvəsidir."
+  },
+  "pricingPage": {
+    "metaTitle": "Monetizasiya və gəlir bölgüsü — Spotva",
+    "metaDescription": "Məkan sahibləri, təşkilatçılar və tərəfdaşlar üçün Spotva-nın tövsiyə olunan pilot monetizasiya modeli.",
+    "pilotBadge": "Tövsiyə olunan pilot modeli",
+    "title": "Giriş pulsuz, gəlir nəticə yarananda",
+    "intro": "Model marketplace likvidliyini qoruyur: məkan və pulsuz tədbir yerləşdirmək ödənişsizdir; Spotva bron, bilet və ölçülə bilən peşəkar alətlərdən gəlir əldə edir.",
+    "table": {
+      "model": "Model",
+      "price": "Tövsiyə olunan qiymət",
+      "includes": "Daxildir",
+      "why": "Niyə işləyir"
+    },
+    "host": {
+      "title": "Məkan sahibi",
+      "rows": {
+        "listing": {
+          "name": "Pulsuz listing",
+          "price": "0 AZN",
+          "includes": "1 məkan, 3 otaq, əsas təqvim və sorğular",
+          "why": "Təklif tərəfinin giriş baryerini sıfıra endirir."
+        },
+        "booking": {
+          "name": "Uğurlu bron",
+          "price": "8–15%",
+          "includes": "Ödəniş, təsdiq, bildiriş, support və payout uçotu",
+          "why": "Yalnız real gəlir yarananda Spotva qazanır."
+        },
+        "pro": {
+          "name": "Spotva Pro",
+          "price": "29–59 AZN / ay",
+          "includes": "Çox məkan, işçi rolları, analitika və təqvim sync",
+          "why": "Əməliyyat vaxtına qənaət edən alətlər üçün könüllü ödəniş."
+        },
+        "featured": {
+          "name": "Önə çıxarma",
+          "price": "15–30 AZN / həftə",
+          "includes": "Uyğun axtarışlarda sponsorlu görünüş",
+          "why": "Üzvi sıralamanı gizlətmədən əlavə görünürlük."
+        }
+      }
+    },
+    "organizer": {
+      "title": "Təşkilatçı və müəllim",
+      "rows": {
+        "free": {
+          "name": "Pulsuz RSVP",
+          "price": "0 AZN",
+          "includes": "Tədbir səhifəsi, limit, waitlist və xatırlatma",
+          "why": "İcmaların platformaya keçməsini sürətləndirir."
+        },
+        "paid": {
+          "name": "Ödənişli bilet",
+          "price": "5% + emal haqqı",
+          "includes": "Checkout, bilet, refund statusu və QR check-in",
+          "why": "Gəlir bilet satışı ilə birbaşa əlaqələnir."
+        },
+        "pro": {
+          "name": "Organizer Pro",
+          "price": "29 AZN / ay",
+          "includes": "Seriyalar, CRM segmentləri, export və komanda rolları",
+          "why": "Davamlı təşkilatçının əməliyyat yükünü azaldır."
+        },
+        "sponsor": {
+          "name": "Tədbir sponsorluğu",
+          "price": "150–500 AZN / kampaniya",
+          "includes": "Sponsor bloku, xüsusi səhifə və ölçülən CTA",
+          "why": "Təşkilatçıya əlavə gəlir, brendə kontekstual auditoriya verir."
+        }
+      }
+    },
+    "example": {
+      "eyebrow": "100 AZN-lik bron nümunəsi",
+      "title": "Hər məbləğ checkout-da ayrı görünür",
+      "body": "Bu nümunədə 10% host komissiyası, 5% qonaq xidmət haqqı və 3% ödəniş emalı fərz edilir. Vergi və faktura təsiri daxil deyil.",
+      "rows": {
+        "base": {
+          "label": "Məkanın baza qiyməti",
+          "value": "100.00 AZN"
+        },
+        "guestFee": {
+          "label": "Qonaq xidmət haqqı (5%)",
+          "value": "+5.00 AZN"
+        },
+        "customerTotal": {
+          "label": "Müştərinin ödədiyi",
+          "value": "105.00 AZN"
+        },
+        "hostFee": {
+          "label": "Host komissiyası (10%)",
+          "value": "−10.00 AZN"
+        },
+        "hostNet": {
+          "label": "Məkan sahibinin alacağı",
+          "value": "90.00 AZN"
+        },
+        "spotvaGross": {
+          "label": "Spotva ümumi platforma gəliri",
+          "value": "15.00 AZN"
+        },
+        "processing": {
+          "label": "Ödəniş emalı (nümunə 3%)",
+          "value": "−3.15 AZN"
+        },
+        "spotvaNet": {
+          "label": "Spotva neti — vergi və əməliyyatdan əvvəl",
+          "value": "11.85 AZN"
+        }
+      }
+    },
+    "legalTitle": "Vacib:",
+    "legalBody": "Faizlər pilot fərziyyəsidir. Komissiya, ƏDV, invoice və payout müddəti Azərbaycan hüquq və mühasibat yoxlamasından sonra təsdiqlənməlidir.",
+    "hostCta": "Məkanını yerləşdir",
+    "partnerCta": "Reklam modeli"
+  },
+  "partnersPage": {
+    "metaTitle": "Tərəfdaş ekosistemi — Spotva",
+    "metaDescription": "Spotva media, təhsil və texnologiya tərəfdaşlarını reklamdan məhsul inteqrasiyasına qədər aydın rollarla birləşdirir.",
+    "eyebrow": "Tərəfdaş ekosistemi",
+    "title": "Loqo divarı yox, işləyən tərəfdaşlıq modeli",
+    "intro": "Tərəfdaş istifadəçiyə real fayda verdiyi yerdə görünür; ödənişli yerləşdirmə isə həmişə açıq etiketlənir.",
+    "placementLabel": "Tövsiyə olunan yerləşdirmə",
+    "visit": "Sayta bax",
+    "items": {
+      "metbuat": {
+        "type": "Media tərəfdaşı",
+        "role": "Tədbir və təhsil mövzularında xüsusi layihələr, sponsorlu məqalələr və ölçülən media kampaniyaları.",
+        "placement": "Spotva Tərəfdaşlar hub-ı, sponsorlu məzmun, tədbir səhifəsində media tərəfdaşı nişanı."
+      },
+      "mentorix": {
+        "type": "Təhsil tərəfdaşı",
+        "role": "Mentor, müəllim və tələbə auditoriyasını məkan, workshop və inkişaf proqramları ilə bağlayır.",
+        "placement": "Mentor profili, təlim seriyası, referral landing page və kontekstual tədbir kartları."
+      },
+      "saytaz": {
+        "type": "Texnologiya tərəfdaşı",
+        "role": "Web, domen, hostinq və rəqəmsal xidmət ehtiyaclarını Spotva ekosisteminə bağlayır.",
+        "placement": "Alətlər kataloqu, birgə biznes paketi, referral və təsdiqlənmiş inteqrasiya səhifəsi."
+      }
+    },
+    "principlesTitle": "Etibarı qoruyan üç qayda",
+    "principles": {
+      "disclosure": {
+        "title": "Açıq etiket",
+        "body": "Reklam, sponsorlu məzmun və tərəfdaş təklifi öz adı ilə göstərilir."
+      },
+      "organic": {
+        "title": "Üzvi sıralama ayrıdır",
+        "body": "Ödəniş reytinqi, rəy nəticəsini və uyğunluq sıralamasını gizli dəyişmir."
+      },
+      "measurement": {
+        "title": "Ölçülən nəticə",
+        "body": "UTM, klik, lead, bron və aktivləşmə ayrı hesabatlanır."
+      }
+    },
+    "cta": "Reklam və tərəfdaşlıq imkanları"
+  },
+  "advertisePage": {
+    "metaTitle": "Spotva-da reklam — sponsorlu yerləşdirmələr",
+    "metaDescription": "Məkan, tədbir, təhsil, texnologiya və biznes auditoriyası üçün şəffaf Spotva reklam inventarı.",
+    "badge": "Reklam və sponsorluq",
+    "title": "Kontekstə uyğun görünürlük, aydın ölçmə",
+    "intro": "Spotva reklamı istifadəçi niyyətinə yaxınlaşdırır: tədbir axtaran adama tədbir sponsoru, məkan sahibinə isə uyğun biznes xidməti göstərilir.",
+    "inventoryTitle": "Tövsiyə olunan reklam inventarı",
+    "inventory": {
+      "featured": {
+        "label": "Marketplace",
+        "title": "Sponsorlu listing",
+        "body": "Uyğun axtarış və kateqoriya səhifəsində etiketli önə çıxarma.",
+        "pricing": "15–30 AZN / həftə"
+      },
+      "category": {
+        "label": "Brend",
+        "title": "Kateqoriya sponsoru",
+        "body": "Podcast, workshop və ya tədbir kateqoriyasında banner + xüsusi CTA.",
+        "pricing": "150–300 AZN / həftə"
+      },
+      "eventSponsor": {
+        "label": "Tədbir",
+        "title": "Tədbir sponsorluğu",
+        "body": "Tədbir səhifəsi, qeydiyyat mesajı və check-in sonrası təşəkkür bloku.",
+        "pricing": "150–500 AZN / kampaniya"
+      },
+      "native": {
+        "label": "Kontent",
+        "title": "Sponsorlu bələdçi",
+        "body": "Redaksiya materialından vizual olaraq ayrılan faydalı tematik məzmun.",
+        "pricing": "400–800 AZN / paket"
+      },
+      "referral": {
+        "label": "Performans",
+        "title": "Referral tərəfdaşlığı",
+        "body": "Təsdiqlənmiş bron üçün Spotva komissiyasından gəlir payı.",
+        "pricing": "Platforma haqqının 10–25%-i"
+      }
+    },
+    "audienceTitle": "Kimlər reklam verə bilər?",
+    "audienceBody": "Yalnız Spotva-nın real fəaliyyət və biznes kontekstinə uyğun kateqoriyalar qəbul edilməlidir.",
+    "audiences": {
+      "education": "Təhsil və mentorluq",
+      "technology": "SaaS, web və hostinq",
+      "business": "Bank, ödəniş və telecom",
+      "creative": "Kamera, audio və yaradıcı alətlər",
+      "hospitality": "Məkan, katerinq və hospitality"
+    },
+    "trustEyebrow": "Reklam siyasəti",
+    "trustTitle": "Pul etibarı satın almır",
+    "trustBody": "Sponsorlu yerləşdirmə üzvi nəticəni gizli dəyişmir. Hər reklamın etiketi, tərəfdaş adı, şərtləri və ölçmə metodu görünən olmalıdır.",
+    "cta": "Tərəfdaş modelinə bax"
   }
 }

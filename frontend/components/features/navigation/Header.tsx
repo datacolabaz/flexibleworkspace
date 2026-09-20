@@ -58,7 +58,8 @@ export async function Header() {
   }
 
   const navItems = [
-    { href: '/search', label: t('search') },
+    { href: '/search', label: t('spaces') },
+    { href: '/events', label: t('events') },
     { href: '/how-it-works', label: t('howItWorks') },
     { href: '/for-businesses', label: t('forBusinesses') },
   ];
@@ -80,7 +81,7 @@ export async function Header() {
             <Logo variant="auto" height={28} />
           </Link>
 
-          <nav aria-label={t('primaryNavigation')} className="hidden items-center gap-4 md:flex lg:gap-6">
+          <nav aria-label={t('primaryNavigation')} className="hidden items-center gap-5 lg:flex">
             {navItems.map((item) => (
               <Link
                 key={item.href}
@@ -97,7 +98,7 @@ export async function Header() {
             <ThemeToggle />
             <Link
               href={loginHref}
-              className="hidden min-h-11 max-w-[10rem] items-center truncate rounded-md bg-accent px-3 text-label font-semibold text-accent-on hover:bg-accent-hover md:inline-flex lg:px-4"
+              className="hidden min-h-11 max-w-[10rem] items-center truncate rounded-md bg-accent px-3 text-label font-semibold text-accent-on hover:bg-accent-hover sm:inline-flex lg:px-4"
             >
               {loginLabel}
             </Link>

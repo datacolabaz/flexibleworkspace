@@ -5,6 +5,7 @@ import { getMessages, setRequestLocale } from 'next-intl/server';
 import { notFound } from 'next/navigation';
 import { routing } from '@/lib/i18n/routing';
 import { Header } from '@/components/features/navigation/Header';
+import { SiteFooter } from '@/components/features/navigation/SiteFooter';
 import '../globals.css';
 
 // This is a Next.js "root layout" for the customer-facing branch — see
@@ -66,6 +67,7 @@ export default async function LocaleLayout({
         <NextIntlClientProvider messages={messages}>
           <Header />
           {children}
+          <SiteFooter />
         </NextIntlClientProvider>
       </body>
     </html>

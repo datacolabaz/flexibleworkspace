@@ -18,6 +18,10 @@
 /{locale}/how-it-works
 /{locale}/for-businesses                    Provider acquisition landing page
 /{locale}/list-your-space                   Provider signup entry point
+/{locale}/events                            Event-format discovery and organizer beta
+/{locale}/pricing                           Venue/organizer monetization disclosure
+/{locale}/partners                          Partner ecosystem and disclosure hub
+/{locale}/advertise                         Sponsored inventory and advertising policy
 /{locale}/legal/terms | /privacy | /cancellation-policy | /refund-policy | /provider-agreement
 ```
 
@@ -60,7 +64,7 @@ Room and provider slugs are human-readable + a numeric/opaque ID suffix (`/rooms
 
 ## 6.5 Navigation Model
 
-- **Primary nav (customer):** Search (always visible, sticky on scroll) · How it works · For businesses · Language switcher · Account/Login
+- **Primary nav (customer):** Spaces/Search · Events · How it works · For businesses · Language switcher · Account/Login. Monetization, advertising and partner disclosure remain in the footer so the primary row stays compact.
 - **No mega-menu of categories on the homepage** — category browsing happens through the search filters and the SEO landing pages, not a heavy top-nav category tree. This keeps the homepage focused on the single CTA (`07_UX_ARCHITECTURE.md`).
 - **Provider dashboard nav:** left sidebar, grouped as Overview · Locations & Rooms · Calendar · Bookings · Revenue & Payouts · Reviews · Marketing (promotions/featured) · Settings — matches the mental model of "manage my business," not the raw entity list.
 - **Admin nav:** left sidebar grouped by function (Marketplace: providers/locations/rooms/bookings — Finance: payments/refunds/payouts — Trust & Safety: reviews/verification/disputes — Growth: promotions/subscriptions/featured — System: audit logs/analytics).
@@ -71,3 +75,9 @@ Room types and amenities are **data, not code** — stored as translatable taxon
 - adding a new room type or amenity is a data operation, not a deployment
 - all 6 languages resolve the same underlying taxonomy ID to their own label (see `20_I18N.md`)
 - search filters, SEO landing-page generation, and provider room-creation forms all read from the same source of truth, preventing drift between "what a provider can select" and "what a customer can filter by."
+
+## 6.7 Activity, Event and Commercial Surfaces
+
+The homepage is **intent-first**: workshop, meeting, podcast and event are shortcuts into the existing room taxonomy, not a second category system. `/events` is initially an organizer-education surface and becomes a live catalog only after the event/session/registration domain in `34_UNIFIED_EXPERIENCE_EVENTS_ADS_MONETIZATION.md` is implemented.
+
+`/partners` is the durable public disclosure hub for ecosystem relationships. `/advertise` describes inventory and rules; it does not mix sponsor claims into organic results. Paid cards and banners carry a localized `Sponsored` label everywhere they render.

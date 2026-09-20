@@ -26,6 +26,8 @@
 | Alerts / toast | success/error/info, auto-dismiss for toast, persistent for page-level alerts | Toast used for non-blocking confirmations (e.g. "Added to favorites") |
 | Loading states | skeleton blocks matching final content shape | See `07_UX_ARCHITECTURE.md` §7.6 |
 | Calendar (provider) | month/week view, booked/blocked/available color coding | Core provider-dashboard component; must render fast with many rooms |
+| Sponsor placement | default/hover/expired, image/no-image | Always carries a localized `Sponsored` label; never visually impersonates an organic result |
+| Partner card | default/hover, proposed/active relationship state | Shows the partner role and intended placement, not only a logo |
 
 ## 8.3 What This Document Deliberately Does Not Specify
 
@@ -44,6 +46,7 @@ Buttons and nav items must accommodate text-length variance across AZ/EN/RU/TR/D
 - The user's explicit choice (if any) is persisted (e.g. `localStorage` + a cookie for SSR-correct first paint, avoiding a flash of the wrong theme) and wins over the system preference on every later visit; absent an explicit choice, the system preference is honored and re-checked live if the OS setting changes mid-session.
 - Header carries a two-state theme toggle (☀️ light / 🌙 dark, reflecting the *current* resolved theme, not the setting) — a button, not a settings-page-only control, since this is a frequently-used preference.
 - **"Dark mode" means every surface, not just the page background:** cards, inputs, dropdowns, modals/bottom sheets, tables, the map and its controls, badges, toasts, and the booking/payment panels are each explicitly verified in both themes — text contrast (WCAG AA, per §8.1) re-checked per surface, not assumed to inherit correctly. Component QA (§8.6) treats "light mode" and "dark mode" as two separate pass/fail checks per screen, not one.
+- Sponsored and partner surfaces use the same semantic tokens as the rest of the product. A campaign cannot introduce an inaccessible CTA color or replace the Spotva navigation/brand frame. Creative is contained inside a defined media area; disclosure text remains Spotva-controlled.
 
 ## 8.6 Responsive Design Rules (Mandatory — Definition of Done)
 

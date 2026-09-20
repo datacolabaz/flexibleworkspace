@@ -1,7 +1,7 @@
 # 00 — RECOMMENDED FINAL ARCHITECTURE
 ## FlexSpace — Flexible Workspace Marketplace, Azerbaijan-First
 
-**Status:** Phase 0 (Product Discovery) + Phase 1 (Architecture) deliverable. No application code has been written against this. This document is the master synthesis of the 27 supporting documents (`01`–`27`) and closes with the critical review, risk register, and final recommendation the brief explicitly asked for — this is not a rubber-stamp of the original brief, it pushes back where warranted.
+**Status:** Living master architecture. The original Phase 0/1 recommendations have progressed into backend and frontend implementation; later approved addenda, including partner referrals (`31`) and the unified activity/event/advertising model (`34`), extend this baseline without replacing its booking and ledger foundations.
 
 ---
 
@@ -35,7 +35,7 @@ LOCAL + TRUSTED + EASY + REAL AVAILABILITY + BOOKING + MULTILINGUAL + LOCAL PAYM
 
 ## 8. Business Model
 
-Commission on completed bookings (primary) + provider subscription tiers (secondary) + featured placement (tertiary) — see §9 and `25_PROVIDER_ARCHITECTURE.md` §25.4 for the full evaluation of alternatives (subscription-only, hour-bank, corporate-only) and why they're deferred.
+Commission on completed bookings (primary) + provider/organizer professional tiers (secondary) + clearly labeled featured/sponsor inventory (tertiary) + partner referrals paid from Spotva's own platform fee. See §9, `25_PROVIDER_ARCHITECTURE.md`, `31_PARTNER_REFERRAL_ARCHITECTURE.md`, and `34_UNIFIED_EXPERIENCE_EVENTS_ADS_MONETIZATION.md`.
 
 ## 9. Marketplace Economics
 
@@ -213,7 +213,7 @@ Addressed directly and specifically in `26_ROADMAP.md` §26.3 — supply-first s
 
 **Trust & Safety:** Admin-gated provider verification, structural fake-review prevention, full financial audit trail, tiered RBAC.
 
-**Monetization:** Commission (10–15%, configurable) as primary revenue, provider subscription tiers as secondary, featured placement as tertiary — limits on FREE/paid tiers derived from real cost drivers, not arbitrary numbers.
+**Monetization:** Configurable booking commission as primary revenue; provider and organizer professional tiers as secondary; clearly labeled featured listings, category sponsorships and event sponsorships as tertiary; partner referral commission is paid from Spotva's own fee, never deducted from provider net.
 
 **Go-to-market:** Supply-first liquidity strategy in Baku alone, sequenced meeting rooms → desks → training rooms → private offices → classroom variants → studios/event spaces, with concrete numeric success milestones before any paid demand-side marketing.
 
@@ -223,4 +223,4 @@ Addressed directly and specifically in `26_ROADMAP.md` §26.3 — supply-first s
 
 ---
 
-*Kodlaşdırmaya yalnız bu arxitektura təsdiqləndikdən sonra keçiləcək — this document set is the Phase 0/1 gate. No application code has been written.*
+*This is now a living architecture record. Implemented behavior takes precedence over historical phase-gate wording, and new product domains must be added through explicit, reviewable addenda rather than silent scope expansion.*

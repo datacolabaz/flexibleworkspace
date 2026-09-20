@@ -1,0 +1,85 @@
+direction: right
+
+users: İstifadəçilər {
+  style.fill: "#FAF8F3"
+  style.stroke: "#245747"
+  style.font-color: "#17231E"
+  guest: Qonaq / iştirakçı
+  host: Məkan sahibi
+  organizer: Təşkilatçı / müəllim
+  ops: Əməliyyat komandası
+}
+
+experience: Spotva təcrübəsi — AZ / RU / EN {
+  style.fill: "#E4EFEA"
+  style.stroke: "#245747"
+  style.font-color: "#17231E"
+  web: Responsive veb və PWA
+  public: Kəşf və ictimai səhifələr
+  portal: Host / organizer paneli
+  admin: Admin və moderasiya
+}
+
+core: Məhsul nüvəsi — modul monolit API {
+  style.fill: "#FFF3DE"
+  style.stroke: "#E38B2C"
+  style.font-color: "#17231E"
+  identity: Hesab, rol və icazələr
+  catalog: Məkan, media və axtarış
+  booking: Təqvim, bron və ödəniş axını
+  events: Tədbir, RSVP və QR check-in
+  community: Kurs / seriya / icma
+  trust: Rəy, doğrulama və dispute
+  comms: Bildiriş, CRM və analitika
+}
+
+data: Məlumat və əməliyyat {
+  style.fill: "#E8F3EE"
+  style.stroke: "#2F7D5D"
+  style.font-color: "#17231E"
+  db: PostgreSQL + PostGIS
+  search: Axtarış indeksi
+  queue: Redis cache və növbə
+  storage: Şəkil və sənəd storage
+  observability: Audit log və error monitorinqi
+}
+
+integrations: Lokal adapterlər {
+  style.fill: "#F2EFE7"
+  style.stroke: "#66716B"
+  style.font-color: "#17231E"
+  payments: Ödəniş və invoice
+  calendar: Google / iCal sync
+  messages: Email • SMS • WhatsApp / Telegram
+  maps: Xəritə və geocoding
+  qr: QR check-in cihazları
+}
+
+users.guest -> experience.web
+users.host -> experience.web
+users.organizer -> experience.web
+users.ops -> experience.web
+experience.web -> experience.public
+experience.web -> experience.portal
+experience.web -> experience.admin
+experience.public -> core.catalog
+experience.portal -> core.booking
+experience.portal -> core.events
+experience.portal -> core.community
+experience.admin -> core.trust
+core.identity -> core.catalog
+core.catalog -> data.db
+core.catalog -> data.search
+core.catalog -> data.storage
+core.booking -> data.db
+core.booking -> data.queue
+core.events -> data.db
+core.community -> data.db
+core.trust -> data.db
+core.comms -> data.queue
+core.comms -> data.observability
+core.booking -> integrations.payments
+core.booking -> integrations.calendar
+core.comms -> integrations.messages
+core.catalog -> integrations.maps
+core.events -> integrations.qr

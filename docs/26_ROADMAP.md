@@ -10,6 +10,17 @@
 
 Nothing above is scope creep into V1 — this phased list exists precisely so V1 stays disciplined: every feature not listed under V1 explicitly does not block a usable, trustworthy launch.
 
+### Events and commercial surfaces addendum
+
+The public frontend may present the broader Spotva direction during V1, but transactional capability stays phased:
+
+- **V1 discovery layer:** activity-first homepage, event-format education, partner hub, pricing transparency and manually operated sponsor inventory.
+- **V1.1:** organizer profiles, `Event`/`EventSession`, free RSVP, waitlist and reminders.
+- **V1.2:** paid tickets, QR check-in and refund-aware event ledger entries, reusing the payment-provider abstraction.
+- **V2:** event series, follows, organizer audience tools, Organizer Pro and self-service promotions.
+
+The full entity, monetization and trust model is in `34_UNIFIED_EXPERIENCE_EVENTS_ADS_MONETIZATION.md`. No public screen should imply live ticketing before V1.2 is actually deployed.
+
 ## 26.2 Geographic & Category Sequencing
 
 **Geography: Baku first, exclusively**, before any other Azerbaijani city — concentrating early supply/demand effort in one city is what creates the density needed for the marketplace's core promise (real availability, real choice) to actually be true for a user's first search. Ganja/regional AZ expansion happens only once Baku has enough listings per category that a search rarely returns zero/one result.
