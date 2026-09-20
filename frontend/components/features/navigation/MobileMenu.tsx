@@ -76,7 +76,7 @@ export function MobileMenu({
   }, [open]);
 
   return (
-    <div className="relative md:hidden" ref={containerRef}>
+    <div className="relative lg:hidden" ref={containerRef}>
       <IconButton
         aria-label={open ? t('closeMenu') : t('openMenu')}
         aria-expanded={open}

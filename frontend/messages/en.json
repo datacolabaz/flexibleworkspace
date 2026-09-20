@@ -11,7 +11,11 @@
     "openMenu": "Open menu",
     "closeMenu": "Close menu",
     "primaryNavigation": "Primary",
-    "skipToContent": "Skip to content"
+    "skipToContent": "Skip to content",
+    "spaces": "Spaces",
+    "events": "Events",
+    "partners": "Partners",
+    "pricing": "Pricing"
   },
   "hero": {
     "title": "Find your spot.",
@@ -20,7 +24,20 @@
     "searchButton": "Search"
   },
   "footer": {
-    "rights": "All rights reserved."
+    "rights": "All rights reserved.",
+    "tagline": "Find the right place for work, learning, events and creating.",
+    "discoverTitle": "Discover",
+    "spaces": "Spaces",
+    "events": "Events",
+    "howItWorks": "How it works",
+    "businessTitle": "Business",
+    "listSpace": "List your space",
+    "pricing": "Monetization",
+    "advertise": "Advertise",
+    "ecosystemTitle": "Ecosystem",
+    "partners": "Partners",
+    "privacy": "Privacy",
+    "dataDeletion": "Data deletion"
   },
   "common": {
     "comingSoon": "Coming soon."
@@ -28,7 +45,7 @@
   "auth": {
     "login": {
       "title": "Log in to Spotva",
-      "subtitle": "Continue with your Google or Facebook account — no password to remember here.",
+      "subtitle": "Continue securely and quickly with your Google account.",
       "noMethodsAvailable": "Sign-in isn't available right now. Please try again shortly.",
       "continueWithFacebook": "Continue with Facebook",
       "errors": {
@@ -39,6 +56,29 @@
         "popupBlocked": "Your browser blocked the sign-in window. Please allow pop-ups for this site and try again.",
         "loginTimedOut": "This sign-in didn't finish. If a window opened, please close it, then try again.",
         "generic": "Something went wrong. Please try again."
+      },
+      "secureBadge": "Secure sign-in",
+      "oneStep": "one-step access",
+      "privacyPrefix": "By continuing, you agree to our privacy terms.",
+      "privacyLink": "Privacy policy",
+      "panel": {
+        "eyebrow": "Your Spotva account",
+        "title": "Your plans, spaces and events in one place",
+        "body": "Track bookings, save favorites and grow as an organizer with one account.",
+        "features": {
+          "bookings": {
+            "title": "Bookings",
+            "body": "Dates, payments and confirmations stay clear."
+          },
+          "favorites": {
+            "title": "Favorites",
+            "body": "Save spaces and compare them later."
+          },
+          "organizer": {
+            "title": "Organizer tools",
+            "body": "Be ready for event and audience capabilities."
+          }
+        }
       }
     }
   },
@@ -459,5 +499,424 @@
     "successMessage": "We'll review your application and be in touch. Thanks for choosing Spotva.",
     "signedOutError": "You've been signed out. Please sign in again.",
     "genericError": "Something went wrong. Please try again."
+  },
+  "home": {
+    "metaTitle": "Spotva — discover spaces, events and communities in Baku",
+    "metaDescription": "Find and book spaces for workshops, meetings, learning, events and podcasts.",
+    "eyebrow": "A real-world platform starting in Baku",
+    "title": "Find the space. Create the event. Bring people together.",
+    "subtitle": "Discover and book spaces for workshops, classes, seminars, meetings, events and podcasts in one place.",
+    "quickLabel": "Quick search:",
+    "search": {
+      "ariaLabel": "Search spaces on Spotva",
+      "purposeLabel": "Activity",
+      "purposeAny": "What do you want to do?",
+      "cityLabel": "City",
+      "cityPlaceholder": "Baku",
+      "dateLabel": "Date",
+      "guestsLabel": "Guests",
+      "guestsPlaceholder": "1+",
+      "submit": "Search"
+    },
+    "purposeSection": {
+      "eyebrow": "Intent first",
+      "title": "Choose a space for your goal, not just a room",
+      "viewAll": "All spaces",
+      "explore": "Explore"
+    },
+    "purposes": {
+      "workshop": {
+        "title": "Workshop",
+        "body": "Flexible rooms for training, masterclasses and hands-on sessions."
+      },
+      "meeting": {
+        "title": "Meeting",
+        "body": "Professional spaces for teams, interviews and client meetings."
+      },
+      "podcast": {
+        "title": "Podcast",
+        "body": "Ready studios with sound treatment, microphones and video lights."
+      },
+      "event": {
+        "title": "Event",
+        "body": "Venues for seminars, launches, community meetups and small events."
+      }
+    },
+    "loop": {
+      "eyebrow": "One value loop",
+      "title": "Spaces, organizers and guests in one flow",
+      "body": "Spotva is not just a listing directory. It connects availability, registration and trust in one transaction flow.",
+      "ownerCta": "List your space",
+      "organizerCta": "Explore event formats",
+      "steps": {
+        "discover": {
+          "title": "Discover",
+          "body": "Options matched by activity, district, time and group size."
+        },
+        "book": {
+          "title": "Book and RSVP",
+          "body": "Clear price, policies, confirmation and calendar add."
+        },
+        "grow": {
+          "title": "Return",
+          "body": "Reviews, series, follows and an organizer audience."
+        }
+      }
+    },
+    "partners": {
+      "eyebrow": "Partner ecosystem",
+      "title": "Media, education and technology grow together",
+      "body": "Each partner appears with a measurable role and clear user value, not as a logo wall.",
+      "cta": "See the partner model",
+      "roles": {
+        "metbuat": "Media and special projects",
+        "mentorix": "Mentor and education network",
+        "saytaz": "Web, hosting and technology"
+      }
+    },
+    "sponsor": {
+      "label": "Sponsored",
+      "title": "Reach the right Spotva audience",
+      "body": "Transparent placements across space, event, education, technology and business contexts.",
+      "cta": "Advertising options"
+    },
+    "dashboard": {
+      "viewAll": "View all",
+      "sidebarLabel": "Discovery panel",
+      "venues": {
+        "eyebrow": "Space previews",
+        "title": "Popular spaces in Baku",
+        "capacity": "capacity",
+        "perHour": "/ hour",
+        "verified": "verified",
+        "available": "Available today",
+        "items": {
+          "workshop": {
+            "type": "Workshop room",
+            "name": "Creative Workshop Space",
+            "district": "Sabail",
+            "hours": "09:00–21:00"
+          },
+          "podcast": {
+            "type": "Audio studio",
+            "name": "Baku Podcast Studio",
+            "district": "Nizami",
+            "hours": "10:00–22:00"
+          },
+          "coworking": {
+            "type": "Coworking",
+            "name": "Caspian Co-work Loft",
+            "district": "Old City",
+            "hours": "08:00–20:00"
+          }
+        },
+        "disclaimer": "Cards are design previews, not live provider inventory."
+      },
+      "upcoming": {
+        "title": "Workshop and event formats",
+        "items": {
+          "workshop": {
+            "tag": "Workshop",
+            "title": "Creative sessions",
+            "body": "Choose a space, shape the program and gather your group."
+          },
+          "event": {
+            "tag": "Event",
+            "title": "Community and business meetups",
+            "body": "From seminars to product launches."
+          },
+          "podcast": {
+            "tag": "Podcast",
+            "title": "Live and studio recording",
+            "body": "Sound, light and a comfortable recording setup."
+          }
+        }
+      },
+      "calendar": {
+        "title": "Upcoming dates",
+        "weekdays": {
+          "mon": "Mo",
+          "tue": "Tu",
+          "wed": "We",
+          "thu": "Th",
+          "fri": "Fr",
+          "sat": "Sa",
+          "sun": "Su"
+        }
+      },
+      "community": {
+        "eyebrow": "Community focus",
+        "name": "Mentors and organizers",
+        "role": "Learning · Creative · Baku",
+        "body": "Verified profiles, event series and attendee reviews in one ecosystem.",
+        "cta": "Explore the ecosystem"
+      },
+      "map": {
+        "title": "Baku map",
+        "cta": "Open map",
+        "ariaLabel": "Open the map of spaces across Baku"
+      }
+    }
+  },
+  "eventsPage": {
+    "metaTitle": "Events and organizers — Spotva",
+    "metaDescription": "Connect workshops, training, seminars, podcasts and communities with spaces, RSVP and organizer tools.",
+    "badge": "Organizer beta",
+    "title": "From event idea to attendee check-in",
+    "subtitle": "Find a venue, publish the event, manage registration and retain your audience for the next session.",
+    "organizerCta": "Start as an organizer",
+    "venueCta": "Find an event space",
+    "formatsTitle": "Formats built for Spotva",
+    "formats": {
+      "workshop": {
+        "title": "Workshop",
+        "body": "Interactive and practical sessions."
+      },
+      "training": {
+        "title": "Training and classes",
+        "body": "Single sessions and recurring course series."
+      },
+      "seminar": {
+        "title": "Seminar",
+        "body": "Expert talks and professional programs."
+      },
+      "podcast": {
+        "title": "Podcast",
+        "body": "Live recording, studio sessions and audience episodes."
+      },
+      "community": {
+        "title": "Community meetup",
+        "body": "Clubs, meetups and focused networking."
+      },
+      "corporate": {
+        "title": "Corporate session",
+        "body": "Team training, offsites and strategy meetings."
+      }
+    },
+    "flowTitle": "Organizer flow",
+    "flow": {
+      "venue": {
+        "title": "Choose a venue",
+        "body": "Compare capacity, equipment and time."
+      },
+      "publish": {
+        "title": "Publish",
+        "body": "Create free RSVP, paid tickets or a series."
+      },
+      "manage": {
+        "title": "Manage",
+        "body": "Waitlist, reminders, QR check-in and analytics."
+      }
+    },
+    "betaNote": "Note: the event catalog and ticket domain will be introduced in phases; the current booking engine remains the trusted base for venue reservations."
+  },
+  "pricingPage": {
+    "metaTitle": "Monetization and revenue split — Spotva",
+    "metaDescription": "Spotva's recommended pilot monetization model for venue owners, organizers and partners.",
+    "pilotBadge": "Recommended pilot model",
+    "title": "Free to enter, paid when value is created",
+    "intro": "The model protects marketplace liquidity: listing a space and running a free event stay free; Spotva earns from bookings, paid tickets and measurable professional tools.",
+    "table": {
+      "model": "Model",
+      "price": "Recommended price",
+      "includes": "Includes",
+      "why": "Why it works"
+    },
+    "host": {
+      "title": "Venue owner",
+      "rows": {
+        "listing": {
+          "name": "Free listing",
+          "price": "0 AZN",
+          "includes": "1 venue, 3 spaces, basic calendar and inquiries",
+          "why": "Removes the supply-side entry barrier."
+        },
+        "booking": {
+          "name": "Successful booking",
+          "price": "8–15%",
+          "includes": "Payment, confirmation, notifications, support and payout ledger",
+          "why": "Spotva earns only after the venue earns."
+        },
+        "pro": {
+          "name": "Spotva Pro",
+          "price": "29–59 AZN / month",
+          "includes": "Multiple venues, staff roles, analytics and calendar sync",
+          "why": "Optional payment for tools that save operating time."
+        },
+        "featured": {
+          "name": "Featured placement",
+          "price": "15–30 AZN / week",
+          "includes": "Clearly sponsored visibility in relevant search",
+          "why": "Adds reach without hiding organic rank."
+        }
+      }
+    },
+    "organizer": {
+      "title": "Organizer and educator",
+      "rows": {
+        "free": {
+          "name": "Free RSVP",
+          "price": "0 AZN",
+          "includes": "Event page, capacity, waitlist and reminders",
+          "why": "Accelerates community adoption."
+        },
+        "paid": {
+          "name": "Paid tickets",
+          "price": "5% + processing",
+          "includes": "Checkout, ticket, refund status and QR check-in",
+          "why": "Revenue is tied directly to ticket sales."
+        },
+        "pro": {
+          "name": "Organizer Pro",
+          "price": "29 AZN / month",
+          "includes": "Series, CRM segments, exports and team roles",
+          "why": "Reduces the operations load for repeat organizers."
+        },
+        "sponsor": {
+          "name": "Event sponsorship",
+          "price": "150–500 AZN / campaign",
+          "includes": "Sponsor module, dedicated page and measurable CTA",
+          "why": "Adds organizer revenue and contextual brand reach."
+        }
+      }
+    },
+    "example": {
+      "eyebrow": "100 AZN booking example",
+      "title": "Every amount is visible at checkout",
+      "body": "This example assumes a 10% host fee, 5% guest service fee and 3% payment processing. Tax and invoicing effects are excluded.",
+      "rows": {
+        "base": {
+          "label": "Venue base price",
+          "value": "100.00 AZN"
+        },
+        "guestFee": {
+          "label": "Guest service fee (5%)",
+          "value": "+5.00 AZN"
+        },
+        "customerTotal": {
+          "label": "Customer pays",
+          "value": "105.00 AZN"
+        },
+        "hostFee": {
+          "label": "Host commission (10%)",
+          "value": "−10.00 AZN"
+        },
+        "hostNet": {
+          "label": "Venue receives",
+          "value": "90.00 AZN"
+        },
+        "spotvaGross": {
+          "label": "Spotva gross platform revenue",
+          "value": "15.00 AZN"
+        },
+        "processing": {
+          "label": "Payment processing (example 3%)",
+          "value": "−3.15 AZN"
+        },
+        "spotvaNet": {
+          "label": "Spotva net before tax and operations",
+          "value": "11.85 AZN"
+        }
+      }
+    },
+    "legalTitle": "Important:",
+    "legalBody": "Rates are pilot hypotheses. Commission, VAT, invoicing and payout timing require Azerbaijan legal and accounting approval before production.",
+    "hostCta": "List your space",
+    "partnerCta": "Advertising model"
+  },
+  "partnersPage": {
+    "metaTitle": "Partner ecosystem — Spotva",
+    "metaDescription": "Spotva connects media, education and technology partners through clearly defined product and advertising roles.",
+    "eyebrow": "Partner ecosystem",
+    "title": "Not a logo wall — a working partnership model",
+    "intro": "Partners appear where they create real user value; paid placement is always clearly disclosed.",
+    "placementLabel": "Recommended placement",
+    "visit": "Visit website",
+    "items": {
+      "metbuat": {
+        "type": "Media partner",
+        "role": "Special projects, sponsored stories and measurable media campaigns around events and education.",
+        "placement": "Spotva partner hub, sponsored content and media-partner badge on event pages."
+      },
+      "mentorix": {
+        "type": "Education partner",
+        "role": "Connects mentors, educators and students with spaces, workshops and development programs.",
+        "placement": "Mentor profile, learning series, referral landing page and contextual event cards."
+      },
+      "saytaz": {
+        "type": "Technology partner",
+        "role": "Connects web, domain, hosting and digital services to the Spotva ecosystem.",
+        "placement": "Tools directory, joint business package, referrals and verified integration page."
+      }
+    },
+    "principlesTitle": "Three rules that protect trust",
+    "principles": {
+      "disclosure": {
+        "title": "Clear disclosure",
+        "body": "Ads, sponsored content and partner offers are labeled by name."
+      },
+      "organic": {
+        "title": "Organic stays separate",
+        "body": "Payment never secretly changes ratings, reviews or relevance order."
+      },
+      "measurement": {
+        "title": "Measured outcomes",
+        "body": "UTM, clicks, leads, bookings and activation are reported separately."
+      }
+    },
+    "cta": "Advertising and partnership options"
+  },
+  "advertisePage": {
+    "metaTitle": "Advertise on Spotva — sponsored placements",
+    "metaDescription": "Transparent Spotva ad inventory for venue, event, education, technology and business audiences.",
+    "badge": "Advertising and sponsorship",
+    "title": "Contextual reach with clear measurement",
+    "intro": "Spotva places ads close to user intent: an event sponsor for event seekers, and the right business service for venue owners.",
+    "inventoryTitle": "Recommended advertising inventory",
+    "inventory": {
+      "featured": {
+        "label": "Marketplace",
+        "title": "Sponsored listing",
+        "body": "Labeled promotion in relevant search and category pages.",
+        "pricing": "15–30 AZN / week"
+      },
+      "category": {
+        "label": "Brand",
+        "title": "Category sponsor",
+        "body": "Banner and dedicated CTA across podcast, workshop or event categories.",
+        "pricing": "150–300 AZN / week"
+      },
+      "eventSponsor": {
+        "label": "Event",
+        "title": "Event sponsorship",
+        "body": "Event page, registration message and post-check-in thank-you module.",
+        "pricing": "150–500 AZN / campaign"
+      },
+      "native": {
+        "label": "Content",
+        "title": "Sponsored guide",
+        "body": "Useful thematic content visually separated from editorial material.",
+        "pricing": "400–800 AZN / package"
+      },
+      "referral": {
+        "label": "Performance",
+        "title": "Referral partnership",
+        "body": "Revenue share from Spotva's commission on confirmed bookings.",
+        "pricing": "10–25% of platform fee"
+      }
+    },
+    "audienceTitle": "Who can advertise?",
+    "audienceBody": "Only categories relevant to Spotva's real-world activity and business context should be accepted.",
+    "audiences": {
+      "education": "Education and mentoring",
+      "technology": "SaaS, web and hosting",
+      "business": "Banking, payments and telecom",
+      "creative": "Camera, audio and creator tools",
+      "hospitality": "Venues, catering and hospitality"
+    },
+    "trustEyebrow": "Advertising policy",
+    "trustTitle": "Money does not buy trust",
+    "trustBody": "Sponsored placement never secretly changes organic results. Each ad must show its label, partner name, conditions and measurement method.",
+    "cta": "See the partner model"
   }
 }

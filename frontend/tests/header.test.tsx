@@ -73,9 +73,10 @@ describe('Header', () => {
     displayNameToReturn = undefined;
   });
 
-  it('routes Search / How it works / For businesses to their real pages (06_INFORMATION_ARCHITECTURE.md §6.5)', async () => {
+  it('routes Spaces / Events / How it works / For businesses to their real pages (06_INFORMATION_ARCHITECTURE.md §6.5)', async () => {
     await renderHeader();
-    expect(screen.getByRole('link', { name: 'Search' })).toHaveAttribute('href', '/search');
+    expect(screen.getByRole('link', { name: 'Spaces' })).toHaveAttribute('href', '/search');
+    expect(screen.getByRole('link', { name: 'Events' })).toHaveAttribute('href', '/events');
     expect(screen.getByRole('link', { name: 'How it works' })).toHaveAttribute('href', '/how-it-works');
     expect(screen.getByRole('link', { name: 'For businesses' })).toHaveAttribute('href', '/for-businesses');
   });
