@@ -62,6 +62,16 @@ export function GoogleSignInButton({ redirectTo, onError }: OAuthSignInButtonPro
         if (cancelled) return;
         google.accounts.id.initialize({
           client_id: clientId,
+          // Chrome's newer FedCM-based rendering shows a personalized
+          // "Continue as <name> / <email>" card whenever the browser
+          // already has a signed-in Google session — that's Chrome's own
+          // account-chooser UI, not our button, so none of renderButton's
+          // own options (theme/text/shape/…) can change it. Opting out of
+          // FedCM here keeps the classic button: a plain "Continue with
+          // Google" that matches the Facebook button beside it, with the
+          // account only chosen after a click, inside Google's own popup —
+          // rather than showing the visitor's email on the page itself.
+          use_fedcm_for_button: false,
           callback: (response) => {
             void (async () => {
               try {

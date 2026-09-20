@@ -17,6 +17,9 @@ interface GoogleAccountsId {
     callback: (response: GoogleCredentialResponse) => void;
     auto_select?: boolean;
     itp_support?: boolean;
+    /** false keeps renderButton on Google's classic (pre-FedCM) button —
+     * see the comment above its use in GoogleSignInButton.tsx. */
+    use_fedcm_for_button?: boolean;
   }): void;
   renderButton(
     parent: HTMLElement,
