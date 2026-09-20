@@ -1,7 +1,7 @@
 /**
- * Same purpose as otp-error-messages.ts, for the Google/Facebook sign-in
- * buttons: maps a backend error code (auth.service.ts's loginWithGoogle /
- * loginWithFacebook) to a translation key under auth.login.errors.
+ * Maps a backend error code (auth.service.ts's loginWithGoogle /
+ * loginWithFacebook) to a translation key under auth.login.errors, for
+ * the Google/Facebook sign-in buttons.
  */
 export type OAuthErrorKey =
   | 'oauthNotConfigured'
