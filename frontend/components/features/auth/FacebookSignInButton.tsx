@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { useRouter } from '@/lib/i18n/navigation';
 import { Button } from '@/components/ui/Button';
@@ -24,12 +24,44 @@ export function FacebookSignInButton({ redirectTo, onError }: OAuthSignInButtonP
   const [isLoading, setIsLoading] = useState(false);
   const appId = process.env.NEXT_PUBLIC_FACEBOOK_APP_ID;
 
+  // Start fetching the Facebook SDK as soon as this button mounts, rather
+  // than waiting for the click. FB.login() opens its sign-in window with
+  // window.open(), and browsers only allow that when it's called
+  // synchronously inside a genuine click handler — any await in between
+  // (the SDK's own script tag doing a real network fetch, which is what
+  // used to happen here on every visitor's very first click, since the
+  // SDK is never cached yet) breaks that chain, so the browser silently
+  // blocks the popup: FB.login()'s callback never fires, no error
+  // surfaces, and the click looks like it did nothing at all. Preloading
+  // here means window.FB already exists by the time someone clicks, so
+  // handleClick can call FB.login() synchronously.
+  useEffect(() => {
+    if (!appId) return;
+    loadFacebookSdk(appId).catch(() => {
+      // Network hiccup / blocked request — handleClick's own fallback
+      // path below covers this on click.
+    });
+  }, [appId]);
+
   if (!appId) return null;
 
-  async function handleClick() {
+  function runLogin(FB: NonNullable<Window['FB']>) {
     setIsLoading(true);
+
+    // Detect a blocked popup instead of leaving the button spinning
+    // forever with no feedback: FB.login() calls window.open()
+    // synchronously below, so a temporary patch around just this call
+    // catches a blocked window (window.open returning null/undefined)
+    // without touching window.open for anything else on the page.
+    const originalOpen = window.open;
+    let popupBlocked = false;
+    window.open = ((...args: Parameters<typeof window.open>) => {
+      const win = originalOpen.apply(window, args);
+      if (!win) popupBlocked = true;
+      return win;
+    }) as typeof window.open;
+
     try {
-      const FB = await loadFacebookSdk(appId!);
       FB.login(
         (loginResponse) => {
           const accessToken = loginResponse.authResponse?.accessToken;
@@ -63,10 +95,34 @@ export function FacebookSignInButton({ redirectTo, onError }: OAuthSignInButtonP
         },
         { scope: 'email', return_scopes: true },
       );
-    } catch {
-      onError(t('errors.generic'));
+    } finally {
+      window.open = originalOpen;
+    }
+
+    if (popupBlocked) {
+      onError(t('errors.popupBlocked'));
       setIsLoading(false);
     }
+  }
+
+  function handleClick() {
+    if (!appId) return;
+    if (window.FB) {
+      runLogin(window.FB);
+      return;
+    }
+    // Preload above hasn't resolved yet (slow network, or the script was
+    // blocked) — fall back to loading on click. This can still lose the
+    // popup permission the same way the old code always did, but it's
+    // now the rare case rather than the default, and a blocked popup at
+    // least surfaces the message above instead of silence.
+    setIsLoading(true);
+    loadFacebookSdk(appId)
+      .then((FB) => runLogin(FB))
+      .catch(() => {
+        onError(t('errors.generic'));
+        setIsLoading(false);
+      });
   }
 
   return (

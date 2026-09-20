@@ -37,6 +37,26 @@ export function GoogleSignInButton({ redirectTo, onError }: OAuthSignInButtonPro
     let cancelled = false;
     const container = containerRef.current;
 
+    // Google's own button (rendered inside its iframe) opens its sign-in
+    // window itself — we never call window.open ourselves, so we can't
+    // wrap it the way FacebookSignInButton wraps FB.login(). When that
+    // window is blocked (an aggressive popup blocker, or the site being
+    // opened inside an embedded browser such as the Instagram/Facebook
+    // in-app browser, which disallow popups outright), the click just
+    // does nothing — Google's SDK logs it to the console as a
+    // "[GSI_LOGGER] Failed to open popup window" error but never calls
+    // back into our code, so nothing else tells the visitor what
+    // happened. Watching for that specific, stable log line is the only
+    // hook available here, and turns that silence into a real message.
+    const originalConsoleError = console.error;
+    console.error = (...args: unknown[]) => {
+      const text = args.map((a) => (typeof a === 'string' ? a : '')).join(' ');
+      if (text.includes('[GSI_LOGGER]') && /popup/i.test(text)) {
+        onError(t('errors.popupBlocked'));
+      }
+      originalConsoleError(...args);
+    };
+
     loadGoogleIdentityServices()
       .then((google) => {
         if (cancelled) return;
@@ -84,6 +104,7 @@ export function GoogleSignInButton({ redirectTo, onError }: OAuthSignInButtonPro
 
     return () => {
       cancelled = true;
+      console.error = originalConsoleError;
     };
   }, [clientId, redirectTo, router, t, onError]);
 

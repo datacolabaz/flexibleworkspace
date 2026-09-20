@@ -36,6 +36,7 @@
         "oauthEmailNotVerified": "Your account's email isn't verified.",
         "oauthEmailRequired": "Please allow access to your email address to sign in.",
         "oauthFailed": "We couldn't sign you in. Please try again.",
+        "popupBlocked": "Your browser blocked the sign-in window. Please allow pop-ups for this site and try again.",
         "generic": "Something went wrong. Please try again."
       }
     }

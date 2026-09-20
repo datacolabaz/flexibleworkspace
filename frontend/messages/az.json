@@ -36,6 +36,7 @@
         "oauthEmailNotVerified": "Hesabınızın e-poçtu təsdiqlənməyib.",
         "oauthEmailRequired": "Daxil olmaq üçün e-poçt ünvanına icazə verin.",
         "oauthFailed": "Daxil olmaq mümkün olmadı. Yenidən cəhd edin.",
+        "popupBlocked": "Brauzeriniz giriş pəncərəsini blokladı. Zəhmət olmasa bu sayt üçün pop-up pəncərələrə icazə verib yenidən cəhd edin.",
         "generic": "Nəsə səhv getdi. Zəhmət olmasa yenidən cəhd edin."
       }
     }
