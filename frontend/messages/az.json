@@ -263,6 +263,8 @@
     "reviewsTabLabel": "Rəylər",
     "paymentHistoryTabLabel": "Ödəniş tarixçəsi",
     "profileTabLabel": "Profil",
+    "logoutButton": "Çıxış",
+    "loggingOutButton": "Çıxış edilir…",
     "bookings": {
       "pageTitle": "Rezervasiyalarım",
       "filterAll": "Hamısı",

@@ -263,6 +263,8 @@
     "reviewsTabLabel": "Reviews",
     "paymentHistoryTabLabel": "Payment history",
     "profileTabLabel": "Profile",
+    "logoutButton": "Log out",
+    "loggingOutButton": "Logging out…",
     "bookings": {
       "pageTitle": "My bookings",
       "filterAll": "All",

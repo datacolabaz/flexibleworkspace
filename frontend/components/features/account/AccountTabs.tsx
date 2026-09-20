@@ -1,7 +1,8 @@
 'use client';
 
+import { useState } from 'react';
 import { useTranslations } from 'next-intl';
-import { Link, usePathname } from '@/lib/i18n/navigation';
+import { Link, usePathname, useRouter } from '@/lib/i18n/navigation';
 
 const TABS = [
   { href: '/account/bookings', labelKey: 'bookingsTabLabel' } as const,
@@ -29,27 +30,57 @@ const TABS = [
 export function AccountTabs() {
   const t = useTranslations('account');
   const pathname = usePathname();
+  const router = useRouter();
+  const [loggingOut, setLoggingOut] = useState(false);
+
+  // POST /api/auth/logout clears the BFF session cookies unconditionally
+  // (best-effort backend revoke — see that route's own comment), so the
+  // client side only needs to wait for it to finish, then leave /account
+  // entirely: router.refresh() alone would re-run this page's Server
+  // Component and hit its own accessToken redirect anyway, but pushing to
+  // "/" directly is one navigation instead of two and lands somewhere
+  // that makes sense to be signed out on.
+  async function handleLogout() {
+    setLoggingOut(true);
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' });
+    } finally {
+      router.push('/');
+      router.refresh();
+    }
+  }
 
   return (
-    <nav aria-label={t('tabsNavLabel')} className="flex gap-1 overflow-x-auto border-b border-border">
-      {TABS.map((tab) => {
-        const active = pathname.startsWith(tab.href);
-        return (
-          <Link
-            key={tab.href}
-            href={tab.href}
-            aria-current={active ? 'page' : undefined}
-            className={[
-              'min-h-11 shrink-0 whitespace-nowrap border-b-2 px-3 py-2 text-label font-semibold transition-colors',
-              active
-                ? 'border-primary text-text-primary'
-                : 'border-transparent text-text-secondary hover:text-text-primary',
-            ].join(' ')}
-          >
-            {t(tab.labelKey)}
-          </Link>
-        );
-      })}
-    </nav>
+    <div className="flex items-center justify-between gap-2 border-b border-border">
+      <nav aria-label={t('tabsNavLabel')} className="flex gap-1 overflow-x-auto">
+        {TABS.map((tab) => {
+          const active = pathname.startsWith(tab.href);
+          return (
+            <Link
+              key={tab.href}
+              href={tab.href}
+              aria-current={active ? 'page' : undefined}
+              className={[
+                'min-h-11 shrink-0 whitespace-nowrap border-b-2 px-3 py-2 text-label font-semibold transition-colors',
+                active
+                  ? 'border-primary text-text-primary'
+                  : 'border-transparent text-text-secondary hover:text-text-primary',
+              ].join(' ')}
+            >
+              {t(tab.labelKey)}
+            </Link>
+          );
+        })}
+      </nav>
+
+      <button
+        type="button"
+        onClick={handleLogout}
+        disabled={loggingOut}
+        className="min-h-11 shrink-0 whitespace-nowrap px-3 py-2 text-label font-semibold text-text-secondary transition-colors hover:text-text-primary disabled:opacity-60"
+      >
+        {loggingOut ? t('loggingOutButton') : t('logoutButton')}
+      </button>
+    </div>
   );
 }

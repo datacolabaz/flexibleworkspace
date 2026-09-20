@@ -263,6 +263,8 @@
     "reviewsTabLabel": "Отзывы",
     "paymentHistoryTabLabel": "История платежей",
     "profileTabLabel": "Профиль",
+    "logoutButton": "Выйти",
+    "loggingOutButton": "Выход…",
     "bookings": {
       "pageTitle": "Мои бронирования",
       "filterAll": "Все",
