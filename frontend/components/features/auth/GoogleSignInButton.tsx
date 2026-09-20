@@ -71,7 +71,14 @@ export function GoogleSignInButton({ redirectTo, onError }: OAuthSignInButtonPro
                   body: JSON.stringify({ idToken: response.credential }),
                 });
                 if (res.ok) {
+                  // push() alone lands on whatever Next.js had already
+                  // cached for that route from before sign-in (same
+                  // reason AccountTabs' logout pairs push with refresh)
+                  // — without this, the header/account pages can render
+                  // stale pre-login (or even a previous visitor's
+                  // cached) data instead of this session's own profile.
                   router.push(redirectTo ?? '/');
+                  router.refresh();
                   return;
                 }
                 const body = (await res.json().catch(() => undefined)) as
