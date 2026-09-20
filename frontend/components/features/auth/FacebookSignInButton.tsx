@@ -61,9 +61,28 @@ export function FacebookSignInButton({ redirectTo, onError }: OAuthSignInButtonP
       return win;
     }) as typeof window.open;
 
+    // Facebook's SDK normally calls back once the popup either
+    // authorizes or is closed — but if the visitor navigates *inside*
+    // that popup (to their own Facebook feed, say) instead of closing
+    // it, the popup is never "closed" and never redirects back either,
+    // so FB.login()'s callback can simply never fire. Without this
+    // timeout, the button spins forever with no way out except
+    // reloading the page. 90s is generous for someone actually working
+    // through the permission dialog, but still gives up eventually.
+    let settled = false;
+    const timeoutId = window.setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      onError(t('errors.loginTimedOut'));
+      setIsLoading(false);
+    }, 90_000);
+
     try {
       FB.login(
         (loginResponse) => {
+          if (settled) return;
+          settled = true;
+          window.clearTimeout(timeoutId);
           const accessToken = loginResponse.authResponse?.accessToken;
           if (!accessToken) {
             // Person closed the dialog or declined the permission —
@@ -104,6 +123,8 @@ export function FacebookSignInButton({ redirectTo, onError }: OAuthSignInButtonP
     }
 
     if (popupBlocked) {
+      settled = true;
+      window.clearTimeout(timeoutId);
       onError(t('errors.popupBlocked'));
       setIsLoading(false);
     }

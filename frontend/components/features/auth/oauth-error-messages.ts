@@ -9,6 +9,7 @@ export type OAuthErrorKey =
   | 'oauthEmailRequired'
   | 'oauthFailed'
   | 'popupBlocked'
+  | 'loginTimedOut'
   | 'generic';
 
 export function oauthErrorMessageKey(code: string | undefined): OAuthErrorKey {
