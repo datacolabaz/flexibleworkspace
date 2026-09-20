@@ -397,6 +397,50 @@
     },
     "ctaButton": "Find a space"
   },
+  "privacyPolicy": {
+    "pageTitle": "Privacy Policy",
+    "lastUpdated": "Last updated: September 2026",
+    "sections": {
+      "dataCollected": {
+        "title": "What we collect",
+        "body": "When you create a Spotva account, we collect your email address and, if you sign in with Google or Facebook, your name, email address, and profile picture from that provider. When you book a space, we collect the booking details (space, date, time, price) and payment confirmation from our payment processor — we never see or store your card number ourselves. If you list a space as a provider, we collect your space's details, photos, and payout information."
+      },
+      "howWeUse": {
+        "title": "How we use it",
+        "body": "We use your data to create and secure your account, process bookings and payments, send booking confirmations and reminders, and respond to support requests. We do not sell your personal data to third parties, and we do not use it for advertising."
+      },
+      "thirdParties": {
+        "title": "Who we share it with",
+        "body": "We share the minimum data needed with: Google and/or Facebook (to verify your identity, only if you choose to sign in that way), our payment processor (Epoint/Payriff, to process payments), and our hosting and email providers (to run the service and deliver notifications). Each of these providers processes your data under its own privacy policy."
+      },
+      "cookies": {
+        "title": "Cookies",
+        "body": "Spotva uses httpOnly session cookies to keep you signed in. These are strictly necessary for the service to work and cannot be used to track you across other websites."
+      },
+      "retention": {
+        "title": "How long we keep it",
+        "body": "We keep your account data for as long as your account is active. Booking and payment records are kept longer where required for accounting, tax, or dispute-resolution purposes, even after an account is deleted."
+      },
+      "yourRights": {
+        "title": "Your rights",
+        "body": "You can review and update your account details at any time from your account settings. You can request a copy of your data, or ask us to delete your account and personal data — see our Data Deletion page for how."
+      },
+      "contact": {
+        "title": "Contact us",
+        "body": "Questions about this policy or your data? Email us at ugctelman@gmail.com."
+      }
+    }
+  },
+  "dataDeletion": {
+    "pageTitle": "Data Deletion",
+    "intro": "You can ask us to delete your Spotva account and the personal data associated with it at any time.",
+    "steps": {
+      "step1": "Email ugctelman@gmail.com from the address linked to your Spotva account, with the subject \"Delete my data.\"",
+      "step2": "We'll confirm your identity and process the request — this usually takes a few business days.",
+      "step3": "We'll email you once your account and personal data have been deleted, and let you know if anything had to be kept (see below)."
+    },
+    "retentionNote": "We may keep records of past bookings and payments even after deletion, where the law requires it for accounting, tax, or dispute purposes. This data is kept only as long as required and is not used for any other purpose."
+  },
   "forBusinesses": {
     "pageTitle": "List your space on Spotva",
     "pageIntro": "Turn empty hours into bookings. Spotva connects your meeting rooms, studios, and event spaces with people who need them.",

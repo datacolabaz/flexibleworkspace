@@ -397,6 +397,50 @@
     },
     "ctaButton": "Məkan tap"
   },
+  "privacyPolicy": {
+    "pageTitle": "Məxfilik siyasəti",
+    "lastUpdated": "Son yenilənmə: Sentyabr 2026",
+    "sections": {
+      "dataCollected": {
+        "title": "Nə toplayırıq",
+        "body": "Spotva hesabı yaratdıqda email ünvanını, Google və ya Facebook ilə giriş etdikdə isə o provayderdən adını, email ünvanını və profil şəklini toplayırıq. Rezervasiya etdikdə rezervasiya detallarını (məkan, tarix, vaxt, qiymət) və ödəniş provayderimizdən təsdiqi toplayırıq — kart nömrənizi özümüz heç vaxt görmürük və saxlamırıq. Əgər provayder kimi məkan yerləşdirirsənsə, məkanının detallarını, şəkillərini və ödəniş məlumatlarını toplayırıq."
+      },
+      "howWeUse": {
+        "title": "Necə istifadə edirik",
+        "body": "Məlumatlarınızı hesabınızı yaratmaq və qorumaq, rezervasiya və ödənişləri emal etmək, rezervasiya təsdiqləri və xatırlatmalar göndərmək, dəstək sorğularına cavab vermək üçün istifadə edirik. Şəxsi məlumatlarınızı üçüncü tərəflərə satmırıq və reklam üçün istifadə etmirik."
+      },
+      "thirdParties": {
+        "title": "Kimlərlə paylaşırıq",
+        "body": "Yalnız zəruri olan minimum məlumatı bunlarla paylaşırıq: Google və/və ya Facebook (yalnız onlarla giriş etməyi seçsəniz, kimliyinizi təsdiqləmək üçün), ödəniş provayderimiz (Epoint/Payriff, ödənişləri emal etmək üçün) və hosting/email provayderlərimiz (xidməti işlətmək və bildirişləri çatdırmaq üçün). Bu provayderlərin hər biri məlumatlarınızı öz məxfilik siyasətinə uyğun emal edir."
+      },
+      "cookies": {
+        "title": "Cookie-lər",
+        "body": "Spotva sizi sistemə daxil saxlamaq üçün httpOnly sessiya cookie-lərindən istifadə edir. Bunlar xidmətin işləməsi üçün zəruridir və sizi başqa saytlarda izləmək üçün istifadə oluna bilməz."
+      },
+      "retention": {
+        "title": "Nə qədər saxlayırıq",
+        "body": "Hesab məlumatlarınızı hesabınız aktiv olduğu müddətdə saxlayırıq. Rezervasiya və ödəniş qeydlərini mühasibatlıq, vergi və ya mübahisə həlli tələb etdiyi hallarda, hesab silinsə belə, daha uzun saxlaya bilərik."
+      },
+      "yourRights": {
+        "title": "Hüquqlarınız",
+        "body": "Hesab məlumatlarınızı istənilən vaxt hesab tənzimləmələrindən yoxlaya və yeniləyə bilərsiniz. Məlumatlarınızın surətini tələb edə, və ya hesabınızın və şəxsi məlumatlarınızın silinməsini istəyə bilərsiniz — necə edəcəyinizi Data Deletion səhifəmizdə gör."
+      },
+      "contact": {
+        "title": "Bizimlə əlaqə",
+        "body": "Bu siyasət və ya məlumatlarınız barədə sualınız var? ugctelman@gmail.com ünvanına yazın."
+      }
+    }
+  },
+  "dataDeletion": {
+    "pageTitle": "Məlumatların silinməsi",
+    "intro": "İstənilən vaxt Spotva hesabınızın və ona aid şəxsi məlumatların silinməsini bizdən istəyə bilərsiniz.",
+    "steps": {
+      "step1": "Spotva hesabınıza bağlı email ünvanından ugctelman@gmail.com ünvanına \"Delete my data\" mövzusu ilə yazın.",
+      "step2": "Kimliyinizi təsdiqləyib sorğunu emal edəcəyik — bu adətən bir neçə iş günü çəkir.",
+      "step3": "Hesabınız və şəxsi məlumatlarınız silindikdən sonra sizə email göndərəcəyik və nəyin saxlanmalı olduğunu bildirəcəyik (aşağıya bax)."
+    },
+    "retentionNote": "Qanun mühasibatlıq, vergi və ya mübahisə məqsədləri üçün tələb etdiyi hallarda, silinmədən sonra belə keçmiş rezervasiya və ödəniş qeydlərini saxlaya bilərik. Bu məlumat yalnız tələb olunan müddətdə saxlanılır və başqa məqsəd üçün istifadə olunmur."
+  },
   "forBusinesses": {
     "pageTitle": "Məkanını Spotva-da yerləşdir",
     "pageIntro": "Boş saatları rezervasiyaya çevir. Spotva sənin görüşmə otaqlarını, studiyalarını və tədbir məkanlarını onlara ehtiyacı olan insanlarla birləşdirir.",
