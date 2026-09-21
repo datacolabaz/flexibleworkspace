@@ -248,7 +248,7 @@ inputMode="numeric"
 autoComplete="off"
 placeholder={locale.startsWith('en') ? 'mm/dd/yyyy' : 'dd.mm.yyyy'}
 aria-label={t('search.dateLabel')}
-className="min-w-[9.5rem] flex-1 border-0 bg-transparent px-2 text-sm tracking-tight focus:border-0"
+              className="min-w-0 flex-1 border-0 bg-transparent px-2 pr-12 text-sm tracking-tight focus:border-0"
 value={dateText}
               onChange={(e) => {
                 const nextText = formatDateTyping(e.target.value, locale);
@@ -259,7 +259,7 @@ value={dateText}
             />
             <button
               type="button"
-              className="mr-1 shrink-0 rounded-md p-2 text-text-secondary transition-colors hover:bg-surface-elevated focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
+              className="absolute right-1 top-1/2 -translate-y-1/2 rounded-md p-2 text-text-secondary transition-colors hover:bg-surface-elevated focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
               aria-label={t('search.chooseDate')}
               aria-expanded={isCalendarOpen}
               onClick={() => setIsCalendarOpen((open) => !open)}
