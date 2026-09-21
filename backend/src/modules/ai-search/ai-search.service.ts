@@ -1,4 +1,4 @@
-import { Injectable, ServiceUnavailableException, BadGatewayException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 
 export type SearchIntent = {
   filters: {
@@ -43,10 +43,7 @@ export class AiSearchService {
     const apiKey = process.env.OPENAI_API_KEY;
     const apiBase = (process.env.OPENAI_API_BASE ?? 'https://api.openai.com/v1').replace(/\/$/, '');
     if (!apiKey) {
-      throw new ServiceUnavailableException({
-        code: 'AI_SEARCH_NOT_CONFIGURED',
-        message: 'AI search is not configured yet. Use the standard filters instead.',
-      });
+      return this.fallbackIntent(query);
     }
 
     const response = await fetch(`${apiBase}/chat/completions`, {
@@ -69,22 +66,24 @@ export class AiSearchService {
       }),
     }).catch(() => null);
 
-    if (!response?.ok) {
-      throw new BadGatewayException({ code: 'AI_SEARCH_PROVIDER_ERROR', message: 'AI search is temporarily unavailable.' });
-    }
+    if (!response?.ok) return this.fallbackIntent(query);
 
     const payload = await response.json() as { choices?: Array<{ message?: { content?: string } }> };
     const content = payload.choices?.[0]?.message?.content;
-    if (!content) throw new BadGatewayException({ code: 'AI_SEARCH_EMPTY_RESPONSE', message: 'AI search returned no result.' });
+    if (!content) return this.fallbackIntent(query);
 
     let parsed: Record<string, unknown>;
     try {
       parsed = JSON.parse(content) as Record<string, unknown>;
     } catch {
-      throw new BadGatewayException({ code: 'AI_SEARCH_INVALID_RESPONSE', message: 'AI search returned invalid filters.' });
+      return this.fallbackIntent(query);
     }
 
-    const priceMaxAzn = typeof parsed.priceMaxAzn === 'number' && parsed.priceMaxAzn >= 0 ? parsed.priceMaxAzn : null;
+    const priceValue = parsed.priceMaxAzn;
+    const priceMaxAzn = typeof priceValue === 'number' && priceValue >= 0 ? priceValue : null;
+    const amenitiesValue = parsed.amenities;
+    const clarifyingQuestionValue = parsed.clarifyingQuestion;
+    const confidenceValue = parsed.confidence;
     const filters = Object.fromEntries(Object.entries({
       city: parsed.city,
       district: parsed.district,
@@ -94,14 +93,49 @@ export class AiSearchService {
       durationMinutes: parsed.durationMinutes,
       participants: parsed.participants,
       priceMax: priceMaxAzn === null ? undefined : Math.round(priceMaxAzn * 100),
-      amenities: Array.isArray(parsed.amenities) ? parsed.amenities.slice(0, 12) : [],
+      amenities: Array.isArray(amenitiesValue) ? amenitiesValue.slice(0, 12) : [],
       sort: parsed.sort,
     }).filter(([, value]) => value !== null && value !== undefined && value !== '')) as SearchIntent['filters'];
 
     return {
       filters,
-      clarifyingQuestion: typeof parsed.clarifyingQuestion === 'string' ? parsed.clarifyingQuestion : null,
-      confidence: typeof parsed.confidence === 'number' ? Math.max(0, Math.min(1, parsed.confidence)) : 0,
+      clarifyingQuestion: typeof clarifyingQuestionValue === 'string' ? clarifyingQuestionValue : null,
+      confidence: typeof confidenceValue === 'number' ? Math.max(0, Math.min(1, confidenceValue)) : 0,
+    };
+  }
+
+  private fallbackIntent(query: string): SearchIntent {
+    const text = query.toLocaleLowerCase('az-AZ');
+    const number = (pattern: RegExp) => {
+      const match = text.match(pattern);
+      return match ? Number(match[1]) : undefined;
+    };
+    const district = ['nərimanov', 'yasamal', 'xətai', 'nəsimi', 'səbail', 'binəqədi'].find((value) => text.includes(value));
+    const city = text.includes('baku') || text.includes('bakı') ? 'Baku' : undefined;
+    const roomType = text.includes('studio') ? 'room_type.photo_video_studio' : text.includes('tədbir') ? 'room_type.event_space' : text.includes('görüş') || text.includes('iclas') ? 'room_type.meeting_room' : undefined;
+    const amenityMap: Array<[RegExp, string]> = [
+      [/proyektor|projector/, 'amenity.projector'],
+      [/wifi|wi-fi/, 'amenity.wifi'],
+      [/ağ lövhə|whiteboard/, 'amenity.whiteboard'],
+      [/parkinq|avtodayanacaq|parking/, 'amenity.parking'],
+      [/metro/, 'amenity.near_metro'],
+    ];
+    const amenities = amenityMap.filter(([pattern]) => pattern.test(text)).map(([, key]) => key);
+    const participants = number(/(\d+)\s*(?:nəfər|people|persons|чел)/);
+    const priceAzn = number(/(\d+)\s*(?:azn|manat|₼)/);
+    const hours = number(/(\d+)\s*(?:saat|hour|ч)/);
+    return {
+      filters: {
+        ...(city ? { city } : {}),
+        ...(district ? { district } : {}),
+        ...(roomType ? { roomType } : {}),
+        ...(participants ? { participants } : {}),
+        ...(priceAzn ? { priceMax: priceAzn * 100 } : {}),
+        ...(hours ? { durationMinutes: hours * 60 } : {}),
+        amenities,
+      },
+      clarifyingQuestion: amenities.length || city || district || roomType || participants || priceAzn ? null : 'Şəhər, iştirakçı sayı və ya büdcə əlavə edin.',
+      confidence: 0.35,
     };
   }
 }
