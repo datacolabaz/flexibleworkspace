@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
 import { useSearchParams } from 'next/navigation';
 import { usePathname, useRouter } from '@/lib/i18n/navigation';
@@ -92,6 +92,12 @@ function formatDateTyping(value: string, locale: string): string {
   return chunks.filter(Boolean).join(locale.startsWith('en') ? '/' : '.');
 }
 
+function openNativePicker(input: HTMLInputElement | null): void {
+  if (!input) return;
+  if (typeof input.showPicker === 'function') input.showPicker();
+  else input.click();
+}
+
 function draftToQueryString(draft: FilterDraft): string {
   const qs = new URLSearchParams();
   if (draft.city.trim()) qs.set('city', draft.city.trim());
@@ -125,6 +131,8 @@ function FilterFields({ draft, onChange }: { draft: FilterDraft; onChange: (next
   const locale = useLocale();
   const [dateText, setDateText] = useState(() => formatDateForDisplay(draft.date || getCurrentDate(), locale));
   const [timeText, setTimeText] = useState(() => draft.startTime || getCurrentTime());
+  const datePickerRef = useRef<HTMLInputElement>(null);
+  const timePickerRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     setDateText(formatDateForDisplay(draft.date || getCurrentDate(), locale));
@@ -172,38 +180,87 @@ function FilterFields({ draft, onChange }: { draft: FilterDraft; onChange: (next
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="filter-date">{t('search.dateLabel')}</Label>
-          <Input
-            id="filter-date"
-            type="text"
-            inputMode="numeric"
-            autoComplete="off"
-            placeholder={locale.startsWith('en') ? 'mm/dd/yyyy' : 'dd.mm.yyyy'}
-            aria-label={t('search.dateLabel')}
-            className="min-w-0 text-sm"
-            value={dateText}
-            onChange={(e) => {
-              const nextText = formatDateTyping(e.target.value, locale);
-              setDateText(nextText);
-              const parsed = parseDisplayDate(nextText, locale);
-              if (parsed) onChange({ ...draft, date: parsed });
-            }}
-          />
+          <div className="relative flex min-h-11 items-center rounded-sm border border-border-strong bg-surface">
+            <Input
+              id="filter-date"
+              type="text"
+              inputMode="numeric"
+              autoComplete="off"
+              placeholder={locale.startsWith('en') ? 'mm/dd/yyyy' : 'dd.mm.yyyy'}
+              aria-label={t('search.dateLabel')}
+              className="min-w-0 flex-1 border-0 bg-transparent pr-1 text-sm focus:border-0"
+              value={dateText}
+              onChange={(e) => {
+                const nextText = formatDateTyping(e.target.value, locale);
+                setDateText(nextText);
+                const parsed = parseDisplayDate(nextText, locale);
+                if (parsed) onChange({ ...draft, date: parsed });
+              }}
+            />
+            <input
+              ref={datePickerRef}
+              type="date"
+              tabIndex={-1}
+              aria-hidden="true"
+              className="pointer-events-none absolute h-0 w-0 opacity-0"
+              value={draft.date || getCurrentDate()}
+              onChange={(e) => {
+                if (e.target.value) {
+                  setDateText(formatDateForDisplay(e.target.value, locale));
+                  onChange({ ...draft, date: e.target.value });
+                }
+              }}
+            />
+            <button
+              type="button"
+              className="mr-2 rounded-sm px-2 py-1 text-lg leading-none text-text-secondary hover:bg-surface-elevated focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
+              aria-label={t('search.chooseDate')}
+              onClick={() => openNativePicker(datePickerRef.current)}
+            >
+              ▦
+            </button>
+          </div>
         </div>
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="filter-start-time">{t('search.startTimeLabel')}</Label>
-          <Input
-            id="filter-start-time"
-            type="text"
-            inputMode="numeric"
-            placeholder="--:--"
-            aria-label={t('search.startTimeLabel')}
-            value={timeText}
-            onChange={(e) => {
-              const next = e.target.value.replace(/[^0-9:]/g, '').slice(0, 5);
-              setTimeText(next);
-              if (/^\d{2}:\d{2}$/.test(next)) onChange({ ...draft, startTime: next });
-            }}
-          />
+          <div className="relative flex min-h-11 items-center rounded-sm border border-border-strong bg-surface">
+            <Input
+              id="filter-start-time"
+              type="text"
+              inputMode="numeric"
+              placeholder="--:--"
+              aria-label={t('search.startTimeLabel')}
+              className="min-w-0 flex-1 border-0 bg-transparent pr-1 text-sm focus:border-0"
+              value={timeText}
+              onChange={(e) => {
+                const next = e.target.value.replace(/[^0-9:]/g, '').slice(0, 5);
+                setTimeText(next);
+                if (/^\d{2}:\d{2}$/.test(next)) onChange({ ...draft, startTime: next });
+              }}
+            />
+            <input
+              ref={timePickerRef}
+              type="time"
+              tabIndex={-1}
+              aria-hidden="true"
+              className="pointer-events-none absolute h-0 w-0 opacity-0"
+              value={draft.startTime || getCurrentTime()}
+              onChange={(e) => {
+                if (e.target.value) {
+                  setTimeText(e.target.value);
+                  onChange({ ...draft, startTime: e.target.value });
+                }
+              }}
+            />
+            <button
+              type="button"
+              className="mr-2 rounded-sm px-2 py-1 text-lg leading-none text-text-secondary hover:bg-surface-elevated focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
+              aria-label={t('search.chooseTime')}
+              onClick={() => openNativePicker(timePickerRef.current)}
+            >
+              ◷
+            </button>
+          </div>
         </div>
       </div>
 
