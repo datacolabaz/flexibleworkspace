@@ -43,6 +43,11 @@ function getCurrentTime(): string {
   return `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
 }
 
+function getCurrentDate(): string {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+}
+
 function draftFromSearchParams(params: URLSearchParams): FilterDraft {
   return {
     city: params.get('city') ?? '',
@@ -118,11 +123,11 @@ function countActive(draft: FilterDraft): number {
 function FilterFields({ draft, onChange }: { draft: FilterDraft; onChange: (next: FilterDraft) => void }) {
   const t = useTranslations();
   const locale = useLocale();
-  const [dateText, setDateText] = useState(() => formatDateForDisplay(draft.date, locale));
+  const [dateText, setDateText] = useState(() => formatDateForDisplay(draft.date || getCurrentDate(), locale));
   const [timeText, setTimeText] = useState(() => draft.startTime || getCurrentTime());
 
   useEffect(() => {
-    setDateText(formatDateForDisplay(draft.date, locale));
+    setDateText(formatDateForDisplay(draft.date || getCurrentDate(), locale));
   }, [draft.date, locale]);
 
   useEffect(() => {
