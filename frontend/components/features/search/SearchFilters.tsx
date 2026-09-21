@@ -38,6 +38,11 @@ const EMPTY_DRAFT: FilterDraft = {
   sort: 'relevance',
 };
 
+function getCurrentTime(): string {
+  const now = new Date();
+  return `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+}
+
 function draftFromSearchParams(params: URLSearchParams): FilterDraft {
   return {
     city: params.get('city') ?? '',
@@ -54,6 +59,32 @@ function draftFromSearchParams(params: URLSearchParams): FilterDraft {
     amenities: params.get('amenities')?.split(',').filter(Boolean) ?? [],
     sort: params.get('sort') ?? 'relevance',
   };
+}
+
+function formatDateForDisplay(isoDate: string, locale: string): string {
+  if (!isoDate) return '';
+  const [year, month, day] = isoDate.split('-');
+  return locale.startsWith('en') ? `${month}/${day}/${year}` : `${day}.${month}.${year}`;
+}
+
+function parseDisplayDate(value: string, locale: string): string | undefined {
+  const digits = value.replace(/\D/g, '');
+  if (digits.length !== 8) return undefined;
+  const isEnglish = locale.startsWith('en');
+  const day = isEnglish ? digits.slice(2, 4) : digits.slice(0, 2);
+  const month = isEnglish ? digits.slice(0, 2) : digits.slice(2, 4);
+  const year = digits.slice(4);
+  const candidate = `${year}-${month}-${day}`;
+  const date = new Date(`${candidate}T00:00:00`);
+  return date.getFullYear() === Number(year) && date.getMonth() + 1 === Number(month) && date.getDate() === Number(day)
+    ? candidate
+    : undefined;
+}
+
+function formatDateTyping(value: string, locale: string): string {
+  const digits = value.replace(/\D/g, '').slice(0, 8);
+  const chunks = [digits.slice(0, 2), digits.slice(2, 4), digits.slice(4)];
+  return chunks.filter(Boolean).join(locale.startsWith('en') ? '/' : '.');
 }
 
 function draftToQueryString(draft: FilterDraft): string {
@@ -87,6 +118,16 @@ function countActive(draft: FilterDraft): number {
 function FilterFields({ draft, onChange }: { draft: FilterDraft; onChange: (next: FilterDraft) => void }) {
   const t = useTranslations();
   const locale = useLocale();
+  const [dateText, setDateText] = useState(() => formatDateForDisplay(draft.date, locale));
+  const [timeText, setTimeText] = useState(() => draft.startTime || getCurrentTime());
+
+  useEffect(() => {
+    setDateText(formatDateForDisplay(draft.date, locale));
+  }, [draft.date, locale]);
+
+  useEffect(() => {
+    setTimeText(draft.startTime || getCurrentTime());
+  }, [draft.startTime]);
 
   return (
     <div className="flex flex-col gap-5">
@@ -128,21 +169,35 @@ function FilterFields({ draft, onChange }: { draft: FilterDraft; onChange: (next
           <Label htmlFor="filter-date">{t('search.dateLabel')}</Label>
           <Input
             id="filter-date"
-            type="date"
-            lang={locale}
+            type="text"
+            inputMode="numeric"
+            autoComplete="off"
+            placeholder={locale.startsWith('en') ? 'mm/dd/yyyy' : 'dd.mm.yyyy'}
             aria-label={t('search.dateLabel')}
             className="min-w-0 text-sm"
-            value={draft.date}
-            onChange={(e) => onChange({ ...draft, date: e.target.value })}
+            value={dateText}
+            onChange={(e) => {
+              const nextText = formatDateTyping(e.target.value, locale);
+              setDateText(nextText);
+              const parsed = parseDisplayDate(nextText, locale);
+              if (parsed) onChange({ ...draft, date: parsed });
+            }}
           />
         </div>
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="filter-start-time">{t('search.startTimeLabel')}</Label>
           <Input
             id="filter-start-time"
-            type="time"
-            value={draft.startTime}
-            onChange={(e) => onChange({ ...draft, startTime: e.target.value })}
+            type="text"
+            inputMode="numeric"
+            placeholder="--:--"
+            aria-label={t('search.startTimeLabel')}
+            value={timeText}
+            onChange={(e) => {
+              const next = e.target.value.replace(/[^0-9:]/g, '').slice(0, 5);
+              setTimeText(next);
+              if (/^\d{2}:\d{2}$/.test(next)) onChange({ ...draft, startTime: next });
+            }}
           />
         </div>
       </div>
