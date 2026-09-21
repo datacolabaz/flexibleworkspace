@@ -306,9 +306,9 @@ value={dateText}
             <input
               ref={timePickerRef}
               type="time"
-              tabIndex={-1}
-              aria-hidden="true"
-              className="pointer-events-none absolute h-0 w-0 opacity-0"
+              tabIndex={0}
+              aria-label={t('search.chooseTime')}
+              className="absolute right-0 top-0 z-10 h-full w-12 cursor-pointer opacity-0"
               value={draft.startTime || getCurrentTime()}
               onChange={(e) => {
                 if (e.target.value) {
