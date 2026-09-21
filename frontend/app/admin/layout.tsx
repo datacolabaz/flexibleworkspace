@@ -17,13 +17,13 @@ export const dynamic = 'force-dynamic';
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const { accessToken } = readSession(await cookies());
-  if (!accessToken) redirect('/az/login?next=%2Fadmin');
+  if (!accessToken) redirect('/az/login?redirect=%2Fadmin&admin=1');
 
   try {
     await assertAdminAccess(accessToken);
   } catch (error) {
     if (error instanceof AdminApiError && [401, 403].includes(error.status)) {
-      redirect('/az/login?next=%2Fadmin');
+      redirect('/az/login?redirect=%2Fadmin&admin=1');
     }
     throw error;
   }

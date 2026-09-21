@@ -15,10 +15,10 @@ export default async function LoginPage({
   searchParams,
 }: {
   params: Promise<{ locale: string }>;
-  searchParams: Promise<{ redirect?: string }>;
+  searchParams: Promise<{ redirect?: string; admin?: string }>;
 }) {
   const { locale } = await params;
-  const { redirect } = await searchParams;
+  const { redirect, admin } = await searchParams;
   setRequestLocale(locale);
   const t = await getTranslations('auth.login');
   const redirectTo = safeRedirectTarget(redirect);
@@ -45,7 +45,7 @@ export default async function LoginPage({
 
       <div className="order-1 lg:order-2 lg:px-8">
         <Card className="p-6 sm:p-9">
-          <LoginForm redirectTo={redirectTo} />
+          <LoginForm redirectTo={redirectTo} adminMode={admin === '1'} />
         </Card>
       </div>
     </main>

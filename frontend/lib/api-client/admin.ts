@@ -46,6 +46,12 @@ export type CorrectRoomInput = {
   reason: string;
 };
 
+export type AdminTokenPair = {
+  accessToken: string;
+  refreshToken: string;
+  expiresIn: number;
+};
+
 export class AdminApiError extends Error {
   constructor(
     readonly status: number,
@@ -94,6 +100,28 @@ async function adminFetch<T>(accessToken: string, path: string, init?: RequestIn
 
 export function assertAdminAccess(accessToken: string) {
   return adminFetch<unknown>(accessToken, 'admin/search?q=admin');
+}
+
+export async function loginWithAdminPassword(email: string, password: string): Promise<AdminTokenPair> {
+  const response = await fetch(backendUrl('auth/admin-password'), {
+    method: 'POST',
+    headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password }),
+    cache: 'no-store',
+  });
+  const body = (await response.json().catch(() => undefined)) as
+    | { error?: { code?: string; message?: string } }
+    | AdminTokenPair
+    | undefined;
+  if (!response.ok) {
+    const error = body as { error?: { code?: string; message?: string } } | undefined;
+    throw new AdminApiError(
+      response.status,
+      error?.error?.code ?? 'ADMIN_LOGIN_FAILED',
+      error?.error?.message ?? 'Admin login failed.',
+    );
+  }
+  return body as AdminTokenPair;
 }
 
 export function listAdminRooms(accessToken: string, query?: string) {

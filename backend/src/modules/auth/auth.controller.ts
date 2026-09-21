@@ -9,6 +9,7 @@ import { VerifyOtpDto } from './dto/verify-otp.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { GoogleLoginDto } from './dto/google-login.dto';
 import { FacebookLoginDto } from './dto/facebook-login.dto';
+import { AdminLoginDto } from './dto/admin-login.dto';
 
 /**
  * 11_API_CONTRACTS.md §11.4 — passwordless OTP auth. All routes here are
@@ -64,6 +65,14 @@ export class AuthController {
   })
   async loginWithFacebook(@Body() dto: FacebookLoginDto): Promise<TokenPair> {
     return this.authService.loginWithFacebook(dto.accessToken);
+  }
+
+  @Public()
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  @Post('admin-password')
+  @ApiOperation({ summary: 'Sign in to the admin surface with an admin email and password' })
+  async loginWithAdminPassword(@Body() dto: AdminLoginDto): Promise<TokenPair> {
+    return this.authService.loginWithAdminPassword(dto.email, dto.password);
   }
 
   @Public()

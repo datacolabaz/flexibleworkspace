@@ -19,6 +19,7 @@
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "typeorm": "ts-node -r tsconfig-paths/register ./node_modules/typeorm/cli.js",
+    "admin:create": "ts-node -r tsconfig-paths/register scripts/create-admin.ts",
     "migration:run": "ts-node ./node_modules/typeorm/cli.js -d src/config/typeorm.datasource.ts migration:run",
     "migration:revert": "ts-node ./node_modules/typeorm/cli.js -d src/config/typeorm.datasource.ts migration:revert",
     "migration:show": "ts-node ./node_modules/typeorm/cli.js -d src/config/typeorm.datasource.ts migration:show"

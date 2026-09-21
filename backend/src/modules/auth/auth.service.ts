@@ -21,6 +21,14 @@ import { DomainException } from '../../common/exceptions/domain.exception';
 import { HttpStatus } from '@nestjs/common';
 
 const MAX_OTP_ATTEMPTS = 5;
+const ADMIN_ROLE_NAMES = new Set<string>([
+  RoleName.SUPER_ADMIN,
+  RoleName.OPERATIONS_ADMIN,
+  RoleName.FINANCE_ADMIN,
+  RoleName.CONTENT_ADMIN,
+  RoleName.SUPPORT_ADMIN,
+  RoleName.MODERATION_ADMIN,
+]);
 
 export interface TokenPair {
   accessToken: string;
@@ -182,6 +190,26 @@ export class AuthService {
     }
 
     const roles = await this.roleRepo.find({ where: { userId: user.id } });
+    return this.issueTokenPair(user, roles);
+  }
+
+  async loginWithAdminPassword(email: string, password: string): Promise<TokenPair> {
+    const normalizedEmail = email.trim().toLowerCase();
+    const user = await this.userRepo.findOne({ where: { email: normalizedEmail } });
+    const roles = user ? await this.roleRepo.find({ where: { userId: user.id } }) : [];
+    const isAdmin = roles.some((role) => ADMIN_ROLE_NAMES.has(role.role));
+    const passwordMatches = user?.passwordHash
+      ? await bcrypt.compare(password, user.passwordHash)
+      : false;
+
+    if (!user || !user.isActive || !isAdmin || !passwordMatches) {
+      throw new DomainException(
+        'ADMIN_LOGIN_INVALID',
+        'Admin email or password is incorrect.',
+        HttpStatus.UNAUTHORIZED,
+      );
+    }
+
     return this.issueTokenPair(user, roles);
   }
 

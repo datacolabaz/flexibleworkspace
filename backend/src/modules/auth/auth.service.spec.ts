@@ -304,6 +304,74 @@ describe('AuthService', () => {
     });
   });
 
+  describe('loginWithAdminPassword', () => {
+    it('issues a token pair only for an active admin with a matching bcrypt hash', async () => {
+      const user = {
+        id: nextId(),
+        email: 'admin@example.com',
+        passwordHash: await bcrypt.hash('correct-password-123', 10),
+        phone: null,
+        locale: 'az',
+        isActive: true,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        deletedAt: null,
+        roles: [],
+      } as unknown as AppUserEntity;
+      users.push(user);
+      roles.push({
+        id: nextId(),
+        userId: user.id,
+        user,
+        role: RoleName.OPERATIONS_ADMIN,
+        providerId: null,
+        createdAt: new Date(),
+      } as UserRoleEntity);
+
+      const result = await service.loginWithAdminPassword(' ADMIN@EXAMPLE.COM ', 'correct-password-123');
+
+      expect(result.accessToken).toBe('signed.jwt.token');
+      expect(result.refreshToken).toEqual(expect.any(String));
+    });
+
+    it('rejects a correct password when the account has no admin role', async () => {
+      await service.requestOtp('customer@example.com');
+      users[0].passwordHash = await bcrypt.hash('correct-password-123', 10);
+
+      await expect(
+        service.loginWithAdminPassword('customer@example.com', 'correct-password-123'),
+      ).rejects.toMatchObject({ code: 'ADMIN_LOGIN_INVALID' });
+    });
+
+    it('rejects a wrong password without revealing whether the admin email exists', async () => {
+      const user = {
+        id: nextId(),
+        email: 'admin2@example.com',
+        passwordHash: await bcrypt.hash('correct-password-123', 10),
+        phone: null,
+        locale: 'az',
+        isActive: true,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        deletedAt: null,
+        roles: [],
+      } as unknown as AppUserEntity;
+      users.push(user);
+      roles.push({
+        id: nextId(),
+        userId: user.id,
+        user,
+        role: RoleName.SUPER_ADMIN,
+        providerId: null,
+        createdAt: new Date(),
+      } as UserRoleEntity);
+
+      await expect(
+        service.loginWithAdminPassword('admin2@example.com', 'wrong-password-123'),
+      ).rejects.toMatchObject({ code: 'ADMIN_LOGIN_INVALID' });
+    });
+  });
+
   describe('loginWithGoogle', () => {
     it('provisions a new account for a first-time verified Google sign-in', async () => {
       mockVerifyIdToken.mockResolvedValue({

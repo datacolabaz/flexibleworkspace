@@ -6,9 +6,11 @@ import { Link } from '@/lib/i18n/navigation';
 import { Alert } from '@/components/ui/Alert';
 import { Logo } from '@/components/ui/Logo';
 import { GoogleSignInButton } from './GoogleSignInButton';
+import { AdminPasswordForm } from './AdminPasswordForm';
 
 export interface LoginFormProps {
   redirectTo?: string;
+  adminMode?: boolean;
 }
 
 /**
@@ -16,7 +18,7 @@ export interface LoginFormProps {
  * actual Google control stays Google's official rendered widget, preserving
  * provider branding and the account-chooser security model.
  */
-export function LoginForm({ redirectTo }: LoginFormProps) {
+export function LoginForm({ redirectTo, adminMode = false }: LoginFormProps) {
   const t = useTranslations('auth.login');
   const [banner, setBanner] = useState<string | undefined>();
   const hasGoogle = Boolean(process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID);
@@ -32,7 +34,9 @@ export function LoginForm({ redirectTo }: LoginFormProps) {
 
       {banner && <Alert variant="error">{banner}</Alert>}
 
-      {hasGoogle ? (
+      {adminMode ? (
+        <AdminPasswordForm redirectTo={redirectTo ?? '/admin'} />
+      ) : hasGoogle ? (
         <GoogleSignInButton redirectTo={redirectTo} onError={setBanner} />
       ) : (
         <Alert variant="error">{t('noMethodsAvailable')}</Alert>
