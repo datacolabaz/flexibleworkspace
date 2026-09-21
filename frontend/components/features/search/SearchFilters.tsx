@@ -240,16 +240,16 @@ function FilterFields({ draft, onChange }: { draft: FilterDraft; onChange: (next
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="filter-date">{t('search.dateLabel')}</Label>
-          <div className="relative flex min-h-11 items-center rounded-sm border border-border-strong bg-surface focus-within:border-primary">
+          <div className="relative flex min-h-11 min-w-0 items-center rounded-sm border border-border-strong bg-surface focus-within:border-primary">
             <Input
-              id="filter-date"
-              type="text"
-              inputMode="numeric"
-              autoComplete="off"
-              placeholder={locale.startsWith('en') ? 'mm/dd/yyyy' : 'dd.mm.yyyy'}
-              aria-label={t('search.dateLabel')}
-              className="min-w-0 flex-1 border-0 bg-transparent pr-1 text-sm focus:border-0"
-              value={dateText}
+id="filter-date"
+type="text"
+inputMode="numeric"
+autoComplete="off"
+placeholder={locale.startsWith('en') ? 'mm/dd/yyyy' : 'dd.mm.yyyy'}
+aria-label={t('search.dateLabel')}
+className="min-w-[9.5rem] flex-1 border-0 bg-transparent px-2 text-sm tracking-tight focus:border-0"
+value={dateText}
               onChange={(e) => {
                 const nextText = formatDateTyping(e.target.value, locale);
                 setDateText(nextText);
@@ -259,7 +259,7 @@ function FilterFields({ draft, onChange }: { draft: FilterDraft; onChange: (next
             />
             <button
               type="button"
-              className="mr-2 rounded-md p-2 text-text-secondary transition-colors hover:bg-surface-elevated focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
+              className="mr-1 shrink-0 rounded-md p-2 text-text-secondary transition-colors hover:bg-surface-elevated focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
               aria-label={t('search.chooseDate')}
               aria-expanded={isCalendarOpen}
               onClick={() => setIsCalendarOpen((open) => !open)}
