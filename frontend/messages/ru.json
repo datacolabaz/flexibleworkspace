@@ -15,7 +15,8 @@
     "spaces": "Пространства",
     "events": "События",
     "partners": "Партнёры",
-    "pricing": "Цены"
+    "pricing": "Цены",
+    "homeLink": "Главная"
   },
   "hero": {
     "title": "Найдите своё место.",
@@ -104,6 +105,8 @@
     "duration480": "8 ч",
     "participantsLabel": "Участники",
     "priceMaxLabel": "Макс. цена в час",
+    "participantsUnit": "чел.",
+    "priceMaxUnit": "AZN/час",
     "amenitiesLabel": "Удобства",
     "amenityCategory": {
       "EQUIPMENT": "Оборудование",

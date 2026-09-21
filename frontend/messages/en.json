@@ -15,7 +15,8 @@
     "spaces": "Spaces",
     "events": "Events",
     "partners": "Partners",
-    "pricing": "Pricing"
+    "pricing": "Pricing",
+    "homeLink": "Home"
   },
   "hero": {
     "title": "Find your spot.",
@@ -104,6 +105,8 @@
     "duration480": "8 h",
     "participantsLabel": "Participants",
     "priceMaxLabel": "Max price per hour",
+    "participantsUnit": "guests",
+    "priceMaxUnit": "AZN/hour",
     "amenitiesLabel": "Amenities",
     "amenityCategory": {
       "EQUIPMENT": "Equipment",

@@ -15,7 +15,8 @@
     "spaces": "Məkanlar",
     "events": "Tədbirlər",
     "partners": "Tərəfdaşlar",
-    "pricing": "Qiymətlər"
+    "pricing": "Qiymətlər",
+    "homeLink": "Ana səhifə"
   },
   "hero": {
     "title": "Öz yerini tap.",
@@ -104,6 +105,8 @@
     "duration480": "8 saat",
     "participantsLabel": "İştirakçı sayı",
     "priceMaxLabel": "Maks. saatlıq qiymət",
+    "participantsUnit": "nəfər",
+    "priceMaxUnit": "AZN/saat",
     "amenitiesLabel": "Əlavə imkanlar",
     "amenityCategory": {
       "EQUIPMENT": "Avadanlıq",

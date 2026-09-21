@@ -159,34 +159,42 @@ function FilterFields({ draft, onChange }: { draft: FilterDraft; onChange: (next
         </Select>
       </div>
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <div className="flex flex-col gap-1.5">
+      <div className="grid grid-cols-1 gap-3">
+        <div className="rounded-md border border-border bg-surface-elevated p-3 transition-colors focus-within:border-primary focus-within:bg-surface">
           <Label htmlFor="filter-participants">{t('search.participantsLabel')}</Label>
-          <Input
-            id="filter-participants"
-            type="number"
-            min={1}
-            inputMode="numeric"
-            placeholder="məs. 4"
-            className="pr-16"
-            value={draft.participants}
-            onChange={(e) => onChange({ ...draft, participants: e.target.value })}
-          />
-          <span className="pointer-events-none -mt-9 mr-3 self-end pb-3 text-small text-text-muted">nəfər</span>
+          <div className="mt-2 flex min-h-11 items-center rounded-sm border border-border-strong bg-surface">
+            <Input
+              id="filter-participants"
+              type="number"
+              min={1}
+              inputMode="numeric"
+              placeholder="məs. 4"
+              className="min-h-0 flex-1 border-0 bg-transparent px-3 focus:border-0 focus-visible:outline-none"
+              value={draft.participants}
+              onChange={(e) => onChange({ ...draft, participants: e.target.value })}
+            />
+            <span className="mr-2 shrink-0 rounded-sm bg-oil-50 px-2 py-1 text-caption font-semibold text-primary" aria-hidden="true">
+              {t('search.participantsUnit')}
+            </span>
+          </div>
         </div>
-        <div className="flex flex-col gap-1.5">
+        <div className="rounded-md border border-border bg-surface-elevated p-3 transition-colors focus-within:border-primary focus-within:bg-surface">
           <Label htmlFor="filter-price-max">{t('search.priceMaxLabel')}</Label>
-          <Input
-            id="filter-price-max"
-            type="number"
-            min={0}
-            inputMode="numeric"
-            placeholder="məs. 50"
-            className="pr-20"
-            value={draft.priceMax}
-            onChange={(e) => onChange({ ...draft, priceMax: e.target.value })}
-          />
-          <span className="pointer-events-none -mt-9 mr-3 self-end pb-3 text-small text-text-muted">AZN/saat</span>
+          <div className="mt-2 flex min-h-11 items-center rounded-sm border border-border-strong bg-surface">
+            <Input
+              id="filter-price-max"
+              type="number"
+              min={0}
+              inputMode="numeric"
+              placeholder="məs. 50"
+              className="min-h-0 flex-1 border-0 bg-transparent px-3 focus:border-0 focus-visible:outline-none"
+              value={draft.priceMax}
+              onChange={(e) => onChange({ ...draft, priceMax: e.target.value })}
+            />
+            <span className="mr-2 shrink-0 rounded-sm bg-oil-50 px-2 py-1 text-caption font-semibold text-primary" aria-hidden="true">
+              {t('search.priceMaxUnit')}
+            </span>
+          </div>
         </div>
       </div>
 

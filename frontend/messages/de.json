@@ -1,10 +1,15 @@
 {
   "$comment": "Deferred locale (20_I18N.md §20.7) — content-active work hasn't started yet. Only a couple of keys are translated here on purpose, to demonstrate lib/i18n/request.ts's fallback merge: every other key resolves from en.json rather than showing a raw key or blank text.",
   "nav": {
-    "home": "Startseite"
+    "home": "Startseite",
+    "homeLink": "Startseite"
   },
   "hero": {
     "title": "Finde deinen Platz."
+  },
+  "search": {
+    "participantsUnit": "Gäste",
+    "priceMaxUnit": "AZN/Stunde"
   },
   "account": {
     "reviewsTabLabel": "Bewertungen",

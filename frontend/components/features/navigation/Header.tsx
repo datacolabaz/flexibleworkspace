@@ -58,6 +58,7 @@ export async function Header() {
   }
 
   const navItems = [
+    { href: '/', label: t('homeLink') },
     { href: '/search', label: t('spaces') },
     { href: '/events', label: t('events') },
     { href: '/how-it-works', label: t('howItWorks') },
@@ -91,7 +92,7 @@ export async function Header() {
               <Link
                 key={item.href}
                 href={item.href}
-                className="rounded-sm text-nav text-text-secondary transition-colors duration-150 hover:text-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary"
+                className="group relative inline-flex min-h-11 items-center rounded-md px-2 text-nav text-text-secondary transition-[color,background-color,transform] duration-150 hover:-translate-y-px hover:bg-surface-elevated hover:text-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary after:absolute after:bottom-1 after:left-2 after:right-2 after:h-px after:origin-left after:scale-x-0 after:bg-accent after:transition-transform after:duration-200 hover:after:scale-x-100"
               >
                 {item.label}
               </Link>
