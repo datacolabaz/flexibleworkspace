@@ -45,6 +45,39 @@ export class AdminListingsService {
     private readonly auditLogService: AuditLogService,
   ) {}
 
+  async listRooms(query = ''): Promise<Record<string, unknown>[]> {
+    const search = query.trim();
+    const builder = this.roomRepo
+      .createQueryBuilder('room')
+      .leftJoin('room.location', 'location')
+      .leftJoin('location.provider', 'provider')
+      .select([
+        'room.id AS "id"',
+        'room.name AS "name"',
+        'room.status AS "status"',
+        'room.capacity_min AS "capacityMin"',
+        'room.capacity_max AS "capacityMax"',
+        'room.base_price_amount AS "basePriceAmount"',
+        'room.base_price_currency AS "basePriceCurrency"',
+        'room.updated_at AS "updatedAt"',
+        'location.name AS "locationName"',
+        'location.city AS "city"',
+        'provider.display_name AS "providerName"',
+      ])
+      .where('room.deleted_at IS NULL')
+      .orderBy('room.updated_at', 'DESC')
+      .take(100);
+
+    if (search) {
+      builder.andWhere(
+        '(room.name ILIKE :search OR provider.display_name ILIKE :search OR location.name ILIKE :search OR location.city ILIKE :search)',
+        { search: `%${search}%` },
+      );
+    }
+
+    return builder.getRawMany();
+  }
+
   private applyPatch(
     room: RoomEntity,
     patch: Partial<Record<CorrectableField, unknown>>,
@@ -77,6 +110,15 @@ export class AdminListingsService {
       basePriceAmount,
       status,
     } = dto;
+    const nextCapacityMin = capacityMin ?? room.capacityMin;
+    const nextCapacityMax = capacityMax ?? room.capacityMax;
+    if (nextCapacityMax < nextCapacityMin) {
+      throw new DomainException(
+        'INVALID_CAPACITY_RANGE',
+        'capacityMax must be greater than or equal to capacityMin.',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
     const { before, after } = this.applyPatch(room, {
       name,
       description,

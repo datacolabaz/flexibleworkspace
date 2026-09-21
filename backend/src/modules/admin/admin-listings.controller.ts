@@ -1,4 +1,12 @@
-import { Body, Controller, Param, Patch, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Query,
+} from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 
 import { AdminListingsService } from './admin-listings.service';
@@ -14,11 +22,18 @@ import { AdminPermission } from '../../common/constants/admin-permission.enum';
 @ApiTags('Admin')
 @Controller('admin/rooms')
 @Roles(...ADMIN_ROLES)
-@RequirePermission(AdminPermission.LISTING_UPDATE)
 export class AdminListingsController {
   constructor(private readonly adminListingsService: AdminListingsService) {}
 
+  @Get()
+  @RequirePermission(AdminPermission.LISTING_READ)
+  @ApiOperation({ summary: 'List non-deleted rooms for the admin catalog' })
+  async list(@Query('q') query?: string) {
+    return this.adminListingsService.listRooms(query);
+  }
+
   @Patch(':id')
+  @RequirePermission(AdminPermission.LISTING_UPDATE)
   @ApiOperation({
     summary:
       "Correct a room's fields regardless of owning provider (reason required, fully audited)",

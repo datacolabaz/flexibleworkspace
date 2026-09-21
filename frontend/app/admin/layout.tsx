@@ -1,4 +1,8 @@
 import type { Metadata } from 'next';
+import { cookies } from 'next/headers';
+import { redirect } from 'next/navigation';
+import { AdminApiError, assertAdminAccess } from '@/lib/api-client/admin';
+import { readSession } from '@/lib/auth/session';
 import '../globals.css';
 
 // Independent root layout — see app/[locale]/layout.tsx's comment on
@@ -9,7 +13,21 @@ export const metadata: Metadata = {
   title: 'Spotva Admin',
 };
 
-export default function AdminLayout({ children }: { children: React.ReactNode }) {
+export const dynamic = 'force-dynamic';
+
+export default async function AdminLayout({ children }: { children: React.ReactNode }) {
+  const { accessToken } = readSession(await cookies());
+  if (!accessToken) redirect('/az/login?next=%2Fadmin');
+
+  try {
+    await assertAdminAccess(accessToken);
+  } catch (error) {
+    if (error instanceof AdminApiError && [401, 403].includes(error.status)) {
+      redirect('/az/login?next=%2Fadmin');
+    }
+    throw error;
+  }
+
   return (
     <html lang="az">
       <body>{children}</body>
