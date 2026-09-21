@@ -92,6 +92,7 @@
     "roomTypeLabel": "Тип помещения",
     "roomTypeAny": "Любой тип",
     "dateLabel": "Дата",
+    "dateFormatHint": "ДД.ММ.ГГГГ",
     "startTimeLabel": "Время начала",
     "durationLabel": "Длительность",
     "durationAny": "Любая длительность",

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useTranslations } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
 import { useSearchParams } from 'next/navigation';
 import { usePathname, useRouter } from '@/lib/i18n/navigation';
 import { Button } from '@/components/ui/Button';
@@ -86,6 +86,7 @@ function countActive(draft: FilterDraft): number {
 
 function FilterFields({ draft, onChange }: { draft: FilterDraft; onChange: (next: FilterDraft) => void }) {
   const t = useTranslations();
+  const locale = useLocale();
 
   return (
     <div className="flex flex-col gap-5">
@@ -122,15 +123,20 @@ function FilterFields({ draft, onChange }: { draft: FilterDraft; onChange: (next
         </Select>
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="filter-date">{t('search.dateLabel')}</Label>
           <Input
             id="filter-date"
             type="date"
+            lang={locale}
+            title={t('search.dateFormatHint')}
+            aria-describedby="filter-date-format"
+            className="min-w-0 text-sm"
             value={draft.date}
             onChange={(e) => onChange({ ...draft, date: e.target.value })}
           />
+          <span id="filter-date-format" className="text-caption text-text-muted">{t('search.dateFormatHint')}</span>
         </div>
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="filter-start-time">{t('search.startTimeLabel')}</Label>

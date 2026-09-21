@@ -92,6 +92,7 @@
     "roomTypeLabel": "Otaq növü",
     "roomTypeAny": "İstənilən otaq növü",
     "dateLabel": "Tarix",
+    "dateFormatHint": "GG.AA.İİİİ",
     "startTimeLabel": "Başlanğıc vaxtı",
     "durationLabel": "Müddət",
     "durationAny": "İstənilən müddət",
