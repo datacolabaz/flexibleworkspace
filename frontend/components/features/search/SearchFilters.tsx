@@ -92,6 +92,66 @@ function formatDateTyping(value: string, locale: string): string {
   return chunks.filter(Boolean).join(locale.startsWith('en') ? '/' : '.');
 }
 
+function parseIsoDate(isoDate: string): Date {
+  const [year, month, day] = isoDate.split('-').map(Number);
+  return new Date(year, month - 1, day);
+}
+
+function toIsoDate(date: Date): string {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
+
+function startOfCalendar(date: Date): Date {
+  const firstDay = new Date(date.getFullYear(), date.getMonth(), 1);
+  const mondayBasedDay = (firstDay.getDay() + 6) % 7;
+  return new Date(date.getFullYear(), date.getMonth(), 1 - mondayBasedDay);
+}
+
+function CalendarPopover({ value, locale, onChange }: { value: string; locale: string; onChange: (date: string) => void }) {
+  const today = new Date();
+  const [visibleMonth, setVisibleMonth] = useState(() => {
+    const selected = value ? parseIsoDate(value) : today;
+    return new Date(selected.getFullYear(), selected.getMonth(), 1);
+  });
+  const selectedDate = value ? parseIsoDate(value) : undefined;
+  const calendarStart = startOfCalendar(visibleMonth);
+  const days = Array.from({ length: 42 }, (_, index) => {
+    const day = new Date(calendarStart);
+    day.setDate(calendarStart.getDate() + index);
+    return day;
+  });
+  const weekdayFormatter = new Intl.DateTimeFormat(locale, { weekday: 'short' });
+  const monthFormatter = new Intl.DateTimeFormat(locale, { month: 'long', year: 'numeric' });
+  const weekdays = Array.from({ length: 7 }, (_, index) => weekdayFormatter.format(new Date(2024, 0, 1 + index)).slice(0, 2));
+
+  return (
+    <div className="absolute right-0 top-[calc(100%+0.5rem)] z-30 w-[min(19rem,calc(100vw-2rem))] rounded-lg border border-border bg-surface p-3 shadow-lg" role="dialog" aria-label={locale.startsWith('en') ? 'Choose date' : 'Tarix seçin'}>
+      <div className="mb-3 flex items-center justify-between">
+        <button type="button" className="rounded-md p-2 text-text-secondary transition-colors hover:bg-surface-elevated hover:text-text-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary" aria-label={locale.startsWith('en') ? 'Previous month' : 'Əvvəlki ay'} onClick={() => setVisibleMonth(new Date(visibleMonth.getFullYear(), visibleMonth.getMonth() - 1, 1))}>
+          <svg aria-hidden="true" viewBox="0 0 20 20" className="h-4 w-4 fill-none stroke-current stroke-2"><path d="m12.5 4-6 6 6 6" /></svg>
+        </button>
+        <span className="text-sm font-semibold capitalize text-text-primary">{monthFormatter.format(visibleMonth)}</span>
+        <button type="button" className="rounded-md p-2 text-text-secondary transition-colors hover:bg-surface-elevated hover:text-text-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary" aria-label={locale.startsWith('en') ? 'Next month' : 'Növbəti ay'} onClick={() => setVisibleMonth(new Date(visibleMonth.getFullYear(), visibleMonth.getMonth() + 1, 1))}>
+          <svg aria-hidden="true" viewBox="0 0 20 20" className="h-4 w-4 fill-none stroke-current stroke-2"><path d="m7.5 4 6 6-6 6" /></svg>
+        </button>
+      </div>
+      <div className="grid grid-cols-7 gap-1 text-center text-[0.65rem] font-semibold uppercase text-text-muted">{weekdays.map((weekday, index) => <span key={`${weekday}-${index}`}>{weekday}</span>)}</div>
+      <div className="mt-1 grid grid-cols-7 gap-1">
+        {days.map((day) => {
+          const isoDate = toIsoDate(day);
+          const isCurrentMonth = day.getMonth() === visibleMonth.getMonth();
+          const isSelected = selectedDate && isoDate === toIsoDate(selectedDate);
+          const isToday = isoDate === toIsoDate(today);
+          return <button key={isoDate} type="button" aria-label={new Intl.DateTimeFormat(locale, { dateStyle: 'long' }).format(day)} aria-pressed={Boolean(isSelected)} className={`h-9 rounded-md text-sm transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary ${isSelected ? 'bg-primary font-semibold text-white' : isToday ? 'border border-primary font-semibold text-primary' : isCurrentMonth ? 'text-text-primary hover:bg-surface-elevated' : 'text-text-muted/50'}`} onClick={() => onChange(isoDate)}>{day.getDate()}</button>;
+        })}
+      </div>
+      <button type="button" className="mt-3 w-full rounded-md border border-border px-3 py-2 text-xs font-semibold text-primary transition-colors hover:bg-surface-elevated focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary" onClick={() => { onChange(toIsoDate(today)); setVisibleMonth(new Date(today.getFullYear(), today.getMonth(), 1)); }}>
+        {locale.startsWith('en') ? 'Today' : 'Bu gün'}
+      </button>
+    </div>
+  );
+}
+
 function openNativePicker(input: HTMLInputElement | null): void {
   if (!input) return;
   if (typeof input.showPicker === 'function') input.showPicker();
@@ -131,7 +191,7 @@ function FilterFields({ draft, onChange }: { draft: FilterDraft; onChange: (next
   const locale = useLocale();
   const [dateText, setDateText] = useState(() => formatDateForDisplay(draft.date || getCurrentDate(), locale));
   const [timeText, setTimeText] = useState(() => draft.startTime || getCurrentTime());
-  const datePickerRef = useRef<HTMLInputElement>(null);
+  const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   const timePickerRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -180,7 +240,7 @@ function FilterFields({ draft, onChange }: { draft: FilterDraft; onChange: (next
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="filter-date">{t('search.dateLabel')}</Label>
-          <div className="relative flex min-h-11 items-center rounded-sm border border-border-strong bg-surface">
+          <div className="relative flex min-h-11 items-center rounded-sm border border-border-strong bg-surface focus-within:border-primary">
             <Input
               id="filter-date"
               type="text"
@@ -197,28 +257,26 @@ function FilterFields({ draft, onChange }: { draft: FilterDraft; onChange: (next
                 if (parsed) onChange({ ...draft, date: parsed });
               }}
             />
-            <input
-              ref={datePickerRef}
-              type="date"
-              tabIndex={-1}
-              aria-hidden="true"
-              className="pointer-events-none absolute h-0 w-0 opacity-0"
-              value={draft.date || getCurrentDate()}
-              onChange={(e) => {
-                if (e.target.value) {
-                  setDateText(formatDateForDisplay(e.target.value, locale));
-                  onChange({ ...draft, date: e.target.value });
-                }
-              }}
-            />
             <button
               type="button"
-              className="mr-2 rounded-sm px-2 py-1 text-lg leading-none text-text-secondary hover:bg-surface-elevated focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
+              className="mr-2 rounded-md p-2 text-text-secondary transition-colors hover:bg-surface-elevated focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
               aria-label={t('search.chooseDate')}
-              onClick={() => openNativePicker(datePickerRef.current)}
+              aria-expanded={isCalendarOpen}
+              onClick={() => setIsCalendarOpen((open) => !open)}
             >
-              ▦
+              <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5 fill-none stroke-current stroke-2"><rect x="3" y="4.5" width="18" height="16" rx="2" /><path d="M8 3v3M16 3v3M3 9h18M8 13h.01M12 13h.01M16 13h.01M8 17h.01M12 17h.01M16 17h.01" strokeLinecap="round" /></svg>
             </button>
+            {isCalendarOpen && (
+              <CalendarPopover
+                value={draft.date || getCurrentDate()}
+                locale={locale}
+                onChange={(nextDate) => {
+                  setDateText(formatDateForDisplay(nextDate, locale));
+                  onChange({ ...draft, date: nextDate });
+                  setIsCalendarOpen(false);
+                }}
+              />
+            )}
           </div>
         </div>
         <div className="flex flex-col gap-1.5">
