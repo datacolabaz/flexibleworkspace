@@ -108,6 +108,11 @@ function startOfCalendar(date: Date): Date {
   return new Date(date.getFullYear(), date.getMonth(), 1 - mondayBasedDay);
 }
 
+const MONTH_NAMES = {
+  az: ['yanvar', 'fevral', 'mart', 'aprel', 'may', 'iyun', 'iyul', 'avqust', 'sentyabr', 'oktyabr', 'noyabr', 'dekabr'],
+  en: ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'],
+} as const;
+
 function CalendarPopover({ value, locale, onChange }: { value: string; locale: string; onChange: (date: string) => void }) {
   const today = new Date();
   const [visibleMonth, setVisibleMonth] = useState(() => {
@@ -122,16 +127,17 @@ function CalendarPopover({ value, locale, onChange }: { value: string; locale: s
     return day;
   });
   const weekdayFormatter = new Intl.DateTimeFormat(locale, { weekday: 'short' });
-  const monthFormatter = new Intl.DateTimeFormat(locale, { month: 'long', year: 'numeric' });
+  const monthNames = locale.startsWith('en') ? MONTH_NAMES.en : MONTH_NAMES.az;
+  const monthLabel = `${monthNames[visibleMonth.getMonth()]} ${visibleMonth.getFullYear()}`;
   const weekdays = Array.from({ length: 7 }, (_, index) => weekdayFormatter.format(new Date(2024, 0, 1 + index)).slice(0, 2));
 
   return (
-    <div className="absolute right-0 top-[calc(100%+0.5rem)] z-30 w-[min(19rem,calc(100vw-2rem))] rounded-lg border border-border bg-surface p-3 shadow-lg" role="dialog" aria-label={locale.startsWith('en') ? 'Choose date' : 'Tarix seçin'}>
+    <div className="absolute left-0 right-auto top-[calc(100%+0.5rem)] z-30 w-[min(19rem,calc(100vw-2rem))] rounded-lg border border-border bg-surface p-3 shadow-lg" role="dialog" aria-label={locale.startsWith('en') ? 'Choose date' : 'Tarix seçin'}>
       <div className="mb-3 flex items-center justify-between">
         <button type="button" className="rounded-md p-2 text-text-secondary transition-colors hover:bg-surface-elevated hover:text-text-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary" aria-label={locale.startsWith('en') ? 'Previous month' : 'Əvvəlki ay'} onClick={() => setVisibleMonth(new Date(visibleMonth.getFullYear(), visibleMonth.getMonth() - 1, 1))}>
           <svg aria-hidden="true" viewBox="0 0 20 20" className="h-4 w-4 fill-none stroke-current stroke-2"><path d="m12.5 4-6 6 6 6" /></svg>
         </button>
-        <span className="text-sm font-semibold capitalize text-text-primary">{monthFormatter.format(visibleMonth)}</span>
+        <span className="text-sm font-semibold capitalize text-text-primary">{monthLabel}</span>
         <button type="button" className="rounded-md p-2 text-text-secondary transition-colors hover:bg-surface-elevated hover:text-text-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary" aria-label={locale.startsWith('en') ? 'Next month' : 'Növbəti ay'} onClick={() => setVisibleMonth(new Date(visibleMonth.getFullYear(), visibleMonth.getMonth() + 1, 1))}>
           <svg aria-hidden="true" viewBox="0 0 20 20" className="h-4 w-4 fill-none stroke-current stroke-2"><path d="m7.5 4 6 6-6 6" /></svg>
         </button>
