@@ -69,16 +69,17 @@ function draftFromSearchParams(params: URLSearchParams): FilterDraft {
 function formatDateForDisplay(isoDate: string, locale: string): string {
   if (!isoDate) return '';
   const [year, month, day] = isoDate.split('-');
-  return locale.startsWith('en') ? `${month}/${day}/${year}` : `${day}.${month}.${year}`;
+  const shortYear = year.slice(-2);
+  return locale.startsWith('en') ? `${month}/${day}/${shortYear}` : `${day}.${month}.${shortYear}`;
 }
 
 function parseDisplayDate(value: string, locale: string): string | undefined {
   const digits = value.replace(/\D/g, '');
-  if (digits.length !== 8) return undefined;
+  if (digits.length !== 6 && digits.length !== 8) return undefined;
   const isEnglish = locale.startsWith('en');
   const day = isEnglish ? digits.slice(2, 4) : digits.slice(0, 2);
   const month = isEnglish ? digits.slice(0, 2) : digits.slice(2, 4);
-  const year = digits.slice(4);
+  const year = digits.length === 6 ? `20${digits.slice(4)}` : digits.slice(4);
   const candidate = `${year}-${month}-${day}`;
   const date = new Date(`${candidate}T00:00:00`);
   return date.getFullYear() === Number(year) && date.getMonth() + 1 === Number(month) && date.getDate() === Number(day)
