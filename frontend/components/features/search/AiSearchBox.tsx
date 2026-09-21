@@ -9,6 +9,10 @@ type SearchIntentResponse = {
   filters: Record<string, string | number | string[]>;
   clarifyingQuestion: string | null;
   confidence: number;
+  results?: {
+    totalCount: number;
+    results: Array<{ id: string; name: string; district: string | null; relevanceScore: number }>;
+  };
 };
 
 export function AiSearchBox() {
@@ -24,10 +28,10 @@ export function AiSearchBox() {
     if (query.trim().length < 2) return;
     setLoading(true); setError('');
     try {
-      const response = await fetch('/api/ai/search/interpret', {
+      const response = await fetch('/api/ai/search', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query, locale: document.documentElement.lang || 'az' }),
+        body: JSON.stringify({ query, locale: (document.documentElement.lang || 'az').split('-')[0] }),
       });
       const body = await response.json() as SearchIntentResponse | { error?: { message?: string } };
       if (!response.ok) throw new Error(('error' in body ? body.error?.message : undefined) ?? 'AI axtarış hazırda əlçatan deyil.');
@@ -57,7 +61,17 @@ export function AiSearchBox() {
         <Button type="submit" disabled={loading}>{loading ? 'Axtarılır…' : 'Filtrləri çıxar'}</Button>
       </form>
       {error && <p className="mt-3 text-small text-error">{error}</p>}
-      {result && <div className="mt-4 rounded-md border border-border bg-surface p-3"><p className="text-small text-text-secondary">{result.clarifyingQuestion ?? `Filterlər hazırdır (${Math.round(result.confidence * 100)}% uyğunluq).`}</p><div className="mt-3 flex flex-wrap gap-2">{Object.entries(result.filters).map(([key, value]) => <span key={key} className="rounded-full bg-surface-elevated px-2.5 py-1 text-caption text-text-primary">{key}: {Array.isArray(value) ? value.join(', ') : String(value)}</span>)}</div><Button type="button" className="mt-3" size="sm" onClick={applyFilters}>Bu filterlərlə axtar</Button></div>}
+      {result && <div className="mt-4 rounded-md border border-border bg-surface p-3">
+        <p className="text-small text-text-secondary">{result.clarifyingQuestion ?? `Filterlər hazırdır (${Math.round(result.confidence * 100)}% uyğunluq).`}</p>
+        <div className="mt-3 flex flex-wrap gap-2">
+          {Object.entries(result.filters).map(([key, value]) => <span key={key} className="rounded-full bg-surface-elevated px-2.5 py-1 text-caption text-text-primary">{key}: {Array.isArray(value) ? value.join(', ') : String(value)}</span>)}
+        </div>
+        {result.results && <p className="mt-3 text-small font-semibold text-text-primary">{result.results.totalCount} uyğun məkan tapıldı.</p>}
+        {result.results && result.results.results.length > 0 && <ul className="mt-2 space-y-1 text-small text-text-secondary">
+          {result.results.results.slice(0, 3).map((room) => <li key={room.id}>{room.name}{room.district ? ` — ${room.district}` : ''}</li>)}
+        </ul>}
+        <Button type="button" className="mt-3" size="sm" onClick={applyFilters}>Bu filterlərlə axtar</Button>
+      </div>}
     </section>
   );
 }
