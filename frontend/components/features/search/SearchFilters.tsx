@@ -159,7 +159,7 @@ function FilterFields({ draft, onChange }: { draft: FilterDraft; onChange: (next
         </Select>
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="filter-participants">{t('search.participantsLabel')}</Label>
           <Input
@@ -167,9 +167,12 @@ function FilterFields({ draft, onChange }: { draft: FilterDraft; onChange: (next
             type="number"
             min={1}
             inputMode="numeric"
+            placeholder="məs. 4"
+            className="pr-16"
             value={draft.participants}
             onChange={(e) => onChange({ ...draft, participants: e.target.value })}
           />
+          <span className="pointer-events-none -mt-9 mr-3 self-end pb-3 text-small text-text-muted">nəfər</span>
         </div>
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="filter-price-max">{t('search.priceMaxLabel')}</Label>
@@ -178,9 +181,12 @@ function FilterFields({ draft, onChange }: { draft: FilterDraft; onChange: (next
             type="number"
             min={0}
             inputMode="numeric"
+            placeholder="məs. 50"
+            className="pr-20"
             value={draft.priceMax}
             onChange={(e) => onChange({ ...draft, priceMax: e.target.value })}
           />
+          <span className="pointer-events-none -mt-9 mr-3 self-end pb-3 text-small text-text-muted">AZN/saat</span>
         </div>
       </div>
 

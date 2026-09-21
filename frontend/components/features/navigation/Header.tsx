@@ -77,7 +77,12 @@ export async function Header() {
       </a>
       <header className="sticky top-0 z-40 border-b border-border bg-surface">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-2 px-3 sm:gap-4 sm:px-4">
-          <Link href="/" aria-label={t('home')} className="shrink-0">
+          <Link
+            href="/"
+            aria-label={t('home')}
+            title={t('home')}
+            className="group shrink-0 rounded-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary"
+          >
             <Logo variant="auto" height={28} />
           </Link>
 
@@ -86,7 +91,7 @@ export async function Header() {
               <Link
                 key={item.href}
                 href={item.href}
-                className="text-nav text-text-secondary hover:text-text-primary"
+                className="rounded-sm text-nav text-text-secondary transition-colors duration-150 hover:text-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary"
               >
                 {item.label}
               </Link>
