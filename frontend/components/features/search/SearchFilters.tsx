@@ -130,13 +130,11 @@ function FilterFields({ draft, onChange }: { draft: FilterDraft; onChange: (next
             id="filter-date"
             type="date"
             lang={locale}
-            title={t('search.dateFormatHint')}
-            aria-describedby="filter-date-format"
+            aria-label={t('search.dateLabel')}
             className="min-w-0 text-sm"
             value={draft.date}
             onChange={(e) => onChange({ ...draft, date: e.target.value })}
           />
-          <span id="filter-date-format" className="text-caption text-text-muted">{t('search.dateFormatHint')}</span>
         </div>
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="filter-start-time">{t('search.startTimeLabel')}</Label>

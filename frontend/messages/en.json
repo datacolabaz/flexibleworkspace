@@ -92,7 +92,6 @@
     "roomTypeLabel": "Room type",
     "roomTypeAny": "Any room type",
     "dateLabel": "Date",
-    "dateFormatHint": "MM/DD/YYYY",
     "startTimeLabel": "Start time",
     "durationLabel": "Duration",
     "durationAny": "Any duration",

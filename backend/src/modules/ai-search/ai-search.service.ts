@@ -41,8 +41,8 @@ const SEARCH_INTENT_SCHEMA = {
 export class AiSearchService {
   async interpret(query: string, locale: 'az' | 'ru' | 'en'): Promise<SearchIntent> {
     const apiKey = process.env.OPENAI_API_KEY;
-    const apiBase = (process.env.OPENAI_API_BASE ?? '').replace(/\/$/, '');
-    if (!apiKey || !apiBase) {
+    const apiBase = (process.env.OPENAI_API_BASE ?? 'https://api.openai.com/v1').replace(/\/$/, '');
+    if (!apiKey) {
       throw new ServiceUnavailableException({
         code: 'AI_SEARCH_NOT_CONFIGURED',
         message: 'AI search is not configured yet. Use the standard filters instead.',
