@@ -9,6 +9,7 @@ import { ConfigService } from '@nestjs/config';
 import { Reflector } from '@nestjs/core';
 import { Request } from 'express';
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
+import { RoleName } from '../constants/roles.enum';
 
 export interface AuthenticatedUser {
   userId: string;
@@ -21,6 +22,14 @@ declare module 'express' {
   interface Request {
     user?: AuthenticatedUser;
   }
+}
+
+function normalizeRole(role: string): string {
+  // Access tokens issued before the admin-role rename may still carry the
+  // legacy values until the user signs in again.
+  if (role === 'PLATFORM_ADMIN') return RoleName.SUPER_ADMIN;
+  if (role === 'SUPPORT_OPS') return RoleName.SUPPORT_ADMIN;
+  return role;
 }
 
 /**
@@ -68,12 +77,7 @@ export class JwtAuthGuard implements CanActivate {
       const payload = this.jwtService.verify(token, {
         secret: this.configService.get('jwt.accessSecret'),
       });
-      request.user = {
-        userId: payload.sub,
-        email: payload.email ?? null,
-        phone: payload.phone ?? null,
-        roles: payload.roles ?? [],
-      };
+      request.user = this.toAuthenticatedUser(payload);
       return true;
     } catch {
       throw new UnauthorizedException({
@@ -90,15 +94,22 @@ export class JwtAuthGuard implements CanActivate {
       const payload = this.jwtService.verify(token, {
         secret: this.configService.get('jwt.accessSecret'),
       });
-      request.user = {
-        userId: payload.sub,
-        email: payload.email ?? null,
-        phone: payload.phone ?? null,
-        roles: payload.roles ?? [],
-      };
+      request.user = this.toAuthenticatedUser(payload);
     } catch {
       // Invalid token on a public route: treat as anonymous, don't fail the request.
     }
+  }
+
+  private toAuthenticatedUser(payload: any): AuthenticatedUser {
+    return {
+      userId: payload.sub,
+      email: payload.email ?? null,
+      phone: payload.phone ?? null,
+      roles: (payload.roles ?? []).map((role: { role: string; providerId: string | null }) => ({
+        ...role,
+        role: normalizeRole(role.role),
+      })),
+    };
   }
 
   private extractToken(request: Request): string | undefined {

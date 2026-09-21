@@ -54,6 +54,15 @@ export type AdminPricingSetting = {
   updatedAt?: string | null;
 };
 
+export type AdminAnalyticsOverview = {
+  periodDays: number;
+  totalViews: number;
+  uniqueVisitors: number;
+  todayViews: number;
+  todayUniqueVisitors: number;
+  topPages: Array<{ path: string; views: number }>;
+};
+
 export type CorrectRoomInput = {
   name?: string;
   description?: string;
@@ -176,6 +185,10 @@ export function getAdminSummary(accessToken: string) {
 
 export function getAdminPricing(accessToken: string) {
   return adminFetch<AdminPricingSetting>(accessToken, 'admin/pricing/default');
+}
+
+export function getAdminAnalytics(accessToken: string) {
+  return adminFetch<AdminAnalyticsOverview>(accessToken, 'admin/analytics/overview');
 }
 
 export function updateAdminPricing(accessToken: string, input: { percentage: number; minimumPriceAmount: number; reason: string }) {

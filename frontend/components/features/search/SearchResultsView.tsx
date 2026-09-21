@@ -10,6 +10,7 @@ import { RoomListingCard, type RoomSummary } from '@/components/features/rooms/R
 import { RoomListingCardSkeleton } from '@/components/features/rooms/RoomListingCardSkeleton';
 import { SearchFilters } from './SearchFilters';
 import { SearchResultsMap } from './SearchResultsMap';
+import { AiSearchBox } from './AiSearchBox';
 import type { SearchRoomsResult } from '@/lib/api-client/rooms';
 
 type MobileView = 'list' | 'map';
@@ -128,13 +129,17 @@ export function SearchResultsView() {
   }
 
   return (
-    // flex-col below `lg`, flex-row at `lg`+: below `lg` the sidebar is
-    // hidden but <SearchFilters>'s mobile trigger button is still a
-    // sibling here — in a nowrap row it squeezed the results column down
-    // to a sliver (caught live at 390px: the price line pushed ~50px
-    // past the viewport edge). Stacking vertically below `lg` gives the
-    // trigger button its own full-width row instead.
-    <div className="mx-auto flex max-w-7xl flex-col gap-6 px-4 py-6 sm:px-6 lg:flex-row">
+    <>
+      <div className="mx-auto max-w-7xl px-4 pt-6 sm:px-6">
+        <AiSearchBox />
+      </div>
+      {/* flex-col below `lg`, flex-row at `lg`+: below `lg` the sidebar is
+     // hidden but <SearchFilters>'s mobile trigger button is still a
+     // sibling here — in a nowrap row it squeezed the results column down
+     // to a sliver (caught live at 390px: the price line pushed ~50px
+     // past the viewport edge). Stacking vertically below `lg` gives the
+      // trigger button its own full-width row instead. */}
+      <div className="mx-auto flex max-w-7xl flex-col gap-6 px-4 py-6 sm:px-6 lg:flex-row">
       <SearchFilters />
 
       <div className="min-w-0 flex-1">
@@ -236,6 +241,7 @@ export function SearchResultsView() {
           </div>
         </div>
       </div>
-    </div>
+      </div>
+    </>
   );
 }

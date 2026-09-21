@@ -6,6 +6,7 @@ import { notFound } from 'next/navigation';
 import { routing } from '@/lib/i18n/routing';
 import { Header } from '@/components/features/navigation/Header';
 import { SiteFooter } from '@/components/features/navigation/SiteFooter';
+import { PageviewTracker } from '@/components/features/analytics/PageviewTracker';
 import '../globals.css';
 
 // This is a Next.js "root layout" for the customer-facing branch — see
@@ -65,6 +66,7 @@ export default async function LocaleLayout({
       </head>
       <body>
         <NextIntlClientProvider messages={messages}>
+          <PageviewTracker />
           <Header />
           {children}
           <SiteFooter />

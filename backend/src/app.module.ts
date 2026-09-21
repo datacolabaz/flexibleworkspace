@@ -25,6 +25,8 @@ import { PartnersModule } from './modules/partners/partners.module';
 import { ReviewsModule } from './modules/reviews/reviews.module';
 import { FavoritesModule } from './modules/favorites/favorites.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
+import { AnalyticsModule } from './modules/analytics/analytics.module';
+import { AiSearchModule } from './modules/ai-search/ai-search.module';
 import { AdminModule } from './modules/admin/admin.module';
 
 @Module({
@@ -76,6 +78,8 @@ import { AdminModule } from './modules/admin/admin.module';
     ReviewsModule,
     FavoritesModule,
     NotificationsModule,
+    AnalyticsModule,
+    AiSearchModule,
     AdminModule,
   ],
   controllers: [AppController],

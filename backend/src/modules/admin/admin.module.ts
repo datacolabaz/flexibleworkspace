@@ -9,6 +9,7 @@ import { BookingEntity } from '../bookings/entities/booking.entity';
 import { AuditModule } from '../audit/audit.module';
 import { AdminPricingSettingEntity } from './entities/admin-pricing-setting.entity';
 import { CommissionRuleEntity } from '../payments/entities/commission-rule.entity';
+import { AnalyticsModule } from '../analytics/analytics.module';
 
 import { AdminSearchController } from './admin-search.controller';
 import { AdminAuditController } from './admin-audit.controller';
@@ -17,6 +18,7 @@ import { AdminListingsController } from './admin-listings.controller';
 import { AdminTaxonomyController } from './admin-taxonomy.controller';
 import { AdminDashboardController } from './admin-dashboard.controller';
 import { AdminPricingController } from './admin-pricing.controller';
+import { AdminAnalyticsController } from './admin-analytics.controller';
 
 import { AdminSearchService } from './admin-search.service';
 import { AdminUsersService } from './admin-users.service';
@@ -51,6 +53,7 @@ import { AdminPricingService } from './admin-pricing.service';
       CommissionRuleEntity,
     ]),
     AuditModule,
+    AnalyticsModule,
   ],
   controllers: [
     AdminSearchController,
@@ -60,6 +63,7 @@ import { AdminPricingService } from './admin-pricing.service';
     AdminTaxonomyController,
     AdminDashboardController,
     AdminPricingController,
+    AdminAnalyticsController,
   ],
   providers: [
     AdminSearchService,

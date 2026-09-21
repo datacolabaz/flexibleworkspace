@@ -4,6 +4,7 @@ import {
   assertAdminAccess,
   correctAdminRoom,
   getAdminPricing,
+  getAdminAnalytics,
   getAdminSummary,
   listAdminAudit,
   listAdminRooms,
@@ -65,6 +66,9 @@ export async function GET(
     }
     if (key === 'pricing/default') {
       return NextResponse.json(await getAdminPricing(accessToken));
+    }
+    if (key === 'analytics/overview') {
+      return NextResponse.json(await getAdminAnalytics(accessToken));
     }
     if (key === 'access') {
       await assertAdminAccess(accessToken);

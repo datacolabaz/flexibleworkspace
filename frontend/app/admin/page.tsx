@@ -6,6 +6,7 @@ import { Logo } from '@/components/ui/Logo';
 import { Card } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
+import { AdminAnalyticsCharts } from '@/components/features/admin/AdminAnalyticsCharts';
 
 type Section = 'overview' | 'listings' | 'pricing' | 'users' | 'audit';
 type RoomStatus = 'DRAFT' | 'ACTIVE' | 'INACTIVE';
@@ -43,7 +44,7 @@ type AdminUser = {
   roles?: Array<{ role: string; providerId: string | null }>;
 };
 
-type AdminSummary = { totalRooms: number; activeRooms: number; draftRooms: number; totalUsers: number; bookingsToday: number };
+type AdminSummary = { totalRooms: number; activeRooms: number; draftRooms: number; totalUsers: number; bookingsToday: number; analytics?: { totalViews: number; uniqueVisitors: number; todayViews: number; todayUniqueVisitors: number; topPages: Array<{ path: string; views: number }> } };
 type AdminPricing = { percentage: string; minimumPriceAmount: string; currency: string; updatedAt?: string | null };
 
 const NAV_ITEMS: Array<{ id: Section; label: string; description: string }> = [
@@ -175,6 +176,10 @@ function Overview({ rooms, summary, activeRooms, pendingRooms, onNavigate }: { r
     { label: 'Aktiv məkanlar', value: summary?.activeRooms ?? activeRooms, note: 'Statusu ACTIVE olanlar', tone: 'text-success' },
     { label: 'Yoxlama gözləyən', value: summary?.draftRooms ?? pendingRooms, note: 'Statusu DRAFT olanlar', tone: 'text-warning' },
     { label: 'Bu gün rezervasiyalar', value: summary?.bookingsToday ?? '—', note: 'Aktiv booking statusları', tone: 'text-info' },
+    { label: 'Unikal ziyarətçi (30 gün)', value: summary?.analytics?.uniqueVisitors ?? '—', note: 'Anonim, hash-lanmış visitor ID', tone: 'text-info' },
+    { label: 'Baxışlar (30 gün)', value: summary?.analytics?.totalViews ?? '—', note: 'Müştəri səhifələrinə baxış', tone: 'text-primary' },
+    { label: 'Bu gün ziyarətçi', value: summary?.analytics?.todayUniqueVisitors ?? '—', note: 'Bugünkü unikal visitor', tone: 'text-success' },
+    { label: 'Bu gün baxış', value: summary?.analytics?.todayViews ?? '—', note: 'Bugünkü pageview', tone: 'text-warning' },
   ];
 
   return <div className="space-y-6">
@@ -183,6 +188,7 @@ function Overview({ rooms, summary, activeRooms, pendingRooms, onNavigate }: { r
       <Card><div className="flex items-start justify-between gap-4"><div><h2 className="font-display text-h3">İdarəetmə prioritetləri</h2><p className="mt-2 text-small text-text-secondary">Bu paneldə dəyişikliklər artıq canlı admin endpoint-lərinə gedir və audit izi yaradır.</p></div><span className="rounded-full bg-success-bg px-2.5 py-1 text-caption text-success">LIVE API</span></div><div className="mt-5 space-y-3">{[['Məkanları yoxla', 'Canlı kataloq və qiymət/tutum düzəlişi', 'listings'], ['Qiymət qaydalarını qur', 'Platforma komissiyası üçün ayrıca settings API lazımdır', 'pricing'], ['İcazələri nəzərdən keçir', 'İstifadəçi endpoint-i qoşulub', 'users']].map(([title, note, target]) => <button key={title} type="button" onClick={() => onNavigate(target as Section)} className="flex w-full items-center justify-between rounded-md border border-border p-4 text-left transition-colors hover:border-primary hover:bg-surface-elevated"><span><span className="block text-label">{title}</span><span className="mt-1 block text-small text-text-secondary">{note}</span></span><span className="text-accent">→</span></button>)}</div></Card>
       <Card><h2 className="font-display text-h3">Sistem vəziyyəti</h2><div className="mt-5 space-y-4">{[['Public sayt', 'İşlək', 'bg-success-bg text-success'], ['Məkan API', 'İşlək', 'bg-success-bg text-success'], ['Admin auth', 'Server-side qorunur', 'bg-success-bg text-success'], ['Audit API', 'Qoşulub', 'bg-success-bg text-success']].map(([label, status, tone]) => <div key={label} className="flex items-center justify-between gap-3 border-b border-border pb-3 last:border-0 last:pb-0"><span className="text-small text-text-secondary">{label}</span><span className={`rounded-full px-2.5 py-1 text-caption ${tone}`}>{status}</span></div>)}</div></Card>
     </div>
+    <AdminAnalyticsCharts pages={summary?.analytics?.topPages ?? []} />
   </div>;
 }
 
