@@ -5,18 +5,25 @@ import { RoomEntity } from '../rooms/entities/room.entity';
 import { RoomTypeEntity } from '../rooms/entities/room-type.entity';
 import { AmenityEntity } from '../rooms/entities/amenity.entity';
 import { AppUserEntity } from '../auth/entities/app-user.entity';
+import { BookingEntity } from '../bookings/entities/booking.entity';
 import { AuditModule } from '../audit/audit.module';
+import { AdminPricingSettingEntity } from './entities/admin-pricing-setting.entity';
+import { CommissionRuleEntity } from '../payments/entities/commission-rule.entity';
 
 import { AdminSearchController } from './admin-search.controller';
 import { AdminAuditController } from './admin-audit.controller';
 import { AdminUsersController } from './admin-users.controller';
 import { AdminListingsController } from './admin-listings.controller';
 import { AdminTaxonomyController } from './admin-taxonomy.controller';
+import { AdminDashboardController } from './admin-dashboard.controller';
+import { AdminPricingController } from './admin-pricing.controller';
 
 import { AdminSearchService } from './admin-search.service';
 import { AdminUsersService } from './admin-users.service';
 import { AdminListingsService } from './admin-listings.service';
 import { AdminTaxonomyService } from './admin-taxonomy.service';
+import { AdminDashboardService } from './admin-dashboard.service';
+import { AdminPricingService } from './admin-pricing.service';
 
 /**
  * 33_ADMIN_OPERATIONAL_CONTROL_CENTER.md — Admin Operational Control
@@ -39,6 +46,9 @@ import { AdminTaxonomyService } from './admin-taxonomy.service';
       RoomTypeEntity,
       AmenityEntity,
       AppUserEntity,
+      BookingEntity,
+      AdminPricingSettingEntity,
+      CommissionRuleEntity,
     ]),
     AuditModule,
   ],
@@ -48,12 +58,16 @@ import { AdminTaxonomyService } from './admin-taxonomy.service';
     AdminUsersController,
     AdminListingsController,
     AdminTaxonomyController,
+    AdminDashboardController,
+    AdminPricingController,
   ],
   providers: [
     AdminSearchService,
     AdminUsersService,
     AdminListingsService,
     AdminTaxonomyService,
+    AdminDashboardService,
+    AdminPricingService,
   ],
 })
 export class AdminModule {}

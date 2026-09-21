@@ -39,8 +39,12 @@ type AdminUser = {
   email: string | null;
   phone: string | null;
   displayName: string | null;
-  suspended?: boolean;
+  isActive: boolean;
+  roles?: Array<{ role: string; providerId: string | null }>;
 };
+
+type AdminSummary = { totalRooms: number; activeRooms: number; draftRooms: number; totalUsers: number; bookingsToday: number };
+type AdminPricing = { percentage: string; minimumPriceAmount: string; currency: string; updatedAt?: string | null };
 
 const NAV_ITEMS: Array<{ id: Section; label: string; description: string }> = [
   { id: 'overview', label: 'İcmal', description: 'Canlı kataloq göstəriciləri və növbəti addımlar' },
@@ -77,12 +81,18 @@ export default function AdminHome() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [editingRoom, setEditingRoom] = useState<AdminRoom | null>(null);
+  const [summary, setSummary] = useState<AdminSummary | null>(null);
+  const [pricing, setPricing] = useState<AdminPricing | null>(null);
 
   useEffect(() => {
     const controller = new AbortController();
     setLoading(true);
     setError('');
-    const endpoint = section === 'audit'
+    const endpoint = section === 'overview'
+      ? '/api/admin/dashboard/summary'
+      : section === 'pricing'
+        ? '/api/admin/pricing/default'
+        : section === 'audit'
       ? '/api/admin/audit-log'
       : section === 'users'
         ? `/api/admin/users${query.trim() ? `?q=${encodeURIComponent(query.trim())}` : ''}`
@@ -90,7 +100,9 @@ export default function AdminHome() {
 
     requestJson<AdminRoom[] | AdminAuditEntry[] | AdminUser[]>(endpoint, { signal: controller.signal })
       .then((data) => {
-        if (section === 'audit') setAudit(data as AdminAuditEntry[]);
+        if (section === 'overview') setSummary(data as unknown as AdminSummary);
+        else if (section === 'pricing') setPricing(data as unknown as AdminPricing);
+        else if (section === 'audit') setAudit(data as AdminAuditEntry[]);
         else if (section === 'users') setUsers(data as AdminUser[]);
         else setRooms(data as AdminRoom[]);
       })
@@ -146,9 +158,9 @@ export default function AdminHome() {
           {error && <div className="mb-5 rounded-md border border-error/30 bg-error-bg px-4 py-3 text-small text-error">{error}</div>}
           {loading && <div className="mb-5 rounded-md border border-border bg-surface px-4 py-3 text-small text-text-secondary">Məlumatlar yüklənir…</div>}
 
-          {section === 'overview' && <Overview rooms={rooms} activeRooms={activeRooms} pendingRooms={pendingRooms} onNavigate={setSection} />}
+          {section === 'overview' && <Overview rooms={rooms} summary={summary} activeRooms={activeRooms} pendingRooms={pendingRooms} onNavigate={setSection} />}
           {section === 'listings' && <Listings rooms={rooms} query={query} onQuery={setQuery} editingRoom={editingRoom} onEdit={setEditingRoom} onSaved={(room) => { setRooms((current) => current.map((item) => item.id === room.id ? room : item)); setEditingRoom(null); }} />}
-          {section === 'pricing' && <PricingSection />}
+          {section === 'pricing' && <PricingSection pricing={pricing} onSaved={setPricing} />}
           {section === 'users' && <UsersSection users={users} query={query} onQuery={setQuery} />}
           {section === 'audit' && <AuditSection entries={audit} />}
         </main>
@@ -157,12 +169,12 @@ export default function AdminHome() {
   );
 }
 
-function Overview({ rooms, activeRooms, pendingRooms, onNavigate }: { rooms: AdminRoom[]; activeRooms: number; pendingRooms: number; onNavigate: (section: Section) => void }) {
+function Overview({ rooms, summary, activeRooms, pendingRooms, onNavigate }: { rooms: AdminRoom[]; summary: AdminSummary | null; activeRooms: number; pendingRooms: number; onNavigate: (section: Section) => void }) {
   const stats = [
-    { label: 'Məkan kataloqu', value: rooms.length, note: 'Canlı admin API nəticəsi', tone: 'text-primary' },
-    { label: 'Aktiv məkanlar', value: activeRooms, note: 'Statusu ACTIVE olanlar', tone: 'text-success' },
-    { label: 'Yoxlama gözləyən', value: pendingRooms, note: 'Statusu DRAFT olanlar', tone: 'text-warning' },
-    { label: 'Rezervasiyalar', value: '—', note: 'Summary endpoint-i növbəti mərhələdə', tone: 'text-info' },
+    { label: 'Məkan kataloqu', value: summary?.totalRooms ?? rooms.length, note: 'Canlı dashboard summary', tone: 'text-primary' },
+    { label: 'Aktiv məkanlar', value: summary?.activeRooms ?? activeRooms, note: 'Statusu ACTIVE olanlar', tone: 'text-success' },
+    { label: 'Yoxlama gözləyən', value: summary?.draftRooms ?? pendingRooms, note: 'Statusu DRAFT olanlar', tone: 'text-warning' },
+    { label: 'Bu gün rezervasiyalar', value: summary?.bookingsToday ?? '—', note: 'Aktiv booking statusları', tone: 'text-info' },
   ];
 
   return <div className="space-y-6">
@@ -205,12 +217,41 @@ function RoomEditor({ room, onCancel, onSaved }: { room: AdminRoom; onCancel: ()
   return <Card className="border-primary/40 bg-surface-elevated"><div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-caption uppercase tracking-[0.12em] text-accent">Canlı düzəliş</p><h3 className="mt-1 font-display text-h3">{room.name}</h3></div><button type="button" onClick={onCancel} className="text-small text-text-secondary hover:text-text-primary">Bağla</button></div><div className="mt-5 grid gap-4 sm:grid-cols-3"><label className="flex flex-col gap-2 text-label">Saatlıq qiymət (AZN)<Input type="number" min="0.01" step="0.01" value={price} onChange={(event) => setPrice(event.target.value)} /></label><label className="flex flex-col gap-2 text-label">Maks. tutum<Input type="number" min="1" value={capacityMax} onChange={(event) => setCapacityMax(event.target.value)} /></label><label className="flex flex-col gap-2 text-label">Status<select className="min-h-11 rounded-md border border-border-strong bg-surface px-3" value={status} onChange={(event) => setStatus(event.target.value as RoomStatus)}><option value="DRAFT">DRAFT</option><option value="ACTIVE">ACTIVE</option><option value="INACTIVE">INACTIVE</option></select></label></div><label className="mt-4 flex flex-col gap-2 text-label">Dəyişiklik səbəbi<Input value={reason} onChange={(event) => setReason(event.target.value)} placeholder="Məs. Provider təsdiqlədi" /></label>{error && <p className="mt-3 text-small text-error">{error}</p>}<div className="mt-5 flex gap-3"><Button type="button" onClick={save} disabled={saving}>{saving ? 'Yadda saxlanır…' : 'Yadda saxla'}</Button><Button type="button" variant="secondary" onClick={onCancel}>Ləğv et</Button></div></Card>;
 }
 
-function PricingSection() {
-  return <section className="space-y-5"><Card><h2 className="font-display text-h3">Platforma qiymət ayarları</h2><p className="mt-2 max-w-2xl text-small text-text-secondary">Room qiyməti artıq məkan kataloqundan real API ilə dəyişdirilir. Mərkəzləşdirilmiş komissiya və minimum qiymət qaydaları üçün ayrıca settings migration və endpoint lazımdır.</p><div className="mt-5 rounded-md border border-info/30 bg-info-bg px-4 py-3 text-small text-text-primary">Bu bölmədə demo input saxlamaq əvəzinə yanlışlıqla işləməyən düymə saxlanılmadı. Backend settings modeli əlavə edildikdən sonra aktivləşdiriləcək.</div></Card></section>;
+function PricingSection({ pricing, onSaved }: { pricing: AdminPricing | null; onSaved: (value: AdminPricing) => void }) {
+  const [percentage, setPercentage] = useState('');
+  const [minimumPrice, setMinimumPrice] = useState('');
+  const [reason, setReason] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+  useEffect(() => { if (pricing) { setPercentage(pricing.percentage); setMinimumPrice(String(Number(pricing.minimumPriceAmount) / 100)); } }, [pricing]);
+  async function save() {
+    if (!reason.trim() || reason.trim().length < 3) { setError('Səbəb ən azı 3 simvol olmalıdır.'); return; }
+    if (!Number.isFinite(Number(percentage)) || Number(percentage) < 0 || Number(percentage) > 100) { setError('Komissiya 0–100 aralığında olmalıdır.'); return; }
+    if (!Number.isFinite(Number(minimumPrice)) || Number(minimumPrice) < 0) { setError('Minimum qiymət düzgün daxil edilməlidir.'); return; }
+    setSaving(true); setError('');
+    try { const updated = await requestJson<AdminPricing>('/api/admin/pricing/default', { method: 'PATCH', body: JSON.stringify({ percentage: Number(percentage), minimumPriceAmount: Math.round(Number(minimumPrice) * 100), reason }) }); onSaved(updated); setReason(''); }
+    catch (caught) { setError(caught instanceof Error ? caught.message : 'Yadda saxlamaq mümkün olmadı.'); }
+    finally { setSaving(false); }
+  }
+  return <section className="space-y-5"><Card><div className="flex flex-wrap items-start justify-between gap-4"><div><p className="text-caption uppercase tracking-[0.12em] text-accent">Platforma qaydaları</p><h2 className="mt-1 font-display text-h3">Qiymət və komissiya</h2><p className="mt-2 max-w-2xl text-small text-text-secondary">Bu qaydalar yeni rezervasiyalarda istifadə ediləcək. Tarixi ledger məlumatları dəyişmir və hər update audit jurnalına yazılır.</p></div><span className="rounded-full bg-success-bg px-2.5 py-1 text-caption text-success">LIVE API</span></div><div className="mt-6 grid gap-4 sm:grid-cols-2"><label className="flex flex-col gap-2 text-label">Platforma komissiyası (%)<Input type="number" min="0" max="100" step="0.01" value={percentage} onChange={(event) => setPercentage(event.target.value)} /></label><label className="flex flex-col gap-2 text-label">Minimum saatlıq qiymət (AZN)<Input type="number" min="0" step="0.01" value={minimumPrice} onChange={(event) => setMinimumPrice(event.target.value)} /></label></div><label className="mt-4 flex flex-col gap-2 text-label">Dəyişiklik səbəbi<Input value={reason} onChange={(event) => setReason(event.target.value)} placeholder="Məs. Yeni platforma komissiyası" /></label>{error && <p className="mt-3 rounded-md bg-error-bg px-4 py-3 text-small text-error">{error}</p>}<div className="mt-5 flex items-center justify-between gap-4"><p className="text-caption text-text-muted">Son yenilənmə: {pricing?.updatedAt ? formatDate(pricing.updatedAt) : '—'}</p><Button type="button" onClick={save} disabled={saving}>{saving ? 'Yadda saxlanır…' : 'Qaydaları yadda saxla'}</Button></div></Card></section>;
 }
 
 function UsersSection({ users, query, onQuery }: { users: AdminUser[]; query: string; onQuery: (value: string) => void }) {
-  return <section className="space-y-5"><div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><h2 className="font-display text-h3">İstifadəçilər</h2><Input value={query} onChange={(event) => onQuery(event.target.value)} placeholder="Email, telefon və ya ad" className="sm:max-w-xs" /></div><Card className="overflow-hidden p-0"><div className="overflow-x-auto"><table className="w-full min-w-[640px] text-left text-small"><thead className="border-b border-border bg-surface-elevated text-label text-text-secondary"><tr><th className="px-5 py-3">İstifadəçi</th><th className="px-5 py-3">Əlaqə</th><th className="px-5 py-3">Status</th></tr></thead><tbody>{users.map((user) => <tr key={user.id} className="border-b border-border last:border-0"><td className="px-5 py-4 font-semibold">{user.displayName ?? 'Adsız istifadəçi'}</td><td className="px-5 py-4 text-text-secondary">{user.email ?? user.phone ?? '—'}</td><td className="px-5 py-4">{user.suspended ? <span className="rounded-full bg-error-bg px-2.5 py-1 text-caption text-error">Suspended</span> : <span className="rounded-full bg-success-bg px-2.5 py-1 text-caption text-success">Aktiv</span>}</td></tr>)}</tbody></table></div>{users.length === 0 && <p className="p-5 text-small text-text-secondary">İstifadəçi tapılmadı.</p>}</Card></section>;
+  const [rows, setRows] = useState(users);
+  useEffect(() => setRows(users), [users]);
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [error, setError] = useState('');
+  async function toggle(user: AdminUser) {
+    const reason = window.prompt(user.isActive ? 'Suspend səbəbi:' : 'Reaktivasiya səbəbi:');
+    if (!reason || reason.trim().length < 3) return;
+    setBusyId(user.id); setError('');
+    try {
+      const updated = await requestJson<AdminUser>(`/api/admin/users/${user.id}/suspend`, { method: 'POST', body: JSON.stringify({ suspended: user.isActive, reason }) });
+      setRows((current) => current.map((item) => item.id === updated.id ? updated : item));
+    } catch (caught) { setError(caught instanceof Error ? caught.message : 'Əməliyyat uğursuz oldu.'); }
+    finally { setBusyId(null); }
+  }
+  return <section className="space-y-5"><div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><h2 className="font-display text-h3">İstifadəçilər</h2><Input value={query} onChange={(event) => onQuery(event.target.value)} placeholder="Email, telefon və ya ad" className="sm:max-w-xs" /></div>{error && <p className="rounded-md bg-error-bg px-4 py-3 text-small text-error">{error}</p>}<Card className="overflow-hidden p-0"><div className="overflow-x-auto"><table className="w-full min-w-[820px] text-left text-small"><thead className="border-b border-border bg-surface-elevated text-label text-text-secondary"><tr><th className="px-5 py-3">İstifadəçi</th><th className="px-5 py-3">Əlaqə</th><th className="px-5 py-3">Status</th><th className="px-5 py-3">Əməliyyat</th></tr></thead><tbody>{rows.map((user) => <tr key={user.id} className="border-b border-border last:border-0"><td className="px-5 py-4 font-semibold">{user.displayName ?? 'Adsız istifadəçi'}</td><td className="px-5 py-4 text-text-secondary">{user.email ?? user.phone ?? '—'}</td><td className="px-5 py-4">{user.isActive ? <span className="rounded-full bg-success-bg px-2.5 py-1 text-caption text-success">Aktiv</span> : <span className="rounded-full bg-error-bg px-2.5 py-1 text-caption text-error">Suspended</span>}</td><td className="px-5 py-4"><Button type="button" variant="secondary" size="sm" disabled={busyId === user.id} onClick={() => toggle(user)}>{busyId === user.id ? 'Gözləyin…' : user.isActive ? 'Suspend et' : 'Reactivate et'}</Button></td></tr>)}</tbody></table></div>{rows.length === 0 && <p className="p-5 text-small text-text-secondary">İstifadəçi tapılmadı.</p>}</Card></section>;
 }
 
 function AuditSection({ entries }: { entries: AdminAuditEntry[] }) {

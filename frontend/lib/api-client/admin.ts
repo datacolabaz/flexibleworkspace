@@ -32,8 +32,26 @@ export type AdminUser = {
   email: string | null;
   phone: string | null;
   displayName: string | null;
-  suspended?: boolean;
+  isActive: boolean;
   roles?: Array<{ role: string; providerId: string | null }>;
+};
+
+export type AdminSummary = {
+  totalRooms: number;
+  activeRooms: number;
+  draftRooms: number;
+  totalUsers: number;
+  bookingsToday: number;
+};
+
+export type AdminPricingSetting = {
+  id?: string;
+  settingKey: string;
+  percentage: string;
+  minimumPriceAmount: string;
+  currency: string;
+  updatedBy?: string | null;
+  updatedAt?: string | null;
 };
 
 export type CorrectRoomInput = {
@@ -143,4 +161,26 @@ export function listAdminAudit(accessToken: string) {
 export function listAdminUsers(accessToken: string, query?: string) {
   const suffix = query?.trim() ? `?q=${encodeURIComponent(query.trim())}` : '';
   return adminFetch<AdminUser[]>(accessToken, `admin/users${suffix}`);
+}
+
+export function setAdminUserSuspended(accessToken: string, userId: string, suspended: boolean, reason: string) {
+  return adminFetch<AdminUser>(accessToken, `admin/users/${encodeURIComponent(userId)}/suspend`, {
+    method: 'POST',
+    body: JSON.stringify({ suspended, reason }),
+  });
+}
+
+export function getAdminSummary(accessToken: string) {
+  return adminFetch<AdminSummary>(accessToken, 'admin/dashboard/summary');
+}
+
+export function getAdminPricing(accessToken: string) {
+  return adminFetch<AdminPricingSetting>(accessToken, 'admin/pricing/default');
+}
+
+export function updateAdminPricing(accessToken: string, input: { percentage: number; minimumPriceAmount: number; reason: string }) {
+  return adminFetch<AdminPricingSetting>(accessToken, 'admin/pricing/default', {
+    method: 'PATCH',
+    body: JSON.stringify(input),
+  });
 }
