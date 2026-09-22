@@ -63,6 +63,41 @@ export type MyRoomPhoto = {
   createdAt: string;
 };
 
+/** Provider Listing Media Specification — this provider's plan-tier photo/video limits, plus whether the active storage driver supports direct-to-bucket upload (S3/R2) or only the multipart fallback (local dev). */
+export type MediaCapabilities = {
+  directUploadSupported: boolean;
+  maxImageCount: number;
+  videoAllowed: boolean;
+  maxVideoCount: number;
+  maxVideoDurationSeconds: number;
+  maxVideoSizeBytes: number;
+};
+
+export type RoomMediaPhoto = {
+  id: string;
+  url: string;
+  isCover: boolean;
+  displayOrder: number;
+};
+
+export type RoomMediaVideo = {
+  url: string;
+  durationSeconds: number | null;
+  sizeBytes: string | null;
+  mimeType: string | null;
+};
+
+export type RoomMedia = {
+  photos: RoomMediaPhoto[];
+  video: RoomMediaVideo | null;
+};
+
+export type PresignedMediaUpload = {
+  storageKey: string;
+  uploadUrl: string;
+  publicUrl: string;
+};
+
 /** Baku city-center coordinates — used as every new location's default lat/lng (no geocoding tool in this codebase; admin can correct later). */
 export const DEFAULT_LOCATION_LAT = 40.3777;
 export const DEFAULT_LOCATION_LNG = 49.892;
@@ -189,7 +224,7 @@ export async function setMyRoomStatus(accessToken: string, roomId: string, statu
   return jsonOrThrow<MyRoom>(response);
 }
 
-/** Multipart passthrough, same pattern as `uploadMyVerificationDocument`. */
+/** Multipart passthrough, same pattern as `uploadMyVerificationDocument` — the local-dev fallback when direct upload isn't available (see `MediaCapabilities.directUploadSupported`). */
 export async function uploadMyRoomPhoto(accessToken: string, roomId: string, formData: FormData): Promise<MyRoomPhoto> {
   const response = await fetch(backendUrl(`provider/rooms/${encodeURIComponent(roomId)}/photos`), {
     method: 'POST',
@@ -198,4 +233,123 @@ export async function uploadMyRoomPhoto(accessToken: string, roomId: string, for
     cache: 'no-store',
   });
   return jsonOrThrow<MyRoomPhoto>(response);
+}
+
+// -- Media (Provider Listing Media Specification) --------------------------
+//
+// The direct-upload path is a THREE-step dance, and only the first and
+// third steps go through this BFF (and therefore through these
+// functions): (1) presign — ask the backend for a signed PUT URL, (2) the
+// browser PUTs the file bytes straight to that URL (R2, not this app —
+// there is deliberately no server-side function for that step, it has to
+// happen client-side with `fetch(uploadUrl, ...)`), (3) confirm — tell
+// the backend the upload finished so it can record the metadata.
+
+export async function getMediaCapabilities(accessToken: string): Promise<MediaCapabilities> {
+  const response = await fetch(backendUrl('provider/rooms/media/capabilities'), {
+    headers: authHeaders(accessToken, false),
+    cache: 'no-store',
+  });
+  return jsonOrThrow<MediaCapabilities>(response);
+}
+
+export async function getRoomMedia(accessToken: string, roomId: string): Promise<RoomMedia> {
+  const response = await fetch(backendUrl(`provider/rooms/${encodeURIComponent(roomId)}/media`), {
+    headers: authHeaders(accessToken, false),
+    cache: 'no-store',
+  });
+  return jsonOrThrow<RoomMedia>(response);
+}
+
+export type PresignInput = { originalFilename: string; mimeType: string };
+
+export async function presignRoomPhoto(
+  accessToken: string,
+  roomId: string,
+  input: PresignInput,
+): Promise<PresignedMediaUpload> {
+  const response = await fetch(
+    backendUrl(`provider/rooms/${encodeURIComponent(roomId)}/media/photos/presign`),
+    { method: 'POST', headers: authHeaders(accessToken, true), body: JSON.stringify(input), cache: 'no-store' },
+  );
+  return jsonOrThrow<PresignedMediaUpload>(response);
+}
+
+export type ConfirmPhotoInput = { storageKey: string; width?: number; height?: number; isCover?: boolean };
+
+export async function confirmRoomPhoto(
+  accessToken: string,
+  roomId: string,
+  input: ConfirmPhotoInput,
+): Promise<MyRoomPhoto> {
+  const response = await fetch(backendUrl(`provider/rooms/${encodeURIComponent(roomId)}/media/photos`), {
+    method: 'POST',
+    headers: authHeaders(accessToken, true),
+    body: JSON.stringify(input),
+    cache: 'no-store',
+  });
+  return jsonOrThrow<MyRoomPhoto>(response);
+}
+
+export async function removeRoomPhoto(accessToken: string, roomId: string, photoId: string): Promise<RoomMediaPhoto[]> {
+  const response = await fetch(
+    backendUrl(`provider/rooms/${encodeURIComponent(roomId)}/media/photos/${encodeURIComponent(photoId)}`),
+    { method: 'DELETE', headers: authHeaders(accessToken, false), cache: 'no-store' },
+  );
+  return jsonOrThrow<RoomMediaPhoto[]>(response);
+}
+
+export async function reorderRoomPhotos(
+  accessToken: string,
+  roomId: string,
+  photoIds: string[],
+): Promise<RoomMediaPhoto[]> {
+  const response = await fetch(backendUrl(`provider/rooms/${encodeURIComponent(roomId)}/media/photos/order`), {
+    method: 'PUT',
+    headers: authHeaders(accessToken, true),
+    body: JSON.stringify({ photoIds }),
+    cache: 'no-store',
+  });
+  return jsonOrThrow<RoomMediaPhoto[]>(response);
+}
+
+export async function setCoverRoomPhoto(accessToken: string, roomId: string, photoId: string): Promise<RoomMediaPhoto[]> {
+  const response = await fetch(
+    backendUrl(`provider/rooms/${encodeURIComponent(roomId)}/media/photos/${encodeURIComponent(photoId)}/cover`),
+    { method: 'PATCH', headers: authHeaders(accessToken, false), cache: 'no-store' },
+  );
+  return jsonOrThrow<RoomMediaPhoto[]>(response);
+}
+
+export async function presignRoomVideo(
+  accessToken: string,
+  roomId: string,
+  input: PresignInput,
+): Promise<PresignedMediaUpload> {
+  const response = await fetch(
+    backendUrl(`provider/rooms/${encodeURIComponent(roomId)}/media/video/presign`),
+    { method: 'POST', headers: authHeaders(accessToken, true), body: JSON.stringify(input), cache: 'no-store' },
+  );
+  return jsonOrThrow<PresignedMediaUpload>(response);
+}
+
+export type ConfirmVideoInput = { storageKey: string; durationSeconds: number; mimeType: string };
+
+export async function confirmRoomVideo(accessToken: string, roomId: string, input: ConfirmVideoInput): Promise<MyRoom> {
+  const response = await fetch(backendUrl(`provider/rooms/${encodeURIComponent(roomId)}/media/video`), {
+    method: 'POST',
+    headers: authHeaders(accessToken, true),
+    body: JSON.stringify(input),
+    cache: 'no-store',
+  });
+  return jsonOrThrow<MyRoom>(response);
+}
+
+export async function removeRoomVideo(accessToken: string, roomId: string): Promise<MyRoom> {
+  const response = await fetch(backendUrl(`provider/rooms/${encodeURIComponent(roomId)}/media/video`), {
+    method: 'DELETE',
+    headers: authHeaders(accessToken, false),
+    cache: 'no-store',
+  });
+  return jsonOrThrow<MyRoom>(response);
 }

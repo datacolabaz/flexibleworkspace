@@ -381,6 +381,52 @@ export class RoomsService {
    * video entirely for Free/Starter and never has to feature-detect by
    * trial and error.
    */
+  /**
+   * Everything the room-editing UI needs to render its media section in
+   * one call: display-ready URLs (never raw storageKeys — the frontend
+   * has no StorageProvider of its own to resolve those) for every photo
+   * plus the video, if any.
+   */
+  async getRoomMedia(
+    roomId: string,
+    providerId: string,
+  ): Promise<{
+    photos: {
+      id: string;
+      url: string;
+      isCover: boolean;
+      displayOrder: number;
+    }[];
+    video: {
+      url: string;
+      durationSeconds: number | null;
+      sizeBytes: string | null;
+      mimeType: string | null;
+    } | null;
+  }> {
+    const room = await this.requireRoomOwnership(roomId, providerId);
+    const photos = await this.photoRepo.find({
+      where: { roomId },
+      order: { displayOrder: 'ASC' },
+    });
+    return {
+      photos: photos.map((p) => ({
+        id: p.id,
+        url: this.storageProvider.publicUrlFor(p.storageKey),
+        isCover: p.isCover,
+        displayOrder: p.displayOrder,
+      })),
+      video: room.videoStorageKey
+        ? {
+            url: this.storageProvider.publicUrlFor(room.videoStorageKey),
+            durationSeconds: room.videoDurationSeconds,
+            sizeBytes: room.videoSizeBytes,
+            mimeType: room.videoMimeType,
+          }
+        : null,
+    };
+  }
+
   async getMediaCapabilities(providerId: string): Promise<{
     directUploadSupported: boolean;
     maxImageCount: number;

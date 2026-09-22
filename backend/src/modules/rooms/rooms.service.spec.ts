@@ -304,6 +304,55 @@ describe('RoomsService', () => {
     });
   });
 
+  describe('getRoomMedia()', () => {
+    it('returns display-ready URLs for photos and video, ordered by displayOrder', async () => {
+      roomRepo.rows.push({
+        id: 'room-m1',
+        location: { providerId },
+        videoStorageKey: 'vid-key',
+        videoDurationSeconds: 12,
+        videoSizeBytes: '999',
+        videoMimeType: 'video/mp4',
+      });
+      photoRepo.rows.push(
+        {
+          id: 'p2',
+          roomId: 'room-m1',
+          storageKey: 'k2',
+          isCover: false,
+          displayOrder: 1,
+        },
+        {
+          id: 'p1',
+          roomId: 'room-m1',
+          storageKey: 'k1',
+          isCover: true,
+          displayOrder: 0,
+        },
+      );
+
+      const media = await service.getRoomMedia('room-m1', providerId);
+      expect(media.photos.map((p) => p.id)).toEqual(['p1', 'p2']);
+      expect(media.photos[0].url).toBe('https://cdn.example/k1');
+      expect(media.video?.url).toBe('https://cdn.example/vid-key');
+      expect(media.video?.durationSeconds).toBe(12);
+    });
+
+    it('returns video: null when the room has no video', async () => {
+      roomRepo.rows.push({ id: 'room-m2', location: { providerId } });
+      const media = await service.getRoomMedia('room-m2', providerId);
+      expect(media.video).toBeNull();
+      expect(media.photos).toEqual([]);
+    });
+
+    it('404s when the room belongs to a different provider', async () => {
+      roomRepo.rows.push({ id: 'room-m3', location: { providerId } });
+      await expect(
+        service.getRoomMedia('room-m3', otherProviderId),
+      ).rejects.toBeInstanceOf(ResourceNotFoundException);
+    });
+  });
+
   describe('getMediaCapabilities()', () => {
     it("reflects the caller's plan tier and whether direct upload is available", async () => {
       const caps = await service.getMediaCapabilities(providerId);

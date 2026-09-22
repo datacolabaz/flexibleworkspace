@@ -1,13 +1,24 @@
 'use client';
 
-import { useState, type ChangeEvent, type FormEvent } from 'react';
+import { useCallback, useEffect, useState, type ChangeEvent, type DragEvent, type FormEvent } from 'react';
 import { Alert } from '@/components/ui/Alert';
+import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { FormField } from '@/components/ui/FormField';
+import { IconButton } from '@/components/ui/IconButton';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
-import type { MyLocation, MyRoom, MyRoomStatus, RoomTypeOption } from '@/lib/api-client/provider-rooms';
+import { Spinner } from '@/components/ui/Spinner';
+import type {
+  MediaCapabilities,
+  MyLocation,
+  MyRoom,
+  MyRoomStatus,
+  RoomMedia,
+  RoomMediaPhoto,
+  RoomTypeOption,
+} from '@/lib/api-client/provider-rooms';
 
 interface BffErrorBody {
   error?: { code?: string; message?: string };
@@ -62,6 +73,10 @@ async function readBffError(response: Response, fallback: string): Promise<strin
   }
 }
 
+function formatMegabytes(bytes: number): string {
+  return `${Math.round((bytes / (1024 * 1024)) * 10) / 10}MB`;
+}
+
 /**
  * Sprint 5 — provider self-service room creation. There was previously
  * NO way for a provider to list a room at all from the frontend (only
@@ -69,15 +84,23 @@ async function readBffError(response: Response, fallback: string): Promise<strin
  * address on first use (a room needs a `locationId`, and registering as
  * a provider doesn't create one), then add rooms with photos, then
  * activate them once the provider account is verified.
+ *
+ * Provider Listing Media Specification — `mediaCapabilities` (this
+ * provider's plan-tier photo/video limits, fetched once server-side)
+ * flows down to every room's media manager rather than each one
+ * re-fetching it, since the limits are the same for every room this
+ * provider owns.
  */
 export function ProviderRoomsPanel({
   initialLocations,
   initialRooms,
   roomTypes,
+  mediaCapabilities,
 }: {
   initialLocations: MyLocation[];
   initialRooms: MyRoom[];
   roomTypes: RoomTypeOption[];
+  mediaCapabilities: MediaCapabilities;
 }) {
   const [locations, setLocations] = useState(initialLocations);
   const [rooms, setRooms] = useState(initialRooms);
@@ -91,6 +114,7 @@ export function ProviderRoomsPanel({
       locationId={locations[0].id}
       rooms={rooms}
       roomTypes={roomTypes}
+      mediaCapabilities={mediaCapabilities}
       onCreated={(room) => setRooms((prev) => [room, ...prev])}
       onUpdated={(room) => setRooms((prev) => prev.map((item) => (item.id === room.id ? room : item)))}
     />
@@ -164,12 +188,14 @@ function RoomsCard({
   locationId,
   rooms,
   roomTypes,
+  mediaCapabilities,
   onCreated,
   onUpdated,
 }: {
   locationId: string;
   rooms: MyRoom[];
   roomTypes: RoomTypeOption[];
+  mediaCapabilities: MediaCapabilities;
   onCreated: (room: MyRoom) => void;
   onUpdated: (room: MyRoom) => void;
 }) {
@@ -206,7 +232,7 @@ function RoomsCard({
       {rooms.length > 0 && (
         <ul className="flex flex-col gap-3">
           {rooms.map((room) => (
-            <RoomRow key={room.id} room={room} roomTypes={roomTypes} onUpdated={onUpdated} />
+            <RoomRow key={room.id} room={room} roomTypes={roomTypes} mediaCapabilities={mediaCapabilities} onUpdated={onUpdated} />
           ))}
         </ul>
       )}
@@ -325,50 +351,19 @@ function AddRoomForm({
 function RoomRow({
   room,
   roomTypes,
+  mediaCapabilities,
   onUpdated,
 }: {
   room: MyRoom;
   roomTypes: RoomTypeOption[];
+  mediaCapabilities: MediaCapabilities;
   onUpdated: (room: MyRoom) => void;
 }) {
-  const [photoCount, setPhotoCount] = useState(0);
-  const [uploading, setUploading] = useState(false);
-  const [uploadError, setUploadError] = useState<string | undefined>();
   const [statusBusy, setStatusBusy] = useState(false);
   const [statusError, setStatusError] = useState<string | undefined>();
 
   const roomType = roomTypes.find((rt) => rt.id === room.roomTypeId);
   const roomTypeLabel = roomType ? ROOM_TYPE_LABEL_AZ[roomType.translationKey] ?? roomType.translationKey : '—';
-
-  async function handlePhotoChange(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
-    event.target.value = '';
-    if (!file) return;
-    if (!file.type.startsWith('image/')) {
-      setUploadError('Yalnız şəkil faylı yükləyin (JPG və ya PNG).');
-      return;
-    }
-    if (file.size > MAX_PHOTO_BYTES) {
-      setUploadError('Şəkil 8MB-dan kiçik olmalıdır.');
-      return;
-    }
-    setUploading(true);
-    setUploadError(undefined);
-    try {
-      const formData = new FormData();
-      formData.set('file', file);
-      const response = await fetch(`/api/provider/rooms/${room.id}/photos`, { method: 'POST', body: formData });
-      if (!response.ok) {
-        setUploadError(await readBffError(response, 'Şəkil yüklənmədi. Yenidən cəhd edin.'));
-        return;
-      }
-      setPhotoCount((count) => count + 1);
-    } catch {
-      setUploadError('Şəkil yüklənmədi. Yenidən cəhd edin.');
-    } finally {
-      setUploading(false);
-    }
-  }
 
   async function setStatus(status: MyRoomStatus) {
     setStatusBusy(true);
@@ -385,7 +380,7 @@ function RoomRow({
           body?.error?.code === 'PROVIDER_NOT_VERIFIED'
             ? "Otağı aktivləşdirmək üçün əvvəlcə hesabınız təsdiqlənməlidir (yuxarıdakı 'Doğrulama sənədləri' bölümünə baxın)."
             : body?.error?.code === 'ROOM_NO_PHOTOS'
-              ? 'Otağı aktivləşdirmək üçün əvvəlcə ən azı bir şəkil əlavə edin (aşağıdakı "Şəkil əlavə et" sahəsi).'
+              ? 'Otağı aktivləşdirmək üçün əvvəlcə ən azı bir şəkil əlavə edin (aşağıdakı şəkil bölümü).'
               : (body?.error?.message ?? 'Status dəyişdirilmədi. Yenidən cəhd edin.'),
         );
         return;
@@ -431,22 +426,443 @@ function RoomRow({
       )}
 
       <div className="border-t border-border pt-3">
-        {uploadError && <Alert variant="error" className="mb-2">{uploadError}</Alert>}
-        <label className="flex flex-col gap-1.5 text-label text-text-primary">
-          Şəkil əlavə et{photoCount > 0 && <span className="text-caption font-normal text-text-muted"> ({photoCount} yükləndi)</span>}
-          <input
-            type="file"
-            accept="image/*"
-            disabled={uploading}
-            onChange={handlePhotoChange}
-            className="min-h-11 w-full rounded-md border border-border-strong bg-surface px-3 py-2 text-body text-text-primary file:mr-3 file:rounded-md file:border-0 file:bg-accent file:px-3 file:py-1.5 file:text-label file:text-accent-on"
-          />
-        </label>
-        <p className="mt-1.5 text-caption text-text-muted">
-          Tövsiyə: JPG və ya PNG, ən azı 1200×800px, maksimum 8MB. Aydın, işıqlı və otağın müxtəlif tərəflərini göstərən
-          şəkillər daha çox müştəri cəlb edir.
-        </p>
+        <RoomMediaManager roomId={room.id} capabilities={mediaCapabilities} />
       </div>
     </li>
   );
+}
+
+/**
+ * Provider Listing Media Specification — photo grid (upload, remove,
+ * reorder, set cover) plus a Pro-only video section, all for one room.
+ *
+ * Upload path depends on `capabilities.directUploadSupported`: when the
+ * backend runs on S3/R2 it's the 3-step presign → PUT-to-storage →
+ * confirm dance (file bytes never touch this app's own server); when it
+ * doesn't (local dev without S3 credentials), photos fall back to the
+ * legacy multipart endpoint and video is simply unavailable (there is no
+ * server-side video path that doesn't go through direct upload).
+ */
+function RoomMediaManager({ roomId, capabilities }: { roomId: string; capabilities: MediaCapabilities }) {
+  const [media, setMedia] = useState<RoomMedia | null>(null);
+  const [loadError, setLoadError] = useState<string | undefined>();
+  const [photoUploading, setPhotoUploading] = useState(false);
+  const [photoError, setPhotoError] = useState<string | undefined>();
+  const [busyPhotoId, setBusyPhotoId] = useState<string | null>(null);
+  const [isDraggingOver, setIsDraggingOver] = useState(false);
+  const [videoUploading, setVideoUploading] = useState(false);
+  const [videoError, setVideoError] = useState<string | undefined>();
+  const [videoBusy, setVideoBusy] = useState(false);
+
+  const loadMedia = useCallback(async () => {
+    try {
+      const response = await fetch(`/api/provider/rooms/${roomId}/media`, { cache: 'no-store' });
+      if (!response.ok) {
+        setLoadError(await readBffError(response, 'Şəkillər yüklənmədi.'));
+        return;
+      }
+      setMedia((await response.json()) as RoomMedia);
+    } catch {
+      setLoadError('Şəkillər yüklənmədi.');
+    }
+  }, [roomId]);
+
+  useEffect(() => {
+    loadMedia();
+  }, [loadMedia]);
+
+  const photoCount = media?.photos.length ?? 0;
+  const photoLimitReached = photoCount >= capabilities.maxImageCount;
+
+  async function uploadOnePhoto(file: File): Promise<void> {
+    if (capabilities.directUploadSupported) {
+      const presignRes = await fetch(`/api/provider/rooms/${roomId}/media/photos/presign`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ originalFilename: file.name, mimeType: file.type }),
+      });
+      if (!presignRes.ok) throw new Error(await readBffError(presignRes, 'Şəkil yüklənmədi.'));
+      const { uploadUrl, storageKey } = (await presignRes.json()) as { uploadUrl: string; storageKey: string };
+
+      const putRes = await fetch(uploadUrl, {
+        method: 'PUT',
+        headers: { 'Content-Type': file.type },
+        body: file,
+      });
+      if (!putRes.ok) throw new Error('Şəkil saxlama xidmətinə yüklənmədi. Yenidən cəhd edin.');
+
+      const confirmRes = await fetch(`/api/provider/rooms/${roomId}/media/photos`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ storageKey }),
+      });
+      if (!confirmRes.ok) throw new Error(await readBffError(confirmRes, 'Şəkil yaddaşa yazılmadı.'));
+    } else {
+      const formData = new FormData();
+      formData.set('file', file);
+      const response = await fetch(`/api/provider/rooms/${roomId}/photos`, { method: 'POST', body: formData });
+      if (!response.ok) throw new Error(await readBffError(response, 'Şəkil yüklənmədi.'));
+    }
+  }
+
+  async function handleFiles(files: FileList | File[]) {
+    const list = Array.from(files);
+    if (list.length === 0) return;
+    setPhotoError(undefined);
+
+    const remaining = capabilities.maxImageCount - photoCount;
+    if (remaining <= 0) {
+      setPhotoError(`Bu plan üzrə ən çoxu ${capabilities.maxImageCount} şəkil əlavə edə bilərsiniz.`);
+      return;
+    }
+    const toUpload = list.slice(0, remaining);
+    if (list.length > toUpload.length) {
+      setPhotoError(`Bu plan üzrə ən çoxu ${capabilities.maxImageCount} şəkil əlavə edə bilərsiniz — yalnız ilk ${toUpload.length} şəkil yükləndi.`);
+    }
+
+    for (const file of toUpload) {
+      if (!file.type.startsWith('image/')) {
+        setPhotoError('Yalnız şəkil faylı yükləyin (JPG və ya PNG).');
+        continue;
+      }
+      if (file.size > MAX_PHOTO_BYTES) {
+        setPhotoError('Şəkil 8MB-dan kiçik olmalıdır.');
+        continue;
+      }
+      setPhotoUploading(true);
+      try {
+        await uploadOnePhoto(file);
+      } catch (error) {
+        setPhotoError(error instanceof Error ? error.message : 'Şəkil yüklənmədi. Yenidən cəhd edin.');
+      } finally {
+        setPhotoUploading(false);
+      }
+    }
+    await loadMedia();
+  }
+
+  function handleInputChange(event: ChangeEvent<HTMLInputElement>) {
+    const files = event.target.files;
+    event.target.value = '';
+    if (files && files.length > 0) void handleFiles(files);
+  }
+
+  function handleDrop(event: DragEvent<HTMLLabelElement>) {
+    event.preventDefault();
+    setIsDraggingOver(false);
+    if (event.dataTransfer.files.length > 0) void handleFiles(event.dataTransfer.files);
+  }
+
+  async function handleRemovePhoto(photoId: string) {
+    setBusyPhotoId(photoId);
+    setPhotoError(undefined);
+    try {
+      const response = await fetch(`/api/provider/rooms/${roomId}/media/photos/${photoId}`, { method: 'DELETE' });
+      if (!response.ok) {
+        setPhotoError(await readBffError(response, 'Şəkil silinmədi. Yenidən cəhd edin.'));
+        return;
+      }
+      const photos = (await response.json()) as RoomMediaPhoto[];
+      setMedia((prev) => (prev ? { ...prev, photos } : prev));
+    } catch {
+      setPhotoError('Şəkil silinmədi. Yenidən cəhd edin.');
+    } finally {
+      setBusyPhotoId(null);
+    }
+  }
+
+  async function handleSetCover(photoId: string) {
+    setBusyPhotoId(photoId);
+    setPhotoError(undefined);
+    try {
+      const response = await fetch(`/api/provider/rooms/${roomId}/media/photos/${photoId}/cover`, { method: 'PATCH' });
+      if (!response.ok) {
+        setPhotoError(await readBffError(response, 'Üz qabığı seçilmədi. Yenidən cəhd edin.'));
+        return;
+      }
+      const photos = (await response.json()) as RoomMediaPhoto[];
+      setMedia((prev) => (prev ? { ...prev, photos } : prev));
+    } catch {
+      setPhotoError('Üz qabığı seçilmədi. Yenidən cəhd edin.');
+    } finally {
+      setBusyPhotoId(null);
+    }
+  }
+
+  async function handleMove(photoId: string, direction: -1 | 1) {
+    if (!media) return;
+    const ordered = [...media.photos].sort((a, b) => a.displayOrder - b.displayOrder);
+    const index = ordered.findIndex((p) => p.id === photoId);
+    const swapWith = index + direction;
+    if (index < 0 || swapWith < 0 || swapWith >= ordered.length) return;
+    [ordered[index], ordered[swapWith]] = [ordered[swapWith], ordered[index]];
+    const photoIds = ordered.map((p) => p.id);
+
+    setBusyPhotoId(photoId);
+    setPhotoError(undefined);
+    try {
+      const response = await fetch(`/api/provider/rooms/${roomId}/media/photos/order`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ photoIds }),
+      });
+      if (!response.ok) {
+        setPhotoError(await readBffError(response, 'Sıralama dəyişdirilmədi. Yenidən cəhd edin.'));
+        return;
+      }
+      const photos = (await response.json()) as RoomMediaPhoto[];
+      setMedia((prev) => (prev ? { ...prev, photos } : prev));
+    } catch {
+      setPhotoError('Sıralama dəyişdirilmədi. Yenidən cəhd edin.');
+    } finally {
+      setBusyPhotoId(null);
+    }
+  }
+
+  async function handleVideoFile(file: File) {
+    setVideoError(undefined);
+    if (!file.type.startsWith('video/')) {
+      setVideoError('Yalnız video faylı yükləyin.');
+      return;
+    }
+    if (file.size > capabilities.maxVideoSizeBytes) {
+      setVideoError(`Video ${formatMegabytes(capabilities.maxVideoSizeBytes)}-dan kiçik olmalıdır.`);
+      return;
+    }
+
+    setVideoUploading(true);
+    try {
+      const duration = await readVideoDuration(file);
+      if (duration > capabilities.maxVideoDurationSeconds) {
+        setVideoError(`Video ${capabilities.maxVideoDurationSeconds} saniyədən qısa olmalıdır.`);
+        return;
+      }
+
+      const presignRes = await fetch(`/api/provider/rooms/${roomId}/media/video/presign`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ originalFilename: file.name, mimeType: file.type }),
+      });
+      if (!presignRes.ok) throw new Error(await readBffError(presignRes, 'Video yüklənmədi.'));
+      const { uploadUrl, storageKey } = (await presignRes.json()) as { uploadUrl: string; storageKey: string };
+
+      const putRes = await fetch(uploadUrl, { method: 'PUT', headers: { 'Content-Type': file.type }, body: file });
+      if (!putRes.ok) throw new Error('Video saxlama xidmətinə yüklənmədi. Yenidən cəhd edin.');
+
+      const confirmRes = await fetch(`/api/provider/rooms/${roomId}/media/video`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ storageKey, durationSeconds: Math.round(duration), mimeType: file.type }),
+      });
+      if (!confirmRes.ok) throw new Error(await readBffError(confirmRes, 'Video yaddaşa yazılmadı.'));
+      await loadMedia();
+    } catch (error) {
+      setVideoError(error instanceof Error ? error.message : 'Video yüklənmədi. Yenidən cəhd edin.');
+    } finally {
+      setVideoUploading(false);
+    }
+  }
+
+  async function handleRemoveVideo() {
+    setVideoBusy(true);
+    setVideoError(undefined);
+    try {
+      const response = await fetch(`/api/provider/rooms/${roomId}/media/video`, { method: 'DELETE' });
+      if (!response.ok) {
+        setVideoError(await readBffError(response, 'Video silinmədi. Yenidən cəhd edin.'));
+        return;
+      }
+      await loadMedia();
+    } catch {
+      setVideoError('Video silinmədi. Yenidən cəhd edin.');
+    } finally {
+      setVideoBusy(false);
+    }
+  }
+
+  const orderedPhotos = media ? [...media.photos].sort((a, b) => a.displayOrder - b.displayOrder) : [];
+
+  return (
+    <div className="flex flex-col gap-5">
+      {/* -- Photos ------------------------------------------------------ */}
+      <div>
+        <div className="mb-2 flex items-baseline justify-between gap-2">
+          <label className="text-label text-text-primary" id={`room-photos-${roomId}`}>
+            Şəkillər{media && <span className="text-caption font-normal text-text-muted"> ({photoCount}/{capabilities.maxImageCount})</span>}
+          </label>
+        </div>
+
+        {loadError && <Alert variant="error" className="mb-2">{loadError}</Alert>}
+        {photoError && <Alert variant="error" className="mb-2">{photoError}</Alert>}
+
+        {orderedPhotos.length > 0 && (
+          <ul
+            aria-labelledby={`room-photos-${roomId}`}
+            className="mb-3 grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-5"
+          >
+            {orderedPhotos.map((photo, index) => (
+              <li key={photo.id} className="group relative aspect-square overflow-hidden rounded-md border border-border bg-surface-elevated">
+                {/* eslint-disable-next-line @next/next/no-img-element -- provider-uploaded photo URL from our own storage provider, not a fixed domain set next/image's allowlist assumes (matches RoomGallery/RoomListingCard's own choice). */}
+                <img src={photo.url} alt="" className="h-full w-full object-cover" />
+                {photo.isCover && (
+                  <Badge variant="accent" className="absolute left-1.5 top-1.5">
+                    Üz qabığı
+                  </Badge>
+                )}
+                {busyPhotoId === photo.id && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-surface/70">
+                    <Spinner label="Yenilənir" />
+                  </div>
+                )}
+                <div className="absolute inset-x-0 bottom-0 flex items-center justify-between gap-0.5 bg-gradient-to-t from-black/60 to-transparent p-1 opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100">
+                  <IconButton
+                    aria-label="Sola daşı"
+                    disabled={index === 0 || busyPhotoId !== null}
+                    onClick={() => handleMove(photo.id, -1)}
+                    className="h-7 w-7 bg-surface/90 text-text-primary hover:bg-surface"
+                  >
+                    ←
+                  </IconButton>
+                  {!photo.isCover && (
+                    <IconButton
+                      aria-label="Üz qabığı et"
+                      disabled={busyPhotoId !== null}
+                      onClick={() => handleSetCover(photo.id)}
+                      className="h-7 w-7 bg-surface/90 text-text-primary hover:bg-surface"
+                    >
+                      ★
+                    </IconButton>
+                  )}
+                  <IconButton
+                    aria-label="Şəkli sil"
+                    disabled={busyPhotoId !== null}
+                    onClick={() => handleRemovePhoto(photo.id)}
+                    className="h-7 w-7 bg-surface/90 text-error hover:bg-surface"
+                  >
+                    ✕
+                  </IconButton>
+                  <IconButton
+                    aria-label="Sağa daşı"
+                    disabled={index === orderedPhotos.length - 1 || busyPhotoId !== null}
+                    onClick={() => handleMove(photo.id, 1)}
+                    className="h-7 w-7 bg-surface/90 text-text-primary hover:bg-surface"
+                  >
+                    →
+                  </IconButton>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+
+        {!photoLimitReached && (
+          <label
+            htmlFor={`room-photo-input-${roomId}`}
+            onDragOver={(event) => {
+              event.preventDefault();
+              setIsDraggingOver(true);
+            }}
+            onDragLeave={() => setIsDraggingOver(false)}
+            onDrop={handleDrop}
+            className={`flex min-h-24 cursor-pointer flex-col items-center justify-center gap-1 rounded-md border-2 border-dashed px-4 py-5 text-center transition-colors ${
+              isDraggingOver ? 'border-primary bg-primary/5' : 'border-border-strong hover:border-primary'
+            }`}
+          >
+            {photoUploading ? (
+              <Spinner label="Yüklənir" />
+            ) : (
+              <>
+                <p className="text-small font-medium text-text-primary">Şəkil əlavə etmək üçün klikləyin və ya bura sürükləyin</p>
+                <p className="text-caption text-text-muted">JPG və ya PNG, maksimum 8MB. 3–5 aydın, işıqlı şəkil tövsiyə olunur.</p>
+              </>
+            )}
+            <input
+              id={`room-photo-input-${roomId}`}
+              type="file"
+              accept="image/*"
+              multiple
+              disabled={photoUploading}
+              onChange={handleInputChange}
+              className="sr-only"
+            />
+          </label>
+        )}
+        {photoLimitReached && (
+          <p className="text-caption text-text-muted">
+            Bu plan üzrə maksimum şəkil sayına çatmısınız ({capabilities.maxImageCount}). Daha çox şəkil üçün planınızı yüksəldin.
+          </p>
+        )}
+      </div>
+
+      {/* -- Video --------------------------------------------------------- */}
+      <div>
+        <label className="mb-2 flex items-center gap-2 text-label text-text-primary">
+          Video
+          {!capabilities.videoAllowed && <Badge variant="neutral">PRO</Badge>}
+        </label>
+
+        {!capabilities.videoAllowed && (
+          <p className="text-caption text-text-muted">
+            Otağa video əlavə etmək yalnız Pro planda mövcuddur (maks. 30 saniyə, 20MB). Planınızı yüksəldərək bu
+            otağa qısa bir tanıtım videosu əlavə edə bilərsiniz.
+          </p>
+        )}
+
+        {capabilities.videoAllowed && !capabilities.directUploadSupported && (
+          <p className="text-caption text-text-muted">Video yükləmə hazırda mövcud deyil.</p>
+        )}
+
+        {capabilities.videoAllowed && capabilities.directUploadSupported && (
+          <>
+            {videoError && <Alert variant="error" className="mb-2">{videoError}</Alert>}
+
+            {media?.video ? (
+              <div className="flex flex-col gap-2 sm:max-w-xs">
+                <video controls src={media.video.url} className="w-full rounded-md border border-border" />
+                <Button type="button" variant="secondary" size="sm" isLoading={videoBusy} onClick={handleRemoveVideo} className="self-start">
+                  {videoBusy ? 'Silinir…' : 'Videonu sil'}
+                </Button>
+              </div>
+            ) : (
+              <label className="flex flex-col gap-1.5 text-label text-text-primary">
+                <input
+                  type="file"
+                  accept="video/*"
+                  disabled={videoUploading}
+                  onChange={(event) => {
+                    const file = event.target.files?.[0];
+                    event.target.value = '';
+                    if (file) void handleVideoFile(file);
+                  }}
+                  className="min-h-11 w-full rounded-md border border-border-strong bg-surface px-3 py-2 text-body text-text-primary file:mr-3 file:rounded-md file:border-0 file:bg-accent file:px-3 file:py-1.5 file:text-label file:text-accent-on disabled:cursor-not-allowed disabled:opacity-50"
+                />
+                <span className="text-caption font-normal text-text-muted">
+                  {videoUploading
+                    ? 'Yüklənir…'
+                    : `Maksimum ${capabilities.maxVideoDurationSeconds} saniyə, ${formatMegabytes(capabilities.maxVideoSizeBytes)}.`}
+                </span>
+              </label>
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/** Reads a video file's duration client-side (before upload) — the backend can't verify duration without downloading/probing the file, so this is the only duration check that happens before bytes leave the browser (the server re-checks the value reported here, and independently verifies the actual uploaded SIZE via a HEAD request). */
+function readVideoDuration(file: File): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const videoEl = document.createElement('video');
+    videoEl.preload = 'metadata';
+    videoEl.onloadedmetadata = () => {
+      URL.revokeObjectURL(videoEl.src);
+      resolve(videoEl.duration);
+    };
+    videoEl.onerror = () => {
+      URL.revokeObjectURL(videoEl.src);
+      reject(new Error('Video oxuna bilmədi. Fayl zədələnmiş ola bilər.'));
+    };
+    videoEl.src = URL.createObjectURL(file);
+  });
 }

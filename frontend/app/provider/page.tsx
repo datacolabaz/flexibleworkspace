@@ -5,7 +5,13 @@ import { Logo } from '@/components/ui/Logo';
 import { readSession } from '@/lib/auth/session';
 import { getMyProvider, ProviderApiError } from '@/lib/api-client/provider-dashboard';
 import { listMyLeads } from '@/lib/api-client/leads';
-import { listMyLocations, listMyRooms, listRoomTypes } from '@/lib/api-client/provider-rooms';
+import {
+  listMyLocations,
+  listMyRooms,
+  listRoomTypes,
+  getMediaCapabilities,
+  type MediaCapabilities,
+} from '@/lib/api-client/provider-rooms';
 import { getMyProviderAnalytics, type ProviderAnalytics } from '@/lib/api-client/provider-analytics';
 import { ProviderVerificationPanel } from '@/components/features/provider/ProviderVerificationPanel';
 import { ProviderLeadsPanel } from '@/components/features/provider/ProviderLeadsPanel';
@@ -97,11 +103,35 @@ export default async function ProviderHome() {
       console.error('Best-effort provider analytics fetch failed (rest of the dashboard still works):', err);
     }
 
+    // Same best-effort convention — a hiccup fetching plan limits must not
+    // block the whole rooms panel; conservative FREE-tier-shaped defaults
+    // (no direct upload, no video) still let the panel render safely, and
+    // `ProviderRoomsPanel` falls back to the legacy multipart upload path
+    // when `directUploadSupported` is false.
+    let mediaCapabilities: MediaCapabilities = {
+      directUploadSupported: false,
+      maxImageCount: 5,
+      videoAllowed: false,
+      maxVideoCount: 0,
+      maxVideoDurationSeconds: 0,
+      maxVideoSizeBytes: 0,
+    };
+    try {
+      mediaCapabilities = await getMediaCapabilities(accessToken);
+    } catch (err) {
+      console.error('Best-effort media capabilities fetch failed (falling back to conservative defaults):', err);
+    }
+
     return (
       <Shell>
         <ProviderVerificationPanel initialProvider={provider} />
         {analytics && <ProviderAnalyticsPanel analytics={analytics} />}
-        <ProviderRoomsPanel initialLocations={locations} initialRooms={rooms} roomTypes={roomTypes} />
+        <ProviderRoomsPanel
+          initialLocations={locations}
+          initialRooms={rooms}
+          roomTypes={roomTypes}
+          mediaCapabilities={mediaCapabilities}
+        />
         <ProviderLeadsPanel initialLeads={leads} />
       </Shell>
     );

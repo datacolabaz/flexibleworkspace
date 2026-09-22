@@ -112,6 +112,17 @@ export class RoomsController {
 
   // -- Media: photos (direct-to-storage path) -----------------------------
 
+  @Get(':roomId/media')
+  @ApiOperation({
+    summary: "This room's photos + video, with display-ready URLs",
+  })
+  async getRoomMedia(
+    @Param('roomId') roomId: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.roomsService.getRoomMedia(roomId, this.requireProviderId(user));
+  }
+
   @Post(':roomId/media/photos/presign')
   @ApiOperation({
     summary:
