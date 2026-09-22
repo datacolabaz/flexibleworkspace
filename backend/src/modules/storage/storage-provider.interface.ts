@@ -16,4 +16,10 @@ export interface StorageProvider {
     mimeType: string,
   ): Promise<StoredFile>;
   publicUrlFor(storageKey: string): string;
+  /**
+   * Reads a previously-stored file back into memory. Used by admin-only
+   * download endpoints (e.g. provider verification documents) that stream
+   * the file through the API rather than via a public static URL.
+   */
+  getBuffer(storageKey: string): Promise<Buffer>;
 }

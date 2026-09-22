@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 
@@ -6,15 +6,21 @@ import { ProviderEntity } from './entities/provider.entity';
 import { ProviderVerificationEventEntity } from './entities/provider-verification-event.entity';
 import { UserRoleEntity } from '../auth/entities/user-role.entity';
 import { RoleName } from '../../common/constants/roles.enum';
-import { ProviderVerificationStatus } from '../../common/constants/provider.enum';
+import {
+  ProviderVerificationDocumentType,
+  ProviderVerificationStatus,
+} from '../../common/constants/provider.enum';
 import { CreateProviderDto } from './dto/create-provider.dto';
 import { VerifyProviderDto } from './dto/verify-provider.dto';
+import { UpdateProviderDto } from './dto/update-provider.dto';
 import {
   DomainException,
   ResourceNotFoundException,
 } from '../../common/exceptions/domain.exception';
 import { HttpStatus } from '@nestjs/common';
 import { AuditLogService } from '../audit/audit-log.service';
+import { PRIVATE_STORAGE_PROVIDER } from '../storage/storage.module';
+import { StorageProvider } from '../storage/storage-provider.interface';
 
 /**
  * 09_DOMAIN_MODEL.md §9.2 (Provider) / 25_PROVIDER_ARCHITECTURE.md.
@@ -31,6 +37,8 @@ export class ProvidersService {
     @InjectRepository(UserRoleEntity)
     private readonly roleRepo: Repository<UserRoleEntity>,
     private readonly auditLogService: AuditLogService,
+    @Inject(PRIVATE_STORAGE_PROVIDER)
+    private readonly privateStorageProvider: StorageProvider,
   ) {}
 
   private slugify(input: string): string {
@@ -125,6 +133,17 @@ export class ProvidersService {
     return this.findById(callerProviderId);
   }
 
+  /** Self-service profile edit (PATCH providers/me) — see UpdateProviderDto. */
+  async updateMine(
+    callerProviderId: string | null,
+    dto: UpdateProviderDto,
+  ): Promise<ProviderEntity> {
+    const provider = await this.findMine(callerProviderId);
+    if (dto.taxId !== undefined) provider.taxId = dto.taxId;
+    provider.updatedAt = new Date();
+    return this.providerRepo.save(provider);
+  }
+
   async listForAdmin(
     verificationStatus?: ProviderVerificationStatus,
   ): Promise<ProviderEntity[]> {
@@ -217,5 +236,60 @@ export class ProvidersService {
     });
 
     return saved;
+  }
+
+  /**
+   * Provider self-service upload (POST providers/me/verification-documents).
+   * Stored via PRIVATE_STORAGE_PROVIDER — see storage.module.ts — never
+   * through the public STORAGE_PROVIDER used for room photos, since these
+   * are sensitive personal/legal documents (ID, business registration,
+   * address proof) that must stay admin-only.
+   */
+  async addVerificationDocument(
+    callerProviderId: string | null,
+    documentType: ProviderVerificationDocumentType,
+    file: { buffer: Buffer; originalname: string; mimetype: string },
+  ): Promise<ProviderEntity> {
+    const provider = await this.findMine(callerProviderId);
+    const stored = await this.privateStorageProvider.put(
+      file.buffer,
+      file.originalname,
+      file.mimetype,
+    );
+    provider.verificationDocuments = [
+      ...(provider.verificationDocuments ?? []),
+      {
+        type: documentType,
+        storageKey: stored.storageKey,
+        originalFilename: file.originalname,
+        mimeType: file.mimetype,
+        uploadedAt: new Date().toISOString(),
+      },
+    ];
+    provider.updatedAt = new Date();
+    return this.providerRepo.save(provider);
+  }
+
+  /**
+   * Admin-only document download (GET admin/providers/:id/verification-
+   * documents/:storageKey) — the ONLY way any of these files are ever read
+   * back; there is no public URL for them (LocalStorageProvider constructed
+   * with `publicBase: null` for this token).
+   */
+  async getVerificationDocumentBuffer(
+    providerId: string,
+    storageKey: string,
+  ): Promise<{ buffer: Buffer; mimeType: string; originalFilename: string }> {
+    const provider = await this.findById(providerId);
+    const doc = (provider.verificationDocuments ?? []).find(
+      (d) => d.storageKey === storageKey,
+    );
+    if (!doc) throw new ResourceNotFoundException('Verification document');
+    const buffer = await this.privateStorageProvider.getBuffer(storageKey);
+    return {
+      buffer,
+      mimeType: doc.mimeType,
+      originalFilename: doc.originalFilename,
+    };
   }
 }

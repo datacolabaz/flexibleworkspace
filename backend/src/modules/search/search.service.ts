@@ -359,10 +359,17 @@ export class SearchService {
    * upload capability.
    */
   private storageKeyToUrl(storageKey: string): string {
-    const basePath =
-      this.configService.get<string>('storage.localPath') || './uploads';
-    const publicBase = basePath.replace(/^\.\//, '/');
-    return `${publicBase}/${storageKey}`;
+    // The relative path the backend actually serves the file at (see
+    // main.ts's `app.useStaticAssets(..., { prefix: '/uploads' })`) is
+    // always `/uploads/<key>` regardless of the on-disk directory name, so
+    // this no longer derives it from `storage.localPath`.
+    const origin = this.configService.get<string>('backendPublicUrl');
+    // The frontend runs on its own separate domain, so a bare relative path
+    // would resolve against the WRONG origin there — prepend the backend's
+    // own public origin whenever one is configured (see configuration.ts).
+    return origin
+      ? `${origin}/uploads/${storageKey}`
+      : `/uploads/${storageKey}`;
   }
 
   /** `GET /spaces/:roomId` — full room detail, public (29_API_OPENAPI.yaml RoomDetail). */

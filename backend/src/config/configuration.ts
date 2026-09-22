@@ -3,6 +3,16 @@ export interface AppConfig {
   port: number;
   apiBasePath: string;
   corsOrigin: string;
+  // 22_INFRASTRUCTURE.md §22.7 — absolute origin the backend is reachable
+  // at, used ONLY to turn a relative /uploads/<key> path into a full URL
+  // for API responses (search.service.ts's photo URLs — the frontend runs
+  // on its own separate domain, so a relative path would resolve against
+  // the WRONG origin there). Defaults to Railway's auto-injected public
+  // domain (RAILWAY_PUBLIC_DOMAIN) so this works with zero configuration
+  // in that environment; PUBLIC_BACKEND_URL overrides it anywhere else.
+  // null (local dev with no domain set) means URLs stay relative, which is
+  // correct for same-origin local development.
+  backendPublicUrl: string | null;
   db: {
     host: string;
     port: number;
@@ -65,6 +75,12 @@ export interface AppConfig {
   storage: {
     driver: 'local' | 's3';
     localPath: string;
+    // Provider verification documents (ID, business registration proof) —
+    // a SEPARATE directory from `localPath`, never covered by static
+    // middleware (see storage.module.ts / main.ts). These are sensitive
+    // personal/legal documents and must stay admin-only, never publicly
+    // reachable by a guessable URL.
+    privateLocalPath: string;
     s3: {
       endpoint: string;
       bucket: string;
@@ -114,6 +130,11 @@ export default (): AppConfig => ({
   port: parseInt(process.env.PORT || '3001', 10),
   apiBasePath: process.env.API_BASE_PATH || '/api/v1',
   corsOrigin: process.env.CORS_ORIGIN || 'http://localhost:3000',
+  backendPublicUrl:
+    process.env.PUBLIC_BACKEND_URL ||
+    (process.env.RAILWAY_PUBLIC_DOMAIN
+      ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`
+      : null),
   db: {
     host: process.env.DB_HOST || 'localhost',
     port: parseInt(process.env.DB_PORT || '5432', 10),
@@ -194,6 +215,8 @@ export default (): AppConfig => ({
   storage: {
     driver: (process.env.STORAGE_DRIVER as 'local' | 's3') || 'local',
     localPath: process.env.STORAGE_LOCAL_PATH || './uploads',
+    privateLocalPath:
+      process.env.STORAGE_PRIVATE_LOCAL_PATH || './uploads-private',
     s3: {
       endpoint: process.env.S3_ENDPOINT || '',
       bucket: process.env.S3_BUCKET || '',

@@ -1,4 +1,5 @@
 import { NestFactory } from '@nestjs/core';
+import { NestExpressApplication } from '@nestjs/platform-express';
 import { ConfigService } from '@nestjs/config';
 import { ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
@@ -31,8 +32,19 @@ async function bootstrap() {
   // PaymentsController's webhook route, since HMAC signature verification
   // (18_SECURITY.md §18.3) must run against the exact bytes the gateway
   // signed, not a JSON.parse()-then-reserialize approximation of them.
-  const app = await NestFactory.create(AppModule, { rawBody: true });
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
+    rawBody: true,
+  });
   const config = app.get(ConfigService);
+
+  // 22_INFRASTRUCTURE.md §22.7 — serves room photos (STORAGE_PROVIDER,
+  // storage.module.ts) publicly under /uploads. Deliberately the ONLY
+  // static-file mount in the app: provider verification documents live in a
+  // separate, never-mounted directory (PRIVATE_STORAGE_PROVIDER) and are
+  // only ever readable via the admin-only download route.
+  app.useStaticAssets(config.get<string>('storage.localPath') ?? './uploads', {
+    prefix: '/uploads',
+  });
 
   app.use(helmet());
   app.enableCors({

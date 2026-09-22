@@ -2,24 +2,35 @@ import {
   Body,
   Controller,
   Get,
+  HttpStatus,
   Param,
   Patch,
   Post,
   Query,
+  Res,
+  UploadedFile,
+  UseInterceptors,
 } from '@nestjs/common';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
+import type { Response } from 'express';
 
 import { ProvidersService } from './providers.service';
 import { CreateProviderDto } from './dto/create-provider.dto';
 import { VerifyProviderDto } from './dto/verify-provider.dto';
+import { UpdateProviderDto } from './dto/update-provider.dto';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { RequirePermission } from '../../common/decorators/require-permission.decorator';
 import { AuthenticatedUser } from '../../common/guards/jwt-auth.guard';
 import { RoleName, ADMIN_ROLES } from '../../common/constants/roles.enum';
 import { AdminPermission } from '../../common/constants/admin-permission.enum';
-import { ProviderVerificationStatus } from '../../common/constants/provider.enum';
+import {
+  ProviderVerificationDocumentType,
+  ProviderVerificationStatus,
+} from '../../common/constants/provider.enum';
 import { currentProviderId } from '../../common/utils/current-provider.util';
+import { DomainException } from '../../common/exceptions/domain.exception';
 
 @ApiTags('Provider')
 @Controller()
@@ -42,6 +53,53 @@ export class ProvidersController {
   @ApiOperation({ summary: 'My provider profile' })
   async me(@CurrentUser() user: AuthenticatedUser) {
     return this.providersService.findMine(currentProviderId(user));
+  }
+
+  @Patch('providers/me')
+  @Roles(RoleName.PROVIDER_OWNER, RoleName.PROVIDER_STAFF)
+  @ApiOperation({ summary: 'Edit my provider profile (e.g. tax ID)' })
+  async updateMe(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: UpdateProviderDto,
+  ) {
+    return this.providersService.updateMine(currentProviderId(user), dto);
+  }
+
+  @Post('providers/me/verification-documents')
+  @Roles(RoleName.PROVIDER_OWNER, RoleName.PROVIDER_STAFF)
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({
+    summary:
+      'Upload a verification document (ID, business registration, address proof) for admin review',
+  })
+  @UseInterceptors(FileInterceptor('file'))
+  async uploadVerificationDocument(
+    @CurrentUser() user: AuthenticatedUser,
+    @UploadedFile() file: Express.Multer.File,
+    @Body('documentType') documentType?: ProviderVerificationDocumentType,
+  ) {
+    if (!file) {
+      throw new DomainException(
+        'FILE_REQUIRED',
+        'A document file is required.',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+    if (
+      !documentType ||
+      !Object.values(ProviderVerificationDocumentType).includes(documentType)
+    ) {
+      throw new DomainException(
+        'INVALID_DOCUMENT_TYPE',
+        'A valid documentType is required.',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+    return this.providersService.addVerificationDocument(
+      currentProviderId(user),
+      documentType,
+      file,
+    );
   }
 
   @Get('admin/providers')
@@ -88,5 +146,27 @@ export class ProvidersController {
       body.suspended,
       body.notes,
     );
+  }
+
+  @Get('admin/providers/:id/verification-documents/:storageKey')
+  @Roles(...ADMIN_ROLES)
+  @RequirePermission(AdminPermission.PROVIDER_READ)
+  @ApiOperation({
+    summary:
+      'Download a provider verification document (admin-only — never publicly reachable)',
+  })
+  async downloadVerificationDocument(
+    @Param('id') id: string,
+    @Param('storageKey') storageKey: string,
+    @Res() res: Response,
+  ) {
+    const { buffer, mimeType, originalFilename } =
+      await this.providersService.getVerificationDocumentBuffer(id, storageKey);
+    res.setHeader('Content-Type', mimeType);
+    res.setHeader(
+      'Content-Disposition',
+      `inline; filename="${encodeURIComponent(originalFilename)}"`,
+    );
+    res.send(buffer);
   }
 }

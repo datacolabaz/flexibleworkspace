@@ -3,6 +3,7 @@ import {
   AdminApiError,
   assertAdminAccess,
   correctAdminRoom,
+  downloadAdminProviderVerificationDocument,
   getAdminPricing,
   getAdminAnalytics,
   getAdminSummary,
@@ -55,6 +56,28 @@ export async function GET(
 
   try {
     const { path } = await params;
+    // Binary passthrough — checked before the string-key routes below,
+    // since it has its own dynamic segments (:id/:storageKey) rather than
+    // one fixed key. Verification documents are never publicly served
+    // (backend PRIVATE_STORAGE_PROVIDER), so this is the only way an admin
+    // can view one: browser navigates here with the admin's own session
+    // cookie, this route resolves that to a bearer token and streams the
+    // file back.
+    if (path.length === 4 && path[0] === 'providers' && path[2] === 'verification-documents') {
+      const { body, contentType, contentDisposition } = await downloadAdminProviderVerificationDocument(
+        accessToken,
+        path[1],
+        path[3],
+      );
+      return new NextResponse(body, {
+        headers: {
+          'Content-Type': contentType,
+          ...(contentDisposition ? { 'Content-Disposition': contentDisposition } : {}),
+          'Cache-Control': 'private, no-store',
+        },
+      });
+    }
+
     const key = path.join('/');
     if (key === 'rooms') {
       return NextResponse.json(await listAdminRooms(accessToken, request.nextUrl.searchParams.get('q') ?? undefined));

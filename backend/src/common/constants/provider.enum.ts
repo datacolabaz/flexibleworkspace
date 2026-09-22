@@ -6,6 +6,19 @@ export enum ProviderVerificationStatus {
   SUSPENDED = 'SUSPENDED',
 }
 
+/**
+ * The document types a provider can submit for verification review
+ * (25_PROVIDER_ARCHITECTURE.md / Sprint 1). Not mirrored in the DB as its
+ * own enum type — stored as plain text inside each JSONB entry in
+ * `provider.verification_documents` (see the 1700000000009 migration).
+ */
+export enum ProviderVerificationDocumentType {
+  ID_DOCUMENT = 'ID_DOCUMENT',
+  BUSINESS_REGISTRATION = 'BUSINESS_REGISTRATION',
+  ADDRESS_PROOF = 'ADDRESS_PROOF',
+  OTHER = 'OTHER',
+}
+
 /** Mirrors provider_plan_tier in 28_DATABASE_DDL.sql. */
 export enum ProviderPlanTier {
   FREE = 'FREE',

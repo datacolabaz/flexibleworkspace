@@ -1,8 +1,18 @@
 import { Column, Entity, OneToMany, PrimaryGeneratedColumn } from 'typeorm';
 import {
   ProviderPlanTier,
+  ProviderVerificationDocumentType,
   ProviderVerificationStatus,
 } from '../../../common/constants/provider.enum';
+
+/** One entry of the `provider.verification_documents` JSONB array. */
+export interface ProviderVerificationDocument {
+  type: ProviderVerificationDocumentType;
+  storageKey: string;
+  originalFilename: string;
+  mimeType: string;
+  uploadedAt: string;
+}
 import { LocationEntity } from '../../locations/entities/location.entity';
 
 /**
@@ -61,6 +71,13 @@ export class ProviderEntity {
 
   @Column({ name: 'bank_account_details', type: 'jsonb', nullable: true })
   bankAccountDetails: Record<string, unknown> | null;
+
+  @Column({
+    name: 'verification_documents',
+    type: 'jsonb',
+    default: () => "'[]'",
+  })
+  verificationDocuments: ProviderVerificationDocument[];
 
   @Column({ name: 'created_at', type: 'timestamptz' })
   createdAt: Date;

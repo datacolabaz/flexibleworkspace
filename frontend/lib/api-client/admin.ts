@@ -38,6 +38,20 @@ export type AdminUser = {
 
 export type AdminProviderVerificationStatus = 'PENDING' | 'VERIFIED' | 'REJECTED' | 'SUSPENDED';
 
+export type AdminProviderVerificationDocumentType =
+  | 'ID_DOCUMENT'
+  | 'BUSINESS_REGISTRATION'
+  | 'ADDRESS_PROOF'
+  | 'OTHER';
+
+export type AdminProviderVerificationDocument = {
+  type: AdminProviderVerificationDocumentType;
+  storageKey: string;
+  originalFilename: string;
+  mimeType: string;
+  uploadedAt: string;
+};
+
 export type AdminProvider = {
   id: string;
   legalName: string;
@@ -48,6 +62,7 @@ export type AdminProvider = {
   taxId: string | null;
   verificationStatus: AdminProviderVerificationStatus;
   planTier: 'FREE' | 'STARTER' | 'PRO' | 'ENTERPRISE';
+  verificationDocuments: AdminProviderVerificationDocument[];
   createdAt: string;
   updatedAt: string;
 };
@@ -231,5 +246,46 @@ export function setAdminProviderSuspended(accessToken: string, providerId: strin
     method: 'PATCH',
     body: JSON.stringify({ suspended, notes }),
   });
+}
+
+/**
+ * Binary passthrough — verification documents are never publicly served
+ * (backend PRIVATE_STORAGE_PROVIDER), so this hits the same admin-only,
+ * bearer-authenticated backend route the BFF proxies everything else
+ * through, but returns the raw bytes instead of parsing JSON.
+ */
+export async function downloadAdminProviderVerificationDocument(
+  accessToken: string,
+  providerId: string,
+  storageKey: string,
+): Promise<{ body: ArrayBuffer; contentType: string; contentDisposition: string | null }> {
+  const response = await fetch(
+    backendUrl(
+      `admin/providers/${encodeURIComponent(providerId)}/verification-documents/${encodeURIComponent(storageKey)}`,
+    ),
+    {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      cache: 'no-store',
+    },
+  );
+
+  if (!response.ok) {
+    let code = 'ADMIN_API_ERROR';
+    let message = 'Admin request failed.';
+    try {
+      const body = (await response.json()) as { error?: { code?: string; message?: string } };
+      code = body?.error?.code ?? code;
+      message = body?.error?.message ?? message;
+    } catch {
+      // Non-JSON error body — fall back to the defaults above.
+    }
+    throw new AdminApiError(response.status, code, message);
+  }
+
+  return {
+    body: await response.arrayBuffer(),
+    contentType: response.headers.get('content-type') ?? 'application/octet-stream',
+    contentDisposition: response.headers.get('content-disposition'),
+  };
 }
 

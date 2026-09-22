@@ -8,6 +8,7 @@ import { ProviderVerificationEventEntity } from './entities/provider-verificatio
 import { ProviderStaffEntity } from './entities/provider-staff.entity';
 import { UserRoleEntity } from '../auth/entities/user-role.entity';
 import { AuditModule } from '../audit/audit.module';
+import { StorageModule } from '../storage/storage.module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { AuditModule } from '../audit/audit.module';
       UserRoleEntity,
     ]),
     AuditModule,
+    StorageModule,
   ],
   controllers: [ProvidersController],
   providers: [ProvidersService],

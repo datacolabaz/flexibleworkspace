@@ -47,7 +47,9 @@ type AdminUser = {
 type AdminSummary = { totalRooms: number; activeRooms: number; draftRooms: number; totalUsers: number; bookingsToday: number; analytics?: { totalViews: number; uniqueVisitors: number; todayViews: number; todayUniqueVisitors: number; topPages: Array<{ path: string; views: number }> } };
 type AdminPricing = { percentage: string; minimumPriceAmount: string; currency: string; updatedAt?: string | null };
 type ProviderVerificationStatus = 'PENDING' | 'VERIFIED' | 'REJECTED' | 'SUSPENDED';
-type AdminProvider = { id: string; legalName: string; displayName: string; slug: string; category: string | null; taxId: string | null; verificationStatus: ProviderVerificationStatus; planTier: string; createdAt: string };
+type ProviderVerificationDocumentType = 'ID_DOCUMENT' | 'BUSINESS_REGISTRATION' | 'ADDRESS_PROOF' | 'OTHER';
+type ProviderVerificationDocument = { type: ProviderVerificationDocumentType; storageKey: string; originalFilename: string; mimeType: string; uploadedAt: string };
+type AdminProvider = { id: string; legalName: string; displayName: string; slug: string; category: string | null; taxId: string | null; verificationStatus: ProviderVerificationStatus; planTier: string; verificationDocuments: ProviderVerificationDocument[]; createdAt: string };
 
 const NAV_ITEMS: Array<{ id: Section; label: string; description: string }> = [
   { id: 'overview', label: 'İcmal', description: 'Canlı kataloq göstəriciləri və növbəti addımlar' },
@@ -280,6 +282,7 @@ function ProvidersSection({ providers, statusFilter, onFilterChange, onUpdated }
 
   const statusLabel: Record<ProviderVerificationStatus, string> = { PENDING: 'Gözləyir', VERIFIED: 'Təsdiqlənib', REJECTED: 'Rədd edilib', SUSPENDED: 'Dayandırılıb' };
   const statusTone: Record<ProviderVerificationStatus, string> = { PENDING: 'bg-warning-bg text-warning', VERIFIED: 'bg-success-bg text-success', REJECTED: 'bg-error-bg text-error', SUSPENDED: 'bg-error-bg text-error' };
+  const documentTypeLabel: Record<ProviderVerificationDocumentType, string> = { ID_DOCUMENT: 'Şəxsiyyət vəsiqəsi', BUSINESS_REGISTRATION: 'Qeydiyyat şəhadətnaməsi', ADDRESS_PROOF: 'Ünvan sənədi', OTHER: 'Digər' };
 
   return <section className="space-y-5">
     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -295,13 +298,14 @@ function ProvidersSection({ providers, statusFilter, onFilterChange, onUpdated }
     {error && <p className="rounded-md bg-error-bg px-4 py-3 text-small text-error">{error}</p>}
     <Card className="overflow-hidden p-0">
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[860px] text-left text-small">
+        <table className="w-full min-w-[980px] text-left text-small">
           <thead className="border-b border-border bg-surface-elevated text-label text-text-secondary">
             <tr>
               <th className="px-5 py-3">Provider</th>
               <th className="px-5 py-3">Kateqoriya</th>
               <th className="px-5 py-3">VÖEN</th>
               <th className="px-5 py-3">Status</th>
+              <th className="px-5 py-3">Sənədlər</th>
               <th className="px-5 py-3">Qeydiyyat</th>
               <th className="px-5 py-3">Əməliyyat</th>
             </tr>
@@ -313,6 +317,26 @@ function ProvidersSection({ providers, statusFilter, onFilterChange, onUpdated }
                 <td className="px-5 py-4 text-text-secondary">{provider.category ?? '—'}</td>
                 <td className="px-5 py-4 text-text-secondary">{provider.taxId ?? '—'}</td>
                 <td className="px-5 py-4"><span className={`rounded-full px-2.5 py-1 text-caption ${statusTone[provider.verificationStatus]}`}>{statusLabel[provider.verificationStatus]}</span></td>
+                <td className="px-5 py-4">
+                  {provider.verificationDocuments.length === 0 ? (
+                    <span className="text-text-muted">—</span>
+                  ) : (
+                    <ul className="flex flex-col gap-1">
+                      {provider.verificationDocuments.map((doc) => (
+                        <li key={doc.storageKey}>
+                          <a
+                            className="text-accent underline hover:text-accent-hover"
+                            href={`/api/admin/providers/${provider.id}/verification-documents/${doc.storageKey}`}
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            {documentTypeLabel[doc.type]}
+                          </a>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </td>
                 <td className="px-5 py-4 text-text-secondary">{formatDate(provider.createdAt)}</td>
                 <td className="px-5 py-4">
                   <div className="flex flex-wrap gap-2">
