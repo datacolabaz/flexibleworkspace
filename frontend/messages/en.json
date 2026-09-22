@@ -607,27 +607,8 @@
         "perHour": "/ hour",
         "verified": "verified",
         "available": "Available today",
-        "items": {
-          "workshop": {
-            "type": "Workshop room",
-            "name": "Creative Workshop Space",
-            "district": "Sabail",
-            "hours": "09:00–21:00"
-          },
-          "podcast": {
-            "type": "Audio studio",
-            "name": "Baku Podcast Studio",
-            "district": "Nizami",
-            "hours": "10:00–22:00"
-          },
-          "coworking": {
-            "type": "Coworking",
-            "name": "Caspian Co-work Loft",
-            "district": "Old City",
-            "hours": "08:00–20:00"
-          }
-        },
-        "disclaimer": "Cards are design previews, not live provider inventory."
+        "noPhoto": "No photo",
+        "disclaimer": "Hand-picked, live spaces — curated by our team."
       },
       "upcoming": {
         "title": "Workshop and event formats",

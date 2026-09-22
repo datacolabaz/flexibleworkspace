@@ -607,27 +607,8 @@
         "perHour": "/ saat",
         "verified": "təsdiqli",
         "available": "Bu gün boşdur",
-        "items": {
-          "workshop": {
-            "type": "Workshop otağı",
-            "name": "Creative Workshop Space",
-            "district": "Səbail",
-            "hours": "09:00–21:00"
-          },
-          "podcast": {
-            "type": "Səs studiyası",
-            "name": "Baku Podcast Studio",
-            "district": "Nizami",
-            "hours": "10:00–22:00"
-          },
-          "coworking": {
-            "type": "Coworking",
-            "name": "Caspian Co-work Loft",
-            "district": "İçərişəhər",
-            "hours": "08:00–20:00"
-          }
-        },
-        "disclaimer": "Kartlar dizayn önizləməsidir; canlı provayder məlumatı deyil."
+        "noPhoto": "Şəkil yoxdur",
+        "disclaimer": "Admin tərəfindən seçilmiş, canlı məkanlar."
       },
       "upcoming": {
         "title": "Workshop və tədbir formatları",

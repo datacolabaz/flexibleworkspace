@@ -20,6 +20,21 @@ export class SearchController {
     return this.searchService.search(query);
   }
 
+  // Registered BEFORE `spaces/:roomId` on purpose — Nest/Express match
+  // routes in declaration order, and `:roomId` would otherwise swallow
+  // `/spaces/featured` as roomId="featured".
+  @Public()
+  @Get('spaces/featured')
+  @ApiOperation({
+    summary:
+      "Admin-curated Featured rooms for the homepage (Sprint 4) — 'is_featured' rooms, most recently updated first",
+  })
+  async getFeatured(@Query('limit') limit?: string) {
+    return this.searchService.getFeaturedRooms(
+      limit ? parseInt(limit, 10) : undefined,
+    );
+  }
+
   @Public()
   @Get('spaces/:roomId')
   @ApiOperation({ summary: 'Full room detail (public)' })

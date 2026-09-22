@@ -4,6 +4,7 @@ import { Repository } from 'typeorm';
 
 import { RoomEntity } from '../rooms/entities/room.entity';
 import { CorrectRoomDto } from './dto/correct-room.dto';
+import { SetRoomFeaturedDto } from './dto/set-room-featured.dto';
 import { AuditLogService } from '../audit/audit-log.service';
 import {
   DomainException,
@@ -59,6 +60,7 @@ export class AdminListingsService {
         'room.capacity_max AS "capacityMax"',
         'room.base_price_amount AS "basePriceAmount"',
         'room.base_price_currency AS "basePriceCurrency"',
+        'room.is_featured AS "isFeatured"',
         'room.updated_at AS "updatedAt"',
         'location.name AS "locationName"',
         'location.city AS "city"',
@@ -146,6 +148,39 @@ export class AdminListingsService {
       beforeState: before,
       afterState: after,
       reason: dto.reason,
+    });
+
+    return saved;
+  }
+
+  /**
+   * Sprint 4 (Featured Listing) — admin-only on/off toggle, no expiry
+   * date, no payment (confirmed with the product owner). Kept separate
+   * from `correctRoom()`'s "fix wrong data" audit flow: this is a
+   * routine marketing action, not a correction, so no `reason` is
+   * required — but it's still recorded to the same audit log for
+   * traceability (who featured/unfeatured which room, when).
+   */
+  async setFeatured(
+    roomId: string,
+    adminUserId: string,
+    dto: SetRoomFeaturedDto,
+  ): Promise<RoomEntity> {
+    const room = await this.roomRepo.findOne({ where: { id: roomId } });
+    if (!room || room.deletedAt) throw new ResourceNotFoundException('Room');
+
+    const before = { isFeatured: room.isFeatured };
+    room.isFeatured = dto.isFeatured;
+    room.updatedAt = new Date();
+    const saved = await this.roomRepo.save(room);
+
+    await this.auditLogService.recordChange({
+      actorUserId: adminUserId,
+      entityType: 'Room',
+      entityId: roomId,
+      action: 'ADMIN_FEATURE_TOGGLE',
+      beforeState: before,
+      afterState: { isFeatured: saved.isFeatured },
     });
 
     return saved;

@@ -3,6 +3,7 @@ import {
   AdminApiError,
   assertAdminAccess,
   correctAdminRoom,
+  setAdminRoomFeatured,
   downloadAdminProviderVerificationDocument,
   getAdminPricing,
   getAdminCancellationPolicy,
@@ -133,6 +134,10 @@ export async function PATCH(
     if (path.length === 2 && path[0] === 'rooms') {
       const body = (await request.json()) as CorrectRoomInput;
       return NextResponse.json(await correctAdminRoom(accessToken, path[1], body));
+    }
+    if (path.length === 3 && path[0] === 'rooms' && path[2] === 'featured') {
+      const body = (await request.json()) as { isFeatured: boolean };
+      return NextResponse.json(await setAdminRoomFeatured(accessToken, path[1], body.isFeatured));
     }
     if (path.length === 2 && path[0] === 'pricing' && path[1] === 'default') {
       return NextResponse.json(await updateAdminPricing(accessToken, await request.json()));

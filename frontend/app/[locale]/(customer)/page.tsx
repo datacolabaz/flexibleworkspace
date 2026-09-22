@@ -4,12 +4,9 @@ import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { Link } from '@/lib/i18n/navigation';
 import { HomeSearchForm } from '@/components/features/search/HomeSearchForm';
 import { LinkButton } from '@/components/ui/LinkButton';
-
-const VENUES = [
-  { key: 'workshop', roomType: 'room_type.workshop_space', image: '/home/workshop-space.webp', capacity: 12, price: 25 },
-  { key: 'podcast', roomType: 'room_type.podcast_studio', image: '/home/podcast-studio.webp', capacity: 4, price: 35 },
-  { key: 'coworking', roomType: 'room_type.coworking_desk', image: '/home/coworking-loft.webp', capacity: 20, price: 18 },
-] as const;
+import { getFeaturedRooms } from '@/lib/api-client/featured';
+import { roomTypeKeyFromTranslationKey } from '@/lib/constants/taxonomy';
+import { formatMoney } from '@/lib/format/money';
 
 const UPCOMING_FORMATS = [
   { key: 'workshop', image: '/home/workshop-space.webp', href: '/search?roomType=room_type.workshop_space' },
@@ -53,8 +50,14 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
   const { locale } = await params;
   setRequestLocale(locale);
   const t = await getTranslations('home');
+  const tTaxonomy = await getTranslations('taxonomy');
   const calendar = currentMonthCalendar(locale);
   const weekdays = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'] as const;
+  // Sprint 4 (Featured Listing) — admin-curated rooms (`is_featured`),
+  // replacing what used to be 3 hardcoded mock venues. Best-effort fetch
+  // (getFeaturedRooms() never throws); the section below simply doesn't
+  // render until an admin features at least one room.
+  const featuredRooms = await getFeaturedRooms(6);
 
   return (
     <main id="main-content" className="pb-8">
@@ -77,47 +80,55 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
             </div>
           </section>
 
-          <section aria-labelledby="featured-venues-title">
-            <div className="flex items-end justify-between gap-4">
-              <div>
-                <p className="text-caption font-semibold uppercase tracking-[0.16em] text-primary">{t('dashboard.venues.eyebrow')}</p>
-                <h2 id="featured-venues-title" className="mt-1 font-display text-h2 text-text-primary">{t('dashboard.venues.title')}</h2>
-                <p className="mt-2 max-w-2xl text-caption text-text-muted">{t('dashboard.venues.disclaimer')}</p>
+          {featuredRooms.length > 0 && (
+            <section aria-labelledby="featured-venues-title">
+              <div className="flex items-end justify-between gap-4">
+                <div>
+                  <p className="text-caption font-semibold uppercase tracking-[0.16em] text-primary">{t('dashboard.venues.eyebrow')}</p>
+                  <h2 id="featured-venues-title" className="mt-1 font-display text-h2 text-text-primary">{t('dashboard.venues.title')}</h2>
+                  <p className="mt-2 max-w-2xl text-caption text-text-muted">{t('dashboard.venues.disclaimer')}</p>
+                </div>
+                <Link href="/search" className="shrink-0 text-label font-semibold text-primary hover:text-text-primary">
+                  {t('dashboard.viewAll')} →
+                </Link>
               </div>
-              <Link href="/search" className="shrink-0 text-label font-semibold text-primary hover:text-text-primary">
-                {t('dashboard.viewAll')} →
-              </Link>
-            </div>
 
-            <div className="mt-6 grid gap-5 md:grid-cols-3">
-              {VENUES.map((venue) => (
-                <article key={venue.key} className="group overflow-hidden rounded-lg border border-border bg-surface shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
-                  <Link href={`/search?roomType=${encodeURIComponent(venue.roomType)}&city=${encodeURIComponent('Bakı')}`} className="block">
-                    <div className="relative aspect-[4/3] overflow-hidden bg-surface-elevated">
-                      <Image src={venue.image} alt="" fill sizes="(max-width: 768px) 100vw, 33vw" className="object-cover transition duration-300 group-hover:scale-[1.02]" />
-                      <span className="absolute left-3 top-3 rounded-full bg-surface/95 px-3 py-1 text-caption font-semibold text-text-primary shadow-sm">
-                        {t(`dashboard.venues.items.${venue.key}.type`)}
-                      </span>
-                      <span className="absolute right-3 top-3 flex h-10 w-10 items-center justify-center rounded-full bg-surface/95 text-lg text-text-primary shadow-sm" aria-hidden="true">♡</span>
-                    </div>
-                    <div className="p-4">
-                      <h3 className="font-display text-h4 text-text-primary">{t(`dashboard.venues.items.${venue.key}.name`)}</h3>
-                      <p className="mt-1 text-small text-text-secondary">{t(`dashboard.venues.items.${venue.key}.district`)}</p>
-                      <div className="mt-4 grid grid-cols-3 gap-2 border-t border-border pt-4 text-caption text-text-secondary">
-                        <span><strong className="block text-small text-text-primary">{venue.capacity}</strong>{t('dashboard.venues.capacity')}</span>
-                        <span><strong className="block text-small text-text-primary">{venue.price} AZN</strong>{t('dashboard.venues.perHour')}</span>
-                        <span><strong className="block text-small text-verified">✓</strong>{t('dashboard.venues.verified')}</span>
-                      </div>
-                      <div className="mt-4 flex items-center justify-between gap-3 text-caption">
-                        <span className="font-semibold text-success">● {t('dashboard.venues.available')}</span>
-                        <span className="text-text-muted">{t(`dashboard.venues.items.${venue.key}.hours`)}</span>
-                      </div>
-                    </div>
-                  </Link>
-                </article>
-              ))}
-            </div>
-          </section>
+              <div className="mt-6 grid gap-5 md:grid-cols-3">
+                {featuredRooms.map((room) => {
+                  const roomTypeKey = roomTypeKeyFromTranslationKey(room.roomType);
+                  const roomTypeLabel = roomTypeKey ? tTaxonomy(`roomType.${roomTypeKey}`) : room.roomType;
+                  return (
+                    <article key={room.id} className="group overflow-hidden rounded-lg border border-border bg-surface shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+                      <Link href={`/rooms/${room.id}`} className="block">
+                        <div className="relative aspect-[4/3] overflow-hidden bg-surface-elevated">
+                          {room.coverPhotoUrl ? (
+                            // eslint-disable-next-line @next/next/no-img-element -- remote, provider-uploaded photo URL (not a fixed local set next/image's domain allowlist assumes), same as RoomListingCard.
+                            <img src={room.coverPhotoUrl} alt="" className="h-full w-full object-cover transition duration-300 group-hover:scale-[1.02]" loading="lazy" />
+                          ) : (
+                            <div className="flex h-full w-full items-center justify-center text-caption text-text-muted">
+                              {t('dashboard.venues.noPhoto')}
+                            </div>
+                          )}
+                          <span className="absolute left-3 top-3 rounded-full bg-surface/95 px-3 py-1 text-caption font-semibold text-text-primary shadow-sm">
+                            {roomTypeLabel}
+                          </span>
+                        </div>
+                        <div className="p-4">
+                          <h3 className="font-display text-h4 text-text-primary">{room.name}</h3>
+                          <p className="mt-1 text-small text-text-secondary">{[room.district, room.city].filter(Boolean).join(', ')}</p>
+                          <div className="mt-4 grid grid-cols-3 gap-2 border-t border-border pt-4 text-caption text-text-secondary">
+                            <span><strong className="block text-small text-text-primary">{room.capacityMax}</strong>{t('dashboard.venues.capacity')}</span>
+                            <span><strong className="block text-small text-text-primary">{formatMoney(room.pricePerHour.amount, room.pricePerHour.currency, locale)}</strong>{t('dashboard.venues.perHour')}</span>
+                            <span><strong className="block text-small text-verified">✓</strong>{t('dashboard.venues.verified')}</span>
+                          </div>
+                        </div>
+                      </Link>
+                    </article>
+                  );
+                })}
+              </div>
+            </section>
+          )}
 
           <section aria-labelledby="upcoming-formats-title">
             <div className="flex items-end justify-between gap-4">

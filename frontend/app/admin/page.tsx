@@ -19,6 +19,7 @@ type AdminRoom = {
   capacityMax: number;
   basePriceAmount: string;
   basePriceCurrency: string;
+  isFeatured: boolean;
   updatedAt: string;
   locationName: string | null;
   city: string | null;
@@ -220,9 +221,28 @@ function Overview({ rooms, summary, activeRooms, pendingRooms, onNavigate }: { r
 }
 
 function Listings({ rooms, query, onQuery, editingRoom, onEdit, onSaved }: { rooms: AdminRoom[]; query: string; onQuery: (value: string) => void; editingRoom: AdminRoom | null; onEdit: (room: AdminRoom | null) => void; onSaved: (room: AdminRoom) => void }) {
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [featuredError, setFeaturedError] = useState('');
+  // Sprint 4 (Featured Listing) — admin-only on/off toggle, no reason
+  // required (unlike RoomEditor's correction flow below): reuses the
+  // same `onSaved` callback so the row updates in place either way.
+  async function toggleFeatured(room: AdminRoom) {
+    setBusyId(room.id);
+    setFeaturedError('');
+    try {
+      // Merge only `isFeatured` into the row we already have — the
+      // backend's response is the raw Room entity (no joined
+      // location/provider columns), and replacing the whole row with it
+      // would blank those out in the table until the next full reload.
+      const updated = await requestJson<AdminRoom>(`/api/admin/rooms/${room.id}/featured`, { method: 'PATCH', body: JSON.stringify({ isFeatured: !room.isFeatured }) });
+      onSaved({ ...room, isFeatured: updated.isFeatured });
+    } catch (caught) { setFeaturedError(caught instanceof Error ? caught.message : 'Əməliyyat uğursuz oldu.'); }
+    finally { setBusyId(null); }
+  }
   return <section className="space-y-5" aria-labelledby="listings-title">
     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><h2 id="listings-title" className="font-display text-h3">Məkan kataloqu</h2><Input value={query} onChange={(event) => onQuery(event.target.value)} placeholder="Məkan, provider və ya şəhər axtar" className="sm:max-w-xs" /></div>
-    <Card className="overflow-hidden p-0"><div className="overflow-x-auto"><table className="w-full min-w-[760px] text-left text-small"><thead className="border-b border-border bg-surface-elevated text-label text-text-secondary"><tr><th className="px-5 py-3">Məkan</th><th className="px-5 py-3">Provider</th><th className="px-5 py-3">Status</th><th className="px-5 py-3">Qiymət</th><th className="px-5 py-3">Əməliyyat</th></tr></thead><tbody>{rooms.map((room) => <tr key={room.id} className="border-b border-border last:border-0"><td className="px-5 py-4"><strong className="block">{room.name}</strong><span className="text-caption text-text-muted">{room.locationName ?? room.city ?? '—'}</span></td><td className="px-5 py-4 text-text-secondary">{room.providerName ?? '—'}</td><td className="px-5 py-4"><span className={`rounded-full px-2.5 py-1 text-caption ${room.status === 'ACTIVE' ? 'bg-success-bg text-success' : room.status === 'DRAFT' ? 'bg-warning-bg text-warning' : 'bg-surface-elevated text-text-secondary'}`}>{room.status}</span></td><td className="px-5 py-4">{formatPrice(room.basePriceAmount, room.basePriceCurrency)}<span className="block text-caption text-text-muted">{room.capacityMin}–{room.capacityMax} nəfər</span></td><td className="px-5 py-4"><Button type="button" variant="secondary" size="sm" onClick={() => onEdit(room)}>Düzəliş et</Button></td></tr>)}</tbody></table></div>{rooms.length === 0 && <p className="p-5 text-small text-text-secondary">Nəticə tapılmadı.</p>}</Card>
+    {featuredError && <p className="text-small text-error">{featuredError}</p>}
+    <Card className="overflow-hidden p-0"><div className="overflow-x-auto"><table className="w-full min-w-[900px] text-left text-small"><thead className="border-b border-border bg-surface-elevated text-label text-text-secondary"><tr><th className="px-5 py-3">Məkan</th><th className="px-5 py-3">Provider</th><th className="px-5 py-3">Status</th><th className="px-5 py-3">Qiymət</th><th className="px-5 py-3">Featured</th><th className="px-5 py-3">Əməliyyat</th></tr></thead><tbody>{rooms.map((room) => <tr key={room.id} className="border-b border-border last:border-0"><td className="px-5 py-4"><strong className="block">{room.name}</strong><span className="text-caption text-text-muted">{room.locationName ?? room.city ?? '—'}</span></td><td className="px-5 py-4 text-text-secondary">{room.providerName ?? '—'}</td><td className="px-5 py-4"><span className={`rounded-full px-2.5 py-1 text-caption ${room.status === 'ACTIVE' ? 'bg-success-bg text-success' : room.status === 'DRAFT' ? 'bg-warning-bg text-warning' : 'bg-surface-elevated text-text-secondary'}`}>{room.status}</span></td><td className="px-5 py-4">{formatPrice(room.basePriceAmount, room.basePriceCurrency)}<span className="block text-caption text-text-muted">{room.capacityMin}–{room.capacityMax} nəfər</span></td><td className="px-5 py-4">{room.isFeatured ? <span className="rounded-full bg-success-bg px-2.5 py-1 text-caption text-success">Featured</span> : <span className="text-caption text-text-muted">—</span>}</td><td className="px-5 py-4"><div className="flex flex-wrap gap-2"><Button type="button" variant="secondary" size="sm" onClick={() => onEdit(room)}>Düzəliş et</Button><Button type="button" variant="secondary" size="sm" disabled={busyId === room.id} onClick={() => toggleFeatured(room)}>{room.isFeatured ? 'Featured-i ləğv et' : 'Featured et'}</Button></div></td></tr>)}</tbody></table></div>{rooms.length === 0 && <p className="p-5 text-small text-text-secondary">Nəticə tapılmadı.</p>}</Card>
     {editingRoom && <RoomEditor room={editingRoom} onCancel={() => onEdit(null)} onSaved={onSaved} />}
   </section>;
 }

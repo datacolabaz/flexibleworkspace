@@ -104,6 +104,13 @@ export class RoomEntity {
   @Column({ name: 'review_count', type: 'int', default: 0 })
   reviewCount: number;
 
+  // Sprint 4 (Featured Listing) — admin-only on/off flag, no expiry.
+  // Toggled from the admin panel's Listings section
+  // (AdminListingsService.setFeatured); read by SearchService's public
+  // `GET spaces/featured` for the homepage's "Featured venues" section.
+  @Column({ name: 'is_featured', type: 'boolean', default: false })
+  isFeatured: boolean;
+
   @ManyToMany(() => AmenityEntity)
   @JoinTable({
     name: 'room_amenity',

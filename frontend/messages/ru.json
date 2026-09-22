@@ -607,27 +607,8 @@
         "perHour": "/ час",
         "verified": "проверено",
         "available": "Доступно сегодня",
-        "items": {
-          "workshop": {
-            "type": "Комната для воркшопа",
-            "name": "Creative Workshop Space",
-            "district": "Сабаиль",
-            "hours": "09:00–21:00"
-          },
-          "podcast": {
-            "type": "Аудиостудия",
-            "name": "Baku Podcast Studio",
-            "district": "Низами",
-            "hours": "10:00–22:00"
-          },
-          "coworking": {
-            "type": "Коворкинг",
-            "name": "Caspian Co-work Loft",
-            "district": "Ичери-шехер",
-            "hours": "08:00–20:00"
-          }
-        },
-        "disclaimer": "Карточки — дизайн-превью, а не реальные предложения партнёров."
+        "noPhoto": "Нет фото",
+        "disclaimer": "Места, отобранные нашей командой — реальные предложения."
       },
       "upcoming": {
         "title": "Форматы воркшопов и событий",

@@ -372,6 +372,63 @@ export class SearchService {
       : `/uploads/${storageKey}`;
   }
 
+  /**
+   * `GET /spaces/featured` — Sprint 4 (Featured Listing). A small,
+   * admin-curated set of rooms (`room.is_featured = TRUE`, toggled from
+   * the admin panel's Listings section) for the public homepage's
+   * "Featured venues" section, which previously showed 3 hardcoded mock
+   * rooms. Deliberately a plain query, not `search()`'s full relevance/
+   * geo/availability machinery — the homepage just needs "whichever
+   * rooms are currently featured," most recently updated first, same
+   * visibility rules as regular search (active, verified provider, not
+   * deleted). Reuses `mapRow()`/`RoomSearchResult` so the frontend gets
+   * the exact same shape `searchRooms()` already returns.
+   */
+  async getFeaturedRooms(limit = 6): Promise<RoomSearchResult[]> {
+    const cappedLimit = Math.min(Math.max(limit, 1), 12);
+    const rows = await this.dataSource.query(
+      `
+      SELECT
+        r.id,
+        r.name,
+        rt.translation_key AS room_type,
+        p.display_name AS provider_name,
+        true AS verified,
+        l.city,
+        l.district,
+        NULL::double precision AS lat,
+        NULL::double precision AS lng,
+        NULL::double precision AS distance_m,
+        r.capacity_min,
+        r.capacity_max,
+        r.base_price_amount::int AS price_amount,
+        r.base_price_currency AS price_currency,
+        r.average_rating::float AS average_rating,
+        r.review_count,
+        (
+          SELECT storage_key FROM photo ph
+          WHERE ph.room_id = r.id AND ph.moderation_status = 'APPROVED'
+          ORDER BY ph.is_cover DESC, ph.display_order ASC
+          LIMIT 1
+        ) AS cover_photo_key,
+        true AS available,
+        0 AS relevance_score
+      FROM room r
+      JOIN location l ON l.id = r.location_id
+      JOIN provider p ON p.id = l.provider_id
+      JOIN room_type rt ON rt.id = r.room_type_id
+      WHERE r.deleted_at IS NULL AND r.status = 'ACTIVE'
+        AND l.deleted_at IS NULL AND p.deleted_at IS NULL
+        AND p.verification_status = 'VERIFIED'
+        AND r.is_featured = TRUE
+      ORDER BY r.updated_at DESC
+      LIMIT $1
+      `,
+      [cappedLimit],
+    );
+    return rows.map((row: any) => this.mapRow(row));
+  }
+
   /** `GET /spaces/:roomId` — full room detail, public (29_API_OPENAPI.yaml RoomDetail). */
   async getRoomDetail(roomId: string): Promise<RoomDetailResult> {
     const pb = new ParamBuilder();

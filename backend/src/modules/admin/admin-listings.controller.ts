@@ -11,6 +11,7 @@ import { ApiOperation, ApiTags } from '@nestjs/swagger';
 
 import { AdminListingsService } from './admin-listings.service';
 import { CorrectRoomDto } from './dto/correct-room.dto';
+import { SetRoomFeaturedDto } from './dto/set-room-featured.dto';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { RequirePermission } from '../../common/decorators/require-permission.decorator';
@@ -44,6 +45,20 @@ export class AdminListingsController {
     @Body() dto: CorrectRoomDto,
   ) {
     return this.adminListingsService.correctRoom(id, user.userId, dto);
+  }
+
+  @Patch(':id/featured')
+  @RequirePermission(AdminPermission.LISTING_UPDATE)
+  @ApiOperation({
+    summary:
+      'Mark/unmark a room as Featured on the public homepage (Sprint 4) — no reason required, unlike correct()',
+  })
+  async setFeatured(
+    @Param('id') id: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: SetRoomFeaturedDto,
+  ) {
+    return this.adminListingsService.setFeatured(id, user.userId, dto);
   }
 
   @Post(':id/revert/:auditLogId')

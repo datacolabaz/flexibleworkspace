@@ -8,6 +8,7 @@ export type AdminRoom = {
   capacityMax: number;
   basePriceAmount: string;
   basePriceCurrency: string;
+  isFeatured: boolean;
   updatedAt: string;
   locationName: string | null;
   city: string | null;
@@ -200,6 +201,14 @@ export function correctAdminRoom(accessToken: string, roomId: string, input: Cor
   return adminFetch<AdminRoom>(accessToken, `admin/rooms/${encodeURIComponent(roomId)}`, {
     method: 'PATCH',
     body: JSON.stringify(input),
+  });
+}
+
+/** `PATCH admin/rooms/:id/featured` — Sprint 4 (Featured Listing), a routine on/off toggle, no reason required unlike `correctAdminRoom`. */
+export function setAdminRoomFeatured(accessToken: string, roomId: string, isFeatured: boolean) {
+  return adminFetch<AdminRoom>(accessToken, `admin/rooms/${encodeURIComponent(roomId)}/featured`, {
+    method: 'PATCH',
+    body: JSON.stringify({ isFeatured }),
   });
 }
 
