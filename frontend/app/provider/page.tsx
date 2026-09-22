@@ -4,7 +4,9 @@ import Link from 'next/link';
 import { Logo } from '@/components/ui/Logo';
 import { readSession } from '@/lib/auth/session';
 import { getMyProvider, ProviderApiError } from '@/lib/api-client/provider-dashboard';
+import { listMyLeads } from '@/lib/api-client/leads';
 import { ProviderVerificationPanel } from '@/components/features/provider/ProviderVerificationPanel';
+import { ProviderLeadsPanel } from '@/components/features/provider/ProviderLeadsPanel';
 
 export const metadata: Metadata = {
   title: 'Provider paneli — Spotva',
@@ -34,6 +36,12 @@ function Shell({ children }: { children: React.ReactNode }) {
  * (`readSession`/`ACCESS_TOKEN_COOKIE`) — provider accounts are regular
  * user accounts that self-registered via `POST /providers` and hold a
  * PROVIDER_OWNER/PROVIDER_STAFF role, not a separate login system.
+ *
+ * Sprint 3 (Lead Tracking) adds `ProviderLeadsPanel` alongside the
+ * verification panel — a provider-only leads inbox (customers who
+ * expressed interest via the room detail page's `LeadCaptureForm`,
+ * without booking/paying). Scope confirmed with the user: leads are
+ * visible to the provider here only, not surfaced in the admin panel.
  */
 export default async function ProviderHome() {
   const { accessToken } = readSession(await cookies());
@@ -57,9 +65,11 @@ export default async function ProviderHome() {
 
   try {
     const provider = await getMyProvider(accessToken);
+    const leads = await listMyLeads(accessToken);
     return (
       <Shell>
         <ProviderVerificationPanel initialProvider={provider} />
+        <ProviderLeadsPanel initialLeads={leads} />
       </Shell>
     );
   } catch (error) {

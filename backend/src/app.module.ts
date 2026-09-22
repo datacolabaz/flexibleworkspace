@@ -28,6 +28,7 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
 import { AnalyticsModule } from './modules/analytics/analytics.module';
 import { AiSearchModule } from './modules/ai-search/ai-search.module';
 import { AdminModule } from './modules/admin/admin.module';
+import { LeadsModule } from './modules/leads/leads.module';
 
 @Module({
   imports: [
@@ -81,6 +82,7 @@ import { AdminModule } from './modules/admin/admin.module';
     AnalyticsModule,
     AiSearchModule,
     AdminModule,
+    LeadsModule,
   ],
   controllers: [AppController],
   providers: [
