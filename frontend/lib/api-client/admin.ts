@@ -85,6 +85,15 @@ export type AdminPricingSetting = {
   updatedAt?: string | null;
 };
 
+export type AdminCancellationPolicySetting = {
+  id?: string;
+  settingKey: string;
+  freeUntilHours: string;
+  partialRefundPct: string | null;
+  updatedBy?: string | null;
+  updatedAt?: string | null;
+};
+
 export type AdminAnalyticsOverview = {
   periodDays: number;
   totalViews: number;
@@ -224,6 +233,20 @@ export function getAdminAnalytics(accessToken: string) {
 
 export function updateAdminPricing(accessToken: string, input: { percentage: number; minimumPriceAmount: number; reason: string }) {
   return adminFetch<AdminPricingSetting>(accessToken, 'admin/pricing/default', {
+    method: 'PATCH',
+    body: JSON.stringify(input),
+  });
+}
+
+export function getAdminCancellationPolicy(accessToken: string) {
+  return adminFetch<AdminCancellationPolicySetting>(accessToken, 'admin/cancellation-policy/default');
+}
+
+export function updateAdminCancellationPolicy(
+  accessToken: string,
+  input: { freeUntilHours: number; partialRefundPct: number; reason: string },
+) {
+  return adminFetch<AdminCancellationPolicySetting>(accessToken, 'admin/cancellation-policy/default', {
     method: 'PATCH',
     body: JSON.stringify(input),
   });

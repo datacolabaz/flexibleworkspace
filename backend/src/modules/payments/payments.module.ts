@@ -12,6 +12,7 @@ import { PaymentTransactionEntity } from './entities/payment-transaction.entity'
 import { RefundEntity } from './entities/refund.entity';
 import { CommissionRuleEntity } from './entities/commission-rule.entity';
 import { LedgerEntryEntity } from './entities/ledger-entry.entity';
+import { AdminCancellationPolicySettingEntity } from '../admin/entities/admin-cancellation-policy-setting.entity';
 import { BookingEntity } from '../bookings/entities/booking.entity';
 import { AppUserEntity } from '../auth/entities/app-user.entity';
 import { BookingsModule } from '../bookings/bookings.module';
@@ -29,6 +30,7 @@ import { AuditModule } from '../audit/audit.module';
       LedgerEntryEntity,
       BookingEntity,
       AppUserEntity,
+      AdminCancellationPolicySettingEntity,
     ]),
     BookingsModule,
     AuthModule,

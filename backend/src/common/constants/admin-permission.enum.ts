@@ -36,6 +36,9 @@ export enum AdminPermission {
   COMMISSION_READ = 'commission.read',
   COMMISSION_UPDATE = 'commission.update',
 
+  CANCELLATION_POLICY_READ = 'cancellation_policy.read',
+  CANCELLATION_POLICY_UPDATE = 'cancellation_policy.update',
+
   PARTNER_READ = 'partner.read',
   PARTNER_UPDATE = 'partner.update',
   PARTNER_APPROVE = 'partner.approve',
@@ -77,6 +80,8 @@ export const ROLE_PERMISSIONS: Partial<Record<RoleName, AdminPermission[]>> = {
     AdminPermission.PARTNER_READ,
     AdminPermission.PARTNER_UPDATE,
     AdminPermission.PARTNER_APPROVE,
+    AdminPermission.CANCELLATION_POLICY_READ,
+    AdminPermission.CANCELLATION_POLICY_UPDATE,
     AdminPermission.AUDIT_READ,
   ],
   [RoleName.FINANCE_ADMIN]: [
@@ -88,6 +93,7 @@ export const ROLE_PERMISSIONS: Partial<Record<RoleName, AdminPermission[]>> = {
     AdminPermission.PAYOUT_PROCESS,
     AdminPermission.COMMISSION_READ,
     AdminPermission.COMMISSION_UPDATE,
+    AdminPermission.CANCELLATION_POLICY_READ,
     AdminPermission.PARTNER_READ,
     AdminPermission.AUDIT_READ,
   ],

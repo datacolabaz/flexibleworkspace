@@ -4,6 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import { DataSource, Repository } from 'typeorm';
 
 import { RefundEntity } from './entities/refund.entity';
+import { AdminCancellationPolicySettingEntity } from '../admin/entities/admin-cancellation-policy-setting.entity';
 import { LedgerEntryEntity } from './entities/ledger-entry.entity';
 import { PaymentEntity } from './entities/payment.entity';
 import { PaymentTransactionEntity } from './entities/payment-transaction.entity';
@@ -52,6 +53,8 @@ export class RefundsService {
     private readonly bookingRepo: Repository<BookingEntity>,
     @InjectRepository(PaymentEntity)
     private readonly paymentRepo: Repository<PaymentEntity>,
+    @InjectRepository(AdminCancellationPolicySettingEntity)
+    private readonly cancellationPolicySettingRepo: Repository<AdminCancellationPolicySettingEntity>,
     private readonly configService: ConfigService,
     private readonly bookingsService: BookingsService,
     private readonly auditLogService: AuditLogService,
@@ -67,22 +70,36 @@ export class RefundsService {
 
   /**
    * §5.6: "the applicable refund amount is computed live from the room's
-   * CancellationPolicy and how far out the booking start time is." No
-   * platform-wide default policy is fixed in any approved document for a
-   * room that never set one — defaulting here to "free cancellation ≥24h
-   * before start, otherwise no refund" (a conservative, commonly-used
-   * marketplace default) rather than silently refunding 100% or 0% with
-   * no stated rule. REQUIRES USER ACTION / BUSINESS DECISION to confirm
-   * this platform-wide fallback before launch — see PHASE4_REPORT.md.
+   * CancellationPolicy and how far out the booking start time is." A room
+   * that never set its own policy falls back to the admin-configurable
+   * platform default (`admin_cancellation_policy_setting`,
+   * AdminCancellationPolicyController — 25_PROVIDER_ARCHITECTURE.md /
+   * Sprint 2) instead of a hardcoded value — seeded at 24h/0% so behavior
+   * is unchanged until an admin edits it.
    */
-  private computeRefundPercentage(
+  private async platformDefaultPolicy(): Promise<Required<CancellationPolicy>> {
+    const setting = await this.cancellationPolicySettingRepo.findOne({
+      where: { settingKey: 'platform_default' },
+    });
+    return {
+      free_until_hours: setting ? Number(setting.freeUntilHours) : 24,
+      partial_refund_pct:
+        setting?.partialRefundPct != null
+          ? Number(setting.partialRefundPct)
+          : 0,
+    };
+  }
+
+  private async computeRefundPercentage(
     policy: CancellationPolicy | null,
     hoursUntilStart: number,
-  ): number {
-    const freeUntilHours = policy?.free_until_hours ?? 24;
+  ): Promise<number> {
+    const fallback = await this.platformDefaultPolicy();
+    const freeUntilHours =
+      policy?.free_until_hours ?? fallback.free_until_hours;
     if (hoursUntilStart >= freeUntilHours) return 100;
     if (policy?.partial_refund_pct != null) return policy.partial_refund_pct;
-    return 0;
+    return fallback.partial_refund_pct;
   }
 
   /** Customer self-service cancellation (§5.6) — the refund amount is deterministic, computed from a pre-published policy, not a staff judgment call, so no approval step is needed here (distinct from RefundsService.approve, which is for staff-actioned refunds — dispute handling, goodwill, etc.). */
@@ -115,7 +132,10 @@ export class RefundsService {
     const policy: CancellationPolicy | null = room?.cancellation_policy ?? null;
 
     const hoursUntilStart = (item.startAt.getTime() - Date.now()) / 3_600_000;
-    const refundPct = this.computeRefundPercentage(policy, hoursUntilStart);
+    const refundPct = await this.computeRefundPercentage(
+      policy,
+      hoursUntilStart,
+    );
     const refundAmount = Math.round(
       Number(booking.totalAmount) * (refundPct / 100),
     );

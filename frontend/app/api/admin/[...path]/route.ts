@@ -5,6 +5,7 @@ import {
   correctAdminRoom,
   downloadAdminProviderVerificationDocument,
   getAdminPricing,
+  getAdminCancellationPolicy,
   getAdminAnalytics,
   getAdminSummary,
   listAdminAudit,
@@ -15,6 +16,7 @@ import {
   setAdminProviderSuspended,
   setAdminUserSuspended,
   updateAdminPricing,
+  updateAdminCancellationPolicy,
   type CorrectRoomInput,
   type AdminProviderVerificationStatus,
 } from '@/lib/api-client/admin';
@@ -94,6 +96,9 @@ export async function GET(
     if (key === 'pricing/default') {
       return NextResponse.json(await getAdminPricing(accessToken));
     }
+    if (key === 'cancellation-policy/default') {
+      return NextResponse.json(await getAdminCancellationPolicy(accessToken));
+    }
     if (key === 'analytics/overview') {
       return NextResponse.json(await getAdminAnalytics(accessToken));
     }
@@ -131,6 +136,9 @@ export async function PATCH(
     }
     if (path.length === 2 && path[0] === 'pricing' && path[1] === 'default') {
       return NextResponse.json(await updateAdminPricing(accessToken, await request.json()));
+    }
+    if (path.length === 2 && path[0] === 'cancellation-policy' && path[1] === 'default') {
+      return NextResponse.json(await updateAdminCancellationPolicy(accessToken, await request.json()));
     }
     if (path.length === 3 && path[0] === 'providers' && path[2] === 'suspend') {
       const body = (await request.json()) as { suspended: boolean; notes?: string };

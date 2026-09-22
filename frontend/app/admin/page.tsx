@@ -46,6 +46,7 @@ type AdminUser = {
 
 type AdminSummary = { totalRooms: number; activeRooms: number; draftRooms: number; totalUsers: number; bookingsToday: number; analytics?: { totalViews: number; uniqueVisitors: number; todayViews: number; todayUniqueVisitors: number; topPages: Array<{ path: string; views: number }> } };
 type AdminPricing = { percentage: string; minimumPriceAmount: string; currency: string; updatedAt?: string | null };
+type AdminCancellationPolicy = { freeUntilHours: string; partialRefundPct: string | null; updatedAt?: string | null };
 type ProviderVerificationStatus = 'PENDING' | 'VERIFIED' | 'REJECTED' | 'SUSPENDED';
 type ProviderVerificationDocumentType = 'ID_DOCUMENT' | 'BUSINESS_REGISTRATION' | 'ADDRESS_PROOF' | 'OTHER';
 type ProviderVerificationDocument = { type: ProviderVerificationDocumentType; storageKey: string; originalFilename: string; mimeType: string; uploadedAt: string };
@@ -89,6 +90,7 @@ export default function AdminHome() {
   const [editingRoom, setEditingRoom] = useState<AdminRoom | null>(null);
   const [summary, setSummary] = useState<AdminSummary | null>(null);
   const [pricing, setPricing] = useState<AdminPricing | null>(null);
+  const [cancellationPolicy, setCancellationPolicy] = useState<AdminCancellationPolicy | null>(null);
   const [providers, setProviders] = useState<AdminProvider[]>([]);
   const [providerStatusFilter, setProviderStatusFilter] = useState<string>('');
 
@@ -96,12 +98,27 @@ export default function AdminHome() {
     const controller = new AbortController();
     setLoading(true);
     setError('');
+
+    if (section === 'pricing') {
+      Promise.all([
+        requestJson<AdminPricing>('/api/admin/pricing/default', { signal: controller.signal }),
+        requestJson<AdminCancellationPolicy>('/api/admin/cancellation-policy/default', { signal: controller.signal }),
+      ])
+        .then(([pricingData, cancellationPolicyData]) => {
+          setPricing(pricingData);
+          setCancellationPolicy(cancellationPolicyData);
+        })
+        .catch((reason: Error) => {
+          if (reason.name !== 'AbortError') setError(reason.message);
+        })
+        .finally(() => setLoading(false));
+      return () => controller.abort();
+    }
+
     const endpoint = section === 'overview'
       ? '/api/admin/dashboard/summary'
-      : section === 'pricing'
-        ? '/api/admin/pricing/default'
-        : section === 'providers'
-          ? `/api/admin/providers${providerStatusFilter ? `?verificationStatus=${providerStatusFilter}` : ''}`
+      : section === 'providers'
+        ? `/api/admin/providers${providerStatusFilter ? `?verificationStatus=${providerStatusFilter}` : ''}`
         : section === 'audit'
       ? '/api/admin/audit-log'
       : section === 'users'
@@ -111,7 +128,6 @@ export default function AdminHome() {
     requestJson<AdminRoom[] | AdminAuditEntry[] | AdminUser[] | AdminProvider[]>(endpoint, { signal: controller.signal })
       .then((data) => {
         if (section === 'overview') setSummary(data as unknown as AdminSummary);
-        else if (section === 'pricing') setPricing(data as unknown as AdminPricing);
         else if (section === 'providers') setProviders(data as AdminProvider[]);
         else if (section === 'audit') setAudit(data as AdminAuditEntry[]);
         else if (section === 'users') setUsers(data as AdminUser[]);
@@ -171,7 +187,7 @@ export default function AdminHome() {
 
           {section === 'overview' && <Overview rooms={rooms} summary={summary} activeRooms={activeRooms} pendingRooms={pendingRooms} onNavigate={setSection} />}
           {section === 'listings' && <Listings rooms={rooms} query={query} onQuery={setQuery} editingRoom={editingRoom} onEdit={setEditingRoom} onSaved={(room) => { setRooms((current) => current.map((item) => item.id === room.id ? room : item)); setEditingRoom(null); }} />}
-          {section === 'pricing' && <PricingSection pricing={pricing} onSaved={setPricing} />}
+          {section === 'pricing' && <PricingSection pricing={pricing} onSaved={setPricing} cancellationPolicy={cancellationPolicy} onCancellationPolicySaved={setCancellationPolicy} />}
           {section === 'providers' && <ProvidersSection providers={providers} statusFilter={providerStatusFilter} onFilterChange={setProviderStatusFilter} onUpdated={(updated) => setProviders((current) => current.map((item) => item.id === updated.id ? updated : item))} />}
           {section === 'users' && <UsersSection users={users} query={query} onQuery={setQuery} />}
           {section === 'audit' && <AuditSection entries={audit} />}
@@ -234,7 +250,7 @@ function RoomEditor({ room, onCancel, onSaved }: { room: AdminRoom; onCancel: ()
   return <Card className="border-primary/40 bg-surface-elevated"><div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-caption uppercase tracking-[0.12em] text-accent">Canlı düzəliş</p><h3 className="mt-1 font-display text-h3">{room.name}</h3></div><button type="button" onClick={onCancel} className="text-small text-text-secondary hover:text-text-primary">Bağla</button></div><div className="mt-5 grid gap-4 sm:grid-cols-3"><label className="flex flex-col gap-2 text-label">Saatlıq qiymət (AZN)<Input type="number" min="0.01" step="0.01" value={price} onChange={(event) => setPrice(event.target.value)} /></label><label className="flex flex-col gap-2 text-label">Maks. tutum<Input type="number" min="1" value={capacityMax} onChange={(event) => setCapacityMax(event.target.value)} /></label><label className="flex flex-col gap-2 text-label">Status<select className="min-h-11 rounded-md border border-border-strong bg-surface px-3" value={status} onChange={(event) => setStatus(event.target.value as RoomStatus)}><option value="DRAFT">DRAFT</option><option value="ACTIVE">ACTIVE</option><option value="INACTIVE">INACTIVE</option></select></label></div><label className="mt-4 flex flex-col gap-2 text-label">Dəyişiklik səbəbi<Input value={reason} onChange={(event) => setReason(event.target.value)} placeholder="Məs. Provider təsdiqlədi" /></label>{error && <p className="mt-3 text-small text-error">{error}</p>}<div className="mt-5 flex gap-3"><Button type="button" onClick={save} disabled={saving}>{saving ? 'Yadda saxlanır…' : 'Yadda saxla'}</Button><Button type="button" variant="secondary" onClick={onCancel}>Ləğv et</Button></div></Card>;
 }
 
-function PricingSection({ pricing, onSaved }: { pricing: AdminPricing | null; onSaved: (value: AdminPricing) => void }) {
+function PricingSection({ pricing, onSaved, cancellationPolicy, onCancellationPolicySaved }: { pricing: AdminPricing | null; onSaved: (value: AdminPricing) => void; cancellationPolicy: AdminCancellationPolicy | null; onCancellationPolicySaved: (value: AdminCancellationPolicy) => void }) {
   const [percentage, setPercentage] = useState('');
   const [minimumPrice, setMinimumPrice] = useState('');
   const [reason, setReason] = useState('');
@@ -250,7 +266,70 @@ function PricingSection({ pricing, onSaved }: { pricing: AdminPricing | null; on
     catch (caught) { setError(caught instanceof Error ? caught.message : 'Yadda saxlamaq mümkün olmadı.'); }
     finally { setSaving(false); }
   }
-  return <section className="space-y-5"><Card><div className="flex flex-wrap items-start justify-between gap-4"><div><p className="text-caption uppercase tracking-[0.12em] text-accent">Platforma qaydaları</p><h2 className="mt-1 font-display text-h3">Qiymət və komissiya</h2><p className="mt-2 max-w-2xl text-small text-text-secondary">Bu qaydalar yeni rezervasiyalarda istifadə ediləcək. Tarixi ledger məlumatları dəyişmir və hər update audit jurnalına yazılır.</p></div><span className="rounded-full bg-success-bg px-2.5 py-1 text-caption text-success">LIVE API</span></div><div className="mt-6 grid gap-4 sm:grid-cols-2"><label className="flex flex-col gap-2 text-label">Platforma komissiyası (%)<Input type="number" min="0" max="100" step="0.01" value={percentage} onChange={(event) => setPercentage(event.target.value)} /></label><label className="flex flex-col gap-2 text-label">Minimum saatlıq qiymət (AZN)<Input type="number" min="0" step="0.01" value={minimumPrice} onChange={(event) => setMinimumPrice(event.target.value)} /></label></div><label className="mt-4 flex flex-col gap-2 text-label">Dəyişiklik səbəbi<Input value={reason} onChange={(event) => setReason(event.target.value)} placeholder="Məs. Yeni platforma komissiyası" /></label>{error && <p className="mt-3 rounded-md bg-error-bg px-4 py-3 text-small text-error">{error}</p>}<div className="mt-5 flex items-center justify-between gap-4"><p className="text-caption text-text-muted">Son yenilənmə: {pricing?.updatedAt ? formatDate(pricing.updatedAt) : '—'}</p><Button type="button" onClick={save} disabled={saving}>{saving ? 'Yadda saxlanır…' : 'Qaydaları yadda saxla'}</Button></div></Card></section>;
+  return <section className="space-y-5">
+    <Card><div className="flex flex-wrap items-start justify-between gap-4"><div><p className="text-caption uppercase tracking-[0.12em] text-accent">Platforma qaydaları</p><h2 className="mt-1 font-display text-h3">Qiymət və komissiya</h2><p className="mt-2 max-w-2xl text-small text-text-secondary">Bu qaydalar yeni rezervasiyalarda istifadə ediləcək. Tarixi ledger məlumatları dəyişmir və hər update audit jurnalına yazılır.</p></div><span className="rounded-full bg-success-bg px-2.5 py-1 text-caption text-success">LIVE API</span></div><div className="mt-6 grid gap-4 sm:grid-cols-2"><label className="flex flex-col gap-2 text-label">Platforma komissiyası (%)<Input type="number" min="0" max="100" step="0.01" value={percentage} onChange={(event) => setPercentage(event.target.value)} /></label><label className="flex flex-col gap-2 text-label">Minimum saatlıq qiymət (AZN)<Input type="number" min="0" step="0.01" value={minimumPrice} onChange={(event) => setMinimumPrice(event.target.value)} /></label></div><label className="mt-4 flex flex-col gap-2 text-label">Dəyişiklik səbəbi<Input value={reason} onChange={(event) => setReason(event.target.value)} placeholder="Məs. Yeni platforma komissiyası" /></label>{error && <p className="mt-3 rounded-md bg-error-bg px-4 py-3 text-small text-error">{error}</p>}<div className="mt-5 flex items-center justify-between gap-4"><p className="text-caption text-text-muted">Son yenilənmə: {pricing?.updatedAt ? formatDate(pricing.updatedAt) : '—'}</p><Button type="button" onClick={save} disabled={saving}>{saving ? 'Yadda saxlanır…' : 'Qaydaları yadda saxla'}</Button></div></Card>
+    <CancellationPolicyCard cancellationPolicy={cancellationPolicy} onSaved={onCancellationPolicySaved} />
+  </section>;
+}
+
+function CancellationPolicyCard({ cancellationPolicy, onSaved }: { cancellationPolicy: AdminCancellationPolicy | null; onSaved: (value: AdminCancellationPolicy) => void }) {
+  const [freeUntilHours, setFreeUntilHours] = useState('');
+  const [partialRefundPct, setPartialRefundPct] = useState('');
+  const [reason, setReason] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+  useEffect(() => {
+    if (cancellationPolicy) {
+      setFreeUntilHours(cancellationPolicy.freeUntilHours);
+      setPartialRefundPct(cancellationPolicy.partialRefundPct ?? '0');
+    }
+  }, [cancellationPolicy]);
+  async function save() {
+    if (!reason.trim() || reason.trim().length < 3) { setError('Səbəb ən azı 3 simvol olmalıdır.'); return; }
+    if (!Number.isFinite(Number(freeUntilHours)) || Number(freeUntilHours) < 0) { setError('Pulsuz ləğv müddəti düzgün daxil edilməlidir.'); return; }
+    if (!Number.isFinite(Number(partialRefundPct)) || Number(partialRefundPct) < 0 || Number(partialRefundPct) > 100) { setError('Qismən geri ödəmə faizi 0–100 aralığında olmalıdır.'); return; }
+    setSaving(true); setError('');
+    try {
+      const updated = await requestJson<AdminCancellationPolicy>('/api/admin/cancellation-policy/default', {
+        method: 'PATCH',
+        body: JSON.stringify({ freeUntilHours: Number(freeUntilHours), partialRefundPct: Number(partialRefundPct), reason }),
+      });
+      onSaved(updated);
+      setReason('');
+    } catch (caught) { setError(caught instanceof Error ? caught.message : 'Yadda saxlamaq mümkün olmadı.'); }
+    finally { setSaving(false); }
+  }
+  return <Card>
+    <div className="flex flex-wrap items-start justify-between gap-4">
+      <div>
+        <p className="text-caption uppercase tracking-[0.12em] text-accent">Platforma qaydaları</p>
+        <h2 className="mt-1 font-display text-h3">Ləğvetmə siyasəti (default)</h2>
+        <p className="mt-2 max-w-2xl text-small text-text-secondary">
+          Otağın öz ləğvetmə qaydası yoxdursa, bu qayda tətbiq olunur: rezervasiya başlamasına qeyd olunan saatdan çox qalıbsa, tam geri ödəmə; az qalıbsa, aşağıdakı qismən faiz.
+        </p>
+      </div>
+      <span className="rounded-full bg-success-bg px-2.5 py-1 text-caption text-success">LIVE API</span>
+    </div>
+    <div className="mt-6 grid gap-4 sm:grid-cols-2">
+      <label className="flex flex-col gap-2 text-label">
+        Pulsuz ləğv müddəti (saat)
+        <Input type="number" min="0" step="1" value={freeUntilHours} onChange={(event) => setFreeUntilHours(event.target.value)} />
+      </label>
+      <label className="flex flex-col gap-2 text-label">
+        Bundan sonra geri ödəmə (%)
+        <Input type="number" min="0" max="100" step="1" value={partialRefundPct} onChange={(event) => setPartialRefundPct(event.target.value)} />
+      </label>
+    </div>
+    <label className="mt-4 flex flex-col gap-2 text-label">
+      Dəyişiklik səbəbi
+      <Input value={reason} onChange={(event) => setReason(event.target.value)} placeholder="Məs. Standart siyasəti yumşaltdıq" />
+    </label>
+    {error && <p className="mt-3 rounded-md bg-error-bg px-4 py-3 text-small text-error">{error}</p>}
+    <div className="mt-5 flex items-center justify-between gap-4">
+      <p className="text-caption text-text-muted">Son yenilənmə: {cancellationPolicy?.updatedAt ? formatDate(cancellationPolicy.updatedAt) : '—'}</p>
+      <Button type="button" onClick={save} disabled={saving}>{saving ? 'Yadda saxlanır…' : 'Qaydanı yadda saxla'}</Button>
+    </div>
+  </Card>;
 }
 
 function ProvidersSection({ providers, statusFilter, onFilterChange, onUpdated }: { providers: AdminProvider[]; statusFilter: string; onFilterChange: (value: string) => void; onUpdated: (provider: AdminProvider) => void }) {

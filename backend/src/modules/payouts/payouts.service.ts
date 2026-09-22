@@ -5,6 +5,7 @@ import { DataSource, EntityManager, In, Repository } from 'typeorm';
 
 import { PayoutEntity } from './entities/payout.entity';
 import { LedgerEntryEntity } from '../payments/entities/ledger-entry.entity';
+import { AdminCancellationPolicySettingEntity } from '../admin/entities/admin-cancellation-policy-setting.entity';
 import { LedgerEntryType } from '../../common/constants/payment.enum';
 import { ProviderEntity } from '../providers/entities/provider.entity';
 import { AppUserEntity } from '../auth/entities/app-user.entity';
@@ -66,6 +67,8 @@ export class PayoutsService {
     private readonly appUserRepo: Repository<AppUserEntity>,
     @InjectRepository(PartnerEntity)
     private readonly partnerRepo: Repository<PartnerEntity>,
+    @InjectRepository(AdminCancellationPolicySettingEntity)
+    private readonly cancellationPolicySettingRepo: Repository<AdminCancellationPolicySettingEntity>,
     private readonly configService: ConfigService,
     private readonly notificationsService: NotificationsService,
     private readonly auditLogService: AuditLogService,
@@ -84,13 +87,30 @@ export class PayoutsService {
    * platform-wide default (05_USER_FLOWS.md §5.6 — no fixed value in any
    * approved doc, same REQUIRES USER ACTION note applies).
    */
-  private eligibleNowSql(): string {
+  /**
+   * The platform-default `free_until_hours` (admin-configurable via
+   * AdminCancellationPolicyController — 25_PROVIDER_ARCHITECTURE.md /
+   * Sprint 2, same setting RefundsService falls back to) is fetched once
+   * per call and passed in as a validated numeric literal — `eligibleNowSql`
+   * is a pure string builder with no access to a parameterized query's
+   * placeholder list, so `Number.isFinite`-guarding it here is what keeps
+   * this injection-safe despite the interpolation.
+   */
+  private async freeUntilHoursDefault(): Promise<number> {
+    const setting = await this.cancellationPolicySettingRepo.findOne({
+      where: { settingKey: 'platform_default' },
+    });
+    const value = setting ? Number(setting.freeUntilHours) : 24;
+    return Number.isFinite(value) ? value : 24;
+  }
+
+  private eligibleNowSql(freeUntilHoursDefault: number): string {
     return `(
       b.status IN ('COMPLETED','CANCELLED','REFUNDED','NO_SHOW')
       OR (
         b.status = 'CONFIRMED'
         AND item_room.start_at IS NOT NULL
-        AND now() >= item_room.start_at - (COALESCE((item_room.cancellation_policy->>'free_until_hours')::numeric, 24) || ' hours')::interval
+        AND now() >= item_room.start_at - (COALESCE((item_room.cancellation_policy->>'free_until_hours')::numeric, ${freeUntilHoursDefault}) || ' hours')::interval
       )
     )`;
   }
@@ -112,6 +132,7 @@ export class PayoutsService {
 
   /** Every distinct payee (of the given kind) that currently has at least one eligible, unbatched entry — the batch job's discovery step. */
   private async listEligiblePayeeIds(column: PayeeColumn): Promise<string[]> {
+    const freeUntilHoursDefault = await this.freeUntilHoursDefault();
     const rows = await this.dataSource.query(`
       SELECT DISTINCT le.${column} AS payee_id
       FROM ledger_entry le
@@ -125,7 +146,7 @@ export class PayoutsService {
       WHERE le.${column} IS NOT NULL
         AND le.entry_type IN (${PAYEE_LEDGER_ENTRY_TYPES.map((t) => `'${t}'`).join(',')})
         AND le.payout_id IS NULL
-        AND ${this.eligibleNowSql()}
+        AND ${this.eligibleNowSql(freeUntilHoursDefault)}
     `);
     return rows.map((r: any) => r.payee_id);
   }
@@ -136,11 +157,12 @@ export class PayoutsService {
     payeeId: string,
     lock: boolean,
   ): Promise<EligibleLedgerRow[]> {
+    const freeUntilHoursDefault = await this.freeUntilHoursDefault();
     return manager.query(
       `SELECT le.id, le.amount, le.currency, le.entry_type
        ${this.baseJoinSql(column)}
          AND le.payout_id IS NULL
-         AND ${this.eligibleNowSql()}
+         AND ${this.eligibleNowSql(freeUntilHoursDefault)}
        ${lock ? 'FOR UPDATE OF le' : ''}`,
       [payeeId],
     );
@@ -261,10 +283,11 @@ export class PayoutsService {
     column: PayeeColumn,
     payeeId: string,
   ): Promise<PayeeBalance> {
+    const freeUntilHoursDefault = await this.freeUntilHoursDefault();
     const [row] = await this.dataSource.query(
       `SELECT
-         COALESCE(SUM(le.amount) FILTER (WHERE le.payout_id IS NULL AND ${this.eligibleNowSql()}), 0) AS available,
-         COALESCE(SUM(le.amount) FILTER (WHERE le.payout_id IS NULL AND NOT ${this.eligibleNowSql()}), 0) AS pending,
+         COALESCE(SUM(le.amount) FILTER (WHERE le.payout_id IS NULL AND ${this.eligibleNowSql(freeUntilHoursDefault)}), 0) AS available,
+         COALESCE(SUM(le.amount) FILTER (WHERE le.payout_id IS NULL AND NOT ${this.eligibleNowSql(freeUntilHoursDefault)}), 0) AS pending,
          COALESCE(SUM(le.amount) FILTER (WHERE p.status IN ('AVAILABLE','PROCESSING')), 0) AS in_transit,
          COALESCE(SUM(le.amount) FILTER (WHERE p.status = 'PAID'), 0) AS paid,
          MAX(le.currency) AS currency

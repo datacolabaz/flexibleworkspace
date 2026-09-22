@@ -8,6 +8,7 @@ import { LedgerEntryEntity } from '../payments/entities/ledger-entry.entity';
 import { ProviderEntity } from '../providers/entities/provider.entity';
 import { AppUserEntity } from '../auth/entities/app-user.entity';
 import { PartnerEntity } from '../partners/entities/partner.entity';
+import { AdminCancellationPolicySettingEntity } from '../admin/entities/admin-cancellation-policy-setting.entity';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { AuditModule } from '../audit/audit.module';
 
@@ -23,6 +24,7 @@ import { AuditModule } from '../audit/audit.module';
       ProviderEntity,
       AppUserEntity,
       PartnerEntity,
+      AdminCancellationPolicySettingEntity,
     ]),
     NotificationsModule,
     AuditModule,
