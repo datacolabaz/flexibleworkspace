@@ -138,6 +138,22 @@ export class RoomsService {
     return this.roomRepo.save(room);
   }
 
+  /**
+   * Sprint 5 (provider self-service room creation) — the "Add a room"
+   * form's room-type `<select>` needs real `room_type.id` UUIDs
+   * (`RoomInputDto.roomTypeId`), not the `translation_key` strings the
+   * public search taxonomy already exposes on the frontend
+   * (`lib/constants/taxonomy.ts`). No endpoint returned that id<->key
+   * mapping before this; kept provider-gated (same controller) rather
+   * than public, since only the room-creation form needs it.
+   */
+  async listRoomTypes(): Promise<{ id: string; translationKey: string }[]> {
+    return this.roomTypeRepo.find({
+      select: ['id', 'translationKey'],
+      order: { translationKey: 'ASC' },
+    });
+  }
+
   async findById(id: string): Promise<RoomEntity> {
     const room = await this.roomRepo.findOne({
       where: { id },

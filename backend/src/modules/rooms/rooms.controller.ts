@@ -49,6 +49,15 @@ export class RoomsController {
     return this.roomsService.listByProvider(this.requireProviderId(user));
   }
 
+  @Get('types')
+  @ApiOperation({
+    summary:
+      'Room type taxonomy (id + translationKey) for the "Add a room" form\'s type dropdown',
+  })
+  async listTypes() {
+    return this.roomsService.listRoomTypes();
+  }
+
   @Post()
   @ApiOperation({
     summary:

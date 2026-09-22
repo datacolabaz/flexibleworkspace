@@ -5,8 +5,10 @@ import { Logo } from '@/components/ui/Logo';
 import { readSession } from '@/lib/auth/session';
 import { getMyProvider, ProviderApiError } from '@/lib/api-client/provider-dashboard';
 import { listMyLeads } from '@/lib/api-client/leads';
+import { listMyLocations, listMyRooms, listRoomTypes } from '@/lib/api-client/provider-rooms';
 import { ProviderVerificationPanel } from '@/components/features/provider/ProviderVerificationPanel';
 import { ProviderLeadsPanel } from '@/components/features/provider/ProviderLeadsPanel';
+import { ProviderRoomsPanel } from '@/components/features/provider/ProviderRoomsPanel';
 
 export const metadata: Metadata = {
   title: 'Provider paneli — Spotva',
@@ -42,6 +44,12 @@ function Shell({ children }: { children: React.ReactNode }) {
  * expressed interest via the room detail page's `LeadCaptureForm`,
  * without booking/paying). Scope confirmed with the user: leads are
  * visible to the provider here only, not surfaced in the admin panel.
+ *
+ * Sprint 5 adds `ProviderRoomsPanel` — until this, there was NO way for
+ * a provider to actually create a room/listing from the frontend at all
+ * (only the backend API existed); this closes that gap. A room needs a
+ * `locationId`, and self-registration never creates one, so the panel
+ * handles that one-time "business address" step itself when needed.
  */
 export default async function ProviderHome() {
   const { accessToken } = readSession(await cookies());
@@ -65,10 +73,16 @@ export default async function ProviderHome() {
 
   try {
     const provider = await getMyProvider(accessToken);
-    const leads = await listMyLeads(accessToken);
+    const [leads, locations, rooms, roomTypes] = await Promise.all([
+      listMyLeads(accessToken),
+      listMyLocations(accessToken),
+      listMyRooms(accessToken),
+      listRoomTypes(accessToken),
+    ]);
     return (
       <Shell>
         <ProviderVerificationPanel initialProvider={provider} />
+        <ProviderRoomsPanel initialLocations={locations} initialRooms={rooms} roomTypes={roomTypes} />
         <ProviderLeadsPanel initialLeads={leads} />
       </Shell>
     );
