@@ -79,6 +79,15 @@ export class ProviderEntity {
   })
   verificationDocuments: ProviderVerificationDocument[];
 
+  /** Optional business logo/cover photo — set via `POST providers/:id/logo`, separate from room photos and from the private verification documents above. */
+  @Column({
+    name: 'logo_storage_key',
+    type: 'varchar',
+    length: 500,
+    nullable: true,
+  })
+  logoStorageKey: string | null;
+
   @Column({ name: 'created_at', type: 'timestamptz' })
   createdAt: Date;
 

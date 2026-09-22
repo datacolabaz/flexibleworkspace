@@ -18,8 +18,12 @@ import {
   ResourceNotFoundException,
 } from '../../common/exceptions/domain.exception';
 import { HttpStatus } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { AuditLogService } from '../audit/audit-log.service';
-import { PRIVATE_STORAGE_PROVIDER } from '../storage/storage.module';
+import {
+  PRIVATE_STORAGE_PROVIDER,
+  STORAGE_PROVIDER,
+} from '../storage/storage.module';
 import { StorageProvider } from '../storage/storage-provider.interface';
 
 /**
@@ -39,6 +43,9 @@ export class ProvidersService {
     private readonly auditLogService: AuditLogService,
     @Inject(PRIVATE_STORAGE_PROVIDER)
     private readonly privateStorageProvider: StorageProvider,
+    @Inject(STORAGE_PROVIDER)
+    private readonly publicStorageProvider: StorageProvider,
+    private readonly configService: ConfigService,
   ) {}
 
   private slugify(input: string): string {
@@ -291,5 +298,54 @@ export class ProvidersService {
       mimeType: doc.mimeType,
       originalFilename: doc.originalFilename,
     };
+  }
+
+  /**
+   * Absolute, publicly-servable URL for a provider's logo — same
+   * derivation as `SearchService.storageKeyToUrl`, kept local here for
+   * the same reason that one is: the frontend runs on its own domain, so
+   * a bare `/uploads/<key>` relative path would resolve against the
+   * wrong origin there. `null` when the provider has no logo yet.
+   */
+  publicLogoUrl(
+    provider: Pick<ProviderEntity, 'logoStorageKey'>,
+  ): string | null {
+    if (!provider.logoStorageKey) return null;
+    const origin = this.configService.get<string>('backendPublicUrl');
+    return origin
+      ? `${origin}/uploads/${provider.logoStorageKey}`
+      : `/uploads/${provider.logoStorageKey}`;
+  }
+
+  /**
+   * Sets/replaces a provider's logo (`POST providers/:id/logo`). Ownership
+   * is checked against `ownerUserId` directly — NOT the `@Roles`/
+   * `currentProviderId` pattern the rest of this controller uses —
+   * because this is deliberately callable in the SAME session as
+   * self-registration (`create()`, above): access tokens embed role
+   * claims at issue time (see `AuthService.issueTokenPair`), so a caller
+   * who just registered has no PROVIDER_OWNER claim yet in their current
+   * token and a role-gated route would 403 them. Checking the real
+   * authenticated user id against `ownerUserId` works regardless of
+   * token freshness, and is the same 404-not-403 cross-tenant pattern
+   * used throughout (`RoomsService.assertLocationOwnership` etc).
+   */
+  async setLogo(
+    providerId: string,
+    callerUserId: string,
+    file: { buffer: Buffer; originalname: string; mimetype: string },
+  ): Promise<ProviderEntity> {
+    const provider = await this.findById(providerId);
+    if (provider.ownerUserId !== callerUserId) {
+      throw new ResourceNotFoundException('Provider');
+    }
+    const stored = await this.publicStorageProvider.put(
+      file.buffer,
+      file.originalname,
+      file.mimetype,
+    );
+    provider.logoStorageKey = stored.storageKey;
+    provider.updatedAt = new Date();
+    return this.providerRepo.save(provider);
   }
 }

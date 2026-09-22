@@ -45,14 +45,51 @@ export class ProvidersController {
     @CurrentUser() user: AuthenticatedUser,
     @Body() dto: CreateProviderDto,
   ) {
-    return this.providersService.create(user.userId, dto);
+    const provider = await this.providersService.create(user.userId, dto);
+    return this.withLogoUrl(provider);
+  }
+
+  @Post('providers/:id/logo')
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({
+    summary:
+      "Set the calling user's provider business logo/cover photo — callable right after registration, in the same session (see ProvidersService.setLogo)",
+  })
+  @UseInterceptors(FileInterceptor('logo'))
+  async uploadLogo(
+    @Param('id') id: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    if (!file) {
+      throw new DomainException(
+        'FILE_REQUIRED',
+        'A logo image file is required.',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+    const provider = await this.providersService.setLogo(id, user.userId, file);
+    return this.withLogoUrl(provider);
   }
 
   @Get('providers/me')
   @Roles(RoleName.PROVIDER_OWNER, RoleName.PROVIDER_STAFF)
   @ApiOperation({ summary: 'My provider profile' })
   async me(@CurrentUser() user: AuthenticatedUser) {
-    return this.providersService.findMine(currentProviderId(user));
+    const provider = await this.providersService.findMine(
+      currentProviderId(user),
+    );
+    return this.withLogoUrl(provider);
+  }
+
+  /** Attaches the computed, publicly-servable logo URL to a provider response — `logoStorageKey` itself is an internal storage key, not something the frontend should build a URL out of. */
+  private withLogoUrl(
+    provider: Awaited<ReturnType<ProvidersService['findById']>>,
+  ) {
+    return {
+      ...provider,
+      logoUrl: this.providersService.publicLogoUrl(provider),
+    };
   }
 
   @Patch('providers/me')

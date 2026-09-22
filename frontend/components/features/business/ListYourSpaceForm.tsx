@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, type FormEvent } from 'react';
+import { useState, type ChangeEvent, type FormEvent } from 'react';
 import { useTranslations } from 'next-intl';
 import { Alert } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/Button';
@@ -10,6 +10,8 @@ import { Input } from '@/components/ui/Input';
 interface BffErrorBody {
   error?: { code?: string; message?: string };
 }
+
+const MAX_LOGO_BYTES = 8 * 1024 * 1024;
 
 /**
  * `/list-your-space`'s registration form — proxies `POST /providers`
@@ -22,6 +24,17 @@ interface BffErrorBody {
  * through the not-yet-built provider dashboard, per `09_DOMAIN_MODEL.md`
  * §9.2's Provider/Location split).
  *
+ * A provider flagged this form had no way to add a photo at all — the
+ * logo/cover photo below is a second, best-effort step: `POST /providers`
+ * (JSON) creates the provider, then (only if a file was picked)
+ * `POST /api/providers/:id/logo` (multipart) uploads it. It's a separate
+ * request rather than one combined multipart submit because `POST
+ * /providers` is the typed, OpenAPI-contracted endpoint (`providers.ts`'s
+ * `registerProvider`) — changing its shape would mean updating
+ * `29_API_OPENAPI.yaml` and regenerating the generated client, out of
+ * scope for adding an optional photo. A failed logo upload never blocks
+ * registration success — the application is real either way.
+ *
  * On success, shows a confirmation rather than redirecting anywhere —
  * there's no provider dashboard built yet to send them to
  * (`verificationStatus` starts `PENDING`; an admin reviews it, same flow
@@ -33,9 +46,30 @@ export function ListYourSpaceForm() {
   const [legalName, setLegalName] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [category, setCategory] = useState('');
+  const [logoFile, setLogoFile] = useState<File | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | undefined>();
   const [submitted, setSubmitted] = useState(false);
+  const [logoFailed, setLogoFailed] = useState(false);
+
+  function handleLogoChange(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    setError(undefined);
+    if (!file) {
+      setLogoFile(null);
+      return;
+    }
+    if (!file.type.startsWith('image/')) {
+      setError(t('logoTypeError'));
+      return;
+    }
+    if (file.size > MAX_LOGO_BYTES) {
+      setError(t('logoSizeError'));
+      return;
+    }
+    setLogoFile(file);
+  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -68,6 +102,18 @@ export function ListYourSpaceForm() {
         setError(code === 'UNAUTHENTICATED' ? t('signedOutError') : t('genericError'));
         return;
       }
+
+      const provider = (await response.json()) as { id: string };
+      if (logoFile) {
+        try {
+          const formData = new FormData();
+          formData.set('logo', logoFile);
+          const logoResponse = await fetch(`/api/providers/${provider.id}/logo`, { method: 'POST', body: formData });
+          setLogoFailed(!logoResponse.ok);
+        } catch {
+          setLogoFailed(true);
+        }
+      }
       setSubmitted(true);
     } catch {
       setError(t('genericError'));
@@ -81,6 +127,7 @@ export function ListYourSpaceForm() {
       <Alert variant="success">
         <p className="font-semibold">{t('successTitle')}</p>
         <p className="mt-1">{t('successMessage')}</p>
+        {logoFailed && <p className="mt-2 text-small">{t('logoUploadFailedNote')}</p>}
       </Alert>
     );
   }
@@ -123,6 +170,20 @@ export function ListYourSpaceForm() {
           aria-describedby={fieldDescribedBy('lys-category', { hint: t('categoryHint') })}
           onChange={(event) => setCategory(event.target.value)}
         />
+      </FormField>
+
+      <FormField id="lys-logo" label={t('logoLabel')} hint={t('logoHint')}>
+        <input
+          id="lys-logo"
+          name="logo"
+          type="file"
+          accept="image/*"
+          disabled={isSubmitting}
+          onChange={handleLogoChange}
+          aria-describedby={fieldDescribedBy('lys-logo', { hint: t('logoHint') })}
+          className="min-h-11 w-full rounded-md border border-border-strong bg-surface px-3 py-2 text-body text-text-primary file:mr-3 file:rounded-md file:border-0 file:bg-accent file:px-3 file:py-1.5 file:text-label file:text-accent-on disabled:cursor-not-allowed disabled:opacity-50"
+        />
+        {logoFile && <p className="mt-1.5 text-caption text-text-muted">{logoFile.name}</p>}
       </FormField>
 
       <Button type="submit" isLoading={isSubmitting} className="self-start">

@@ -509,13 +509,18 @@
     "displayNameHint": "What customers will see on Spotva.",
     "categoryLabel": "Category",
     "categoryHint": "Optional — e.g. coworking, meeting rooms, event spaces.",
+    "logoLabel": "Logo / cover photo (optional)",
+    "logoHint": "JPG or PNG, up to 8MB. Optional — you can leave it blank and add it later.",
+    "logoTypeError": "Please upload an image file (JPG or PNG).",
+    "logoSizeError": "The image must be under 8MB.",
     "requiredFieldsError": "Enter your legal and display name.",
     "submitButton": "Submit application",
     "submittingButton": "Submitting…",
     "successTitle": "Application received",
     "successMessage": "We'll review your application and be in touch. Thanks for choosing Spotva.",
     "signedOutError": "You've been signed out. Please sign in again.",
-    "genericError": "Something went wrong. Please try again."
+    "genericError": "Something went wrong. Please try again.",
+    "logoUploadFailedNote": "Your application was submitted, but the photo didn't upload."
   },
   "home": {
     "metaTitle": "Spotva — discover spaces, events and communities in Baku",

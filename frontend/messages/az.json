@@ -509,13 +509,18 @@
     "displayNameHint": "Müştərilərin Spotva-da görəcəyi ad.",
     "categoryLabel": "Kateqoriya",
     "categoryHint": "İstəyə bağlı — məs. coworking, görüşmə otaqları, tədbir məkanları.",
+    "logoLabel": "Loqo / əsas şəkil (könüllü)",
+    "logoHint": "JPG və ya PNG, maksimum 8MB. İstəyə bağlı — istəsəniz boş buraxıb sonra əlavə edə bilərsiniz.",
+    "logoTypeError": "Yalnız şəkil faylı yükləyin (JPG və ya PNG).",
+    "logoSizeError": "Şəkil 8MB-dan kiçik olmalıdır.",
     "requiredFieldsError": "Hüquqi və görünən adı daxil edin.",
     "submitButton": "Müraciəti göndər",
     "submittingButton": "Göndərilir…",
     "successTitle": "Müraciət qəbul edildi",
     "successMessage": "Müraciətini nəzərdən keçirib səninlə əlaqə saxlayacağıq. Spotva-nı seçdiyin üçün təşəkkürlər.",
     "signedOutError": "Hesabınızdan çıxış edilib. Zəhmət olmasa yenidən daxil olun.",
-    "genericError": "Xəta baş verdi. Zəhmət olmasa yenidən cəhd edin."
+    "genericError": "Xəta baş verdi. Zəhmət olmasa yenidən cəhd edin.",
+    "logoUploadFailedNote": "Müraciətiniz göndərildi, amma şəkil yüklənmədi."
   },
   "home": {
     "metaTitle": "Spotva — Bakıda məkan, tədbir və icma kəşfi",
