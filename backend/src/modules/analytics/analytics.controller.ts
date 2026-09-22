@@ -1,6 +1,12 @@
 import { Body, Controller, Post, Req } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
-import { IsOptional, IsString, IsUUID, MaxLength, MinLength } from 'class-validator';
+import {
+  IsOptional,
+  IsString,
+  IsUUID,
+  MaxLength,
+  MinLength,
+} from 'class-validator';
 import { Request } from 'express';
 import { Public } from '../../common/decorators/public.decorator';
 import { AnalyticsService } from './analytics.service';

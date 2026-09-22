@@ -1,12 +1,13 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AnalyticsController } from './analytics.controller';
+import { ProviderAnalyticsController } from './provider-analytics.controller';
 import { AnalyticsService } from './analytics.service';
 import { VisitorEventEntity } from './entities/visitor-event.entity';
 
 @Module({
   imports: [TypeOrmModule.forFeature([VisitorEventEntity])],
-  controllers: [AnalyticsController],
+  controllers: [AnalyticsController, ProviderAnalyticsController],
   providers: [AnalyticsService],
   exports: [AnalyticsService],
 })

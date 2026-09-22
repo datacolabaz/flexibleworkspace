@@ -6,9 +6,11 @@ import { readSession } from '@/lib/auth/session';
 import { getMyProvider, ProviderApiError } from '@/lib/api-client/provider-dashboard';
 import { listMyLeads } from '@/lib/api-client/leads';
 import { listMyLocations, listMyRooms, listRoomTypes } from '@/lib/api-client/provider-rooms';
+import { getMyProviderAnalytics, type ProviderAnalytics } from '@/lib/api-client/provider-analytics';
 import { ProviderVerificationPanel } from '@/components/features/provider/ProviderVerificationPanel';
 import { ProviderLeadsPanel } from '@/components/features/provider/ProviderLeadsPanel';
 import { ProviderRoomsPanel } from '@/components/features/provider/ProviderRoomsPanel';
+import { ProviderAnalyticsPanel } from '@/components/features/provider/ProviderAnalyticsPanel';
 
 export const metadata: Metadata = {
   title: 'Provider paneli — Spotva',
@@ -50,6 +52,10 @@ function Shell({ children }: { children: React.ReactNode }) {
  * (only the backend API existed); this closes that gap. A room needs a
  * `locationId`, and self-registration never creates one, so the panel
  * handles that one-time "business address" step itself when needed.
+ *
+ * Sprint 6 adds `ProviderAnalyticsPanel` — room views, booking requests,
+ * and confirmation rate for the last 30 days, all scoped to this
+ * provider's own rooms (`GET provider/analytics`).
  */
 export default async function ProviderHome() {
   const { accessToken } = readSession(await cookies());
@@ -79,9 +85,22 @@ export default async function ProviderHome() {
       listMyRooms(accessToken),
       listRoomTypes(accessToken),
     ]);
+
+    // Best-effort — analytics is a secondary panel, not a core part of the
+    // dashboard, so a hiccup here (same soft-fail convention as
+    // `getFeaturedRooms`/the room detail page's initial favorite check)
+    // must never break verification/rooms/leads for the whole page.
+    let analytics: ProviderAnalytics | null = null;
+    try {
+      analytics = await getMyProviderAnalytics(accessToken);
+    } catch (err) {
+      console.error('Best-effort provider analytics fetch failed (rest of the dashboard still works):', err);
+    }
+
     return (
       <Shell>
         <ProviderVerificationPanel initialProvider={provider} />
+        {analytics && <ProviderAnalyticsPanel analytics={analytics} />}
         <ProviderRoomsPanel initialLocations={locations} initialRooms={rooms} roomTypes={roomTypes} />
         <ProviderLeadsPanel initialLeads={leads} />
       </Shell>
