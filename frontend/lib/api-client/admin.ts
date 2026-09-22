@@ -36,6 +36,22 @@ export type AdminUser = {
   roles?: Array<{ role: string; providerId: string | null }>;
 };
 
+export type AdminProviderVerificationStatus = 'PENDING' | 'VERIFIED' | 'REJECTED' | 'SUSPENDED';
+
+export type AdminProvider = {
+  id: string;
+  legalName: string;
+  displayName: string;
+  slug: string;
+  ownerUserId: string;
+  category: string | null;
+  taxId: string | null;
+  verificationStatus: AdminProviderVerificationStatus;
+  planTier: 'FREE' | 'STARTER' | 'PRO' | 'ENTERPRISE';
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type AdminSummary = {
   totalRooms: number;
   activeRooms: number;
@@ -197,3 +213,23 @@ export function updateAdminPricing(accessToken: string, input: { percentage: num
     body: JSON.stringify(input),
   });
 }
+
+export function listAdminProviders(accessToken: string, verificationStatus?: AdminProviderVerificationStatus) {
+  const suffix = verificationStatus ? `?verificationStatus=${encodeURIComponent(verificationStatus)}` : '';
+  return adminFetch<AdminProvider[]>(accessToken, `admin/providers${suffix}`);
+}
+
+export function verifyAdminProvider(accessToken: string, providerId: string, decision: 'VERIFIED' | 'REJECTED', notes?: string) {
+  return adminFetch<AdminProvider>(accessToken, `admin/providers/${encodeURIComponent(providerId)}/verify`, {
+    method: 'POST',
+    body: JSON.stringify({ decision, notes }),
+  });
+}
+
+export function setAdminProviderSuspended(accessToken: string, providerId: string, suspended: boolean, notes?: string) {
+  return adminFetch<AdminProvider>(accessToken, `admin/providers/${encodeURIComponent(providerId)}/suspend`, {
+    method: 'PATCH',
+    body: JSON.stringify({ suspended, notes }),
+  });
+}
+
