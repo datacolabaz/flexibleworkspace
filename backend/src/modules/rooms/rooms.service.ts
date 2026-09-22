@@ -7,16 +7,25 @@ import { AmenityEntity } from './entities/amenity.entity';
 import { RoomTypeEntity } from './entities/room-type.entity';
 import { AvailabilityRuleEntity } from './entities/availability-rule.entity';
 import { BlockedPeriodEntity } from './entities/blocked-period.entity';
-import { PhotoEntity } from './entities/photo.entity';
+import { ModerationStatus, PhotoEntity } from './entities/photo.entity';
 import { RoomInputDto } from './dto/room-input.dto';
 import { AvailabilityRuleInputDto } from './dto/availability-rule-input.dto';
 import { BlockedPeriodInputDto } from './dto/blocked-period-input.dto';
+import {
+  ConfirmPhotoDto,
+  ConfirmVideoDto,
+  ReorderPhotosDto,
+} from './dto/media-input.dto';
 import { LocationsService } from '../locations/locations.service';
 import { ProvidersService } from '../providers/providers.service';
 import {
   PLAN_ROOM_LIMITS,
   ProviderPlanTier,
   RoomStatus,
+  canUploadVideo,
+  getMaxImageCount,
+  getMaxVideoDurationSeconds,
+  getMaxVideoSizeBytes,
 } from '../../common/constants/provider.enum';
 import {
   DomainException,
@@ -24,6 +33,7 @@ import {
   ResourceNotFoundException,
 } from '../../common/exceptions/domain.exception';
 import {
+  PresignedUpload,
   StorageProvider,
   StoredFile,
 } from '../storage/storage-provider.interface';
@@ -318,32 +328,353 @@ export class RoomsService {
     return this.blockedPeriodRepo.save(blocked);
   }
 
-  // -- Photos ------------------------------------------------------------
+  // -- Media (photos + video) ------------------------------------------
+  //
+  // Provider Listing Media Specification — two upload paths coexist:
+  //
+  //  1. Direct-to-storage (preferred, and the ONLY path when
+  //     `STORAGE_DRIVER=s3`): the client calls `presignPhotoUpload`/
+  //     `presignVideoUpload` for a signed PUT URL, uploads the file
+  //     bytes straight to the bucket, then calls `confirmPhoto`/
+  //     `confirmVideo` with metadata only — file bytes never pass
+  //     through this Node process (22_INFRASTRUCTURE.md §22.7).
+  //  2. `addPhoto` (legacy multipart-through-server) — kept only
+  //     because `LocalStorageProvider` has no presigned-URL concept,
+  //     so local development without S3 credentials still needs a way
+  //     to upload. Production (`STORAGE_DRIVER=s3`) should never use
+  //     this path; `getMediaCapabilities` tells the frontend which
+  //     path is available so it never has to guess.
+  //
+  // Every photo this module creates is auto-approved
+  // (`ModerationStatus.APPROVED`) rather than left at the entity
+  // default of `PENDING` — `PENDING` photos are invisible everywhere
+  // public (`search.service.ts`/`favorites.service.ts` only select
+  // `moderation_status = 'APPROVED'`), and nothing else in this
+  // codebase ever transitions a photo out of `PENDING` (no admin
+  // moderation flow exists, unlike `Review`). Providers are already
+  // verification-gated before a room can go ACTIVE, so photos they
+  // upload don't need a second manual-review queue on top of that.
 
+  private async requireRoomOwnership(
+    roomId: string,
+    providerId: string,
+  ): Promise<RoomEntity> {
+    const room = await this.findById(roomId);
+    if (room.location.providerId !== providerId)
+      throw new ResourceNotFoundException('Room');
+    return room;
+  }
+
+  private requireDirectUploadSupport(): void {
+    if (!this.storageProvider.createPresignedUpload) {
+      throw new DomainException(
+        'DIRECT_UPLOAD_UNSUPPORTED',
+        'Direct upload is not available in this environment. Use the fallback upload endpoint.',
+        HttpStatus.NOT_IMPLEMENTED,
+      );
+    }
+  }
+
+  /**
+   * Tells the frontend, up front, which upload path to use and what
+   * this provider's plan currently allows — so the UI can grey out
+   * video entirely for Free/Starter and never has to feature-detect by
+   * trial and error.
+   */
+  async getMediaCapabilities(providerId: string): Promise<{
+    directUploadSupported: boolean;
+    maxImageCount: number;
+    videoAllowed: boolean;
+    maxVideoCount: number;
+    maxVideoDurationSeconds: number;
+    maxVideoSizeBytes: number;
+  }> {
+    const provider = await this.providersService.findById(providerId);
+    const plan = provider.planTier as ProviderPlanTier;
+    return {
+      directUploadSupported: !!this.storageProvider.createPresignedUpload,
+      maxImageCount: getMaxImageCount(plan),
+      videoAllowed: canUploadVideo(plan),
+      maxVideoCount: canUploadVideo(plan) ? 1 : 0,
+      maxVideoDurationSeconds: getMaxVideoDurationSeconds(plan),
+      maxVideoSizeBytes: getMaxVideoSizeBytes(plan),
+    };
+  }
+
+  async presignPhotoUpload(
+    roomId: string,
+    providerId: string,
+    originalFilename: string,
+    mimeType: string,
+  ): Promise<PresignedUpload> {
+    await this.requireRoomOwnership(roomId, providerId);
+    this.requireDirectUploadSupport();
+
+    const provider = await this.providersService.findById(providerId);
+    const maxImages = getMaxImageCount(provider.planTier as ProviderPlanTier);
+    const existingCount = await this.photoRepo.count({ where: { roomId } });
+    if (existingCount >= maxImages) {
+      throw new PlanLimitReachedException('photos on this room', {
+        limit: maxImages,
+        planTier: provider.planTier,
+      });
+    }
+
+    return this.storageProvider.createPresignedUpload!(
+      originalFilename,
+      mimeType,
+    );
+  }
+
+  async confirmPhoto(
+    roomId: string,
+    providerId: string,
+    dto: ConfirmPhotoDto,
+  ): Promise<PhotoEntity> {
+    await this.requireRoomOwnership(roomId, providerId);
+
+    const provider = await this.providersService.findById(providerId);
+    const maxImages = getMaxImageCount(provider.planTier as ProviderPlanTier);
+    const existingCount = await this.photoRepo.count({ where: { roomId } });
+    if (existingCount >= maxImages) {
+      throw new PlanLimitReachedException('photos on this room', {
+        limit: maxImages,
+        planTier: provider.planTier,
+      });
+    }
+
+    if (dto.isCover) {
+      await this.photoRepo.update({ roomId }, { isCover: false });
+    }
+
+    const photo = this.photoRepo.create({
+      roomId,
+      storageKey: dto.storageKey,
+      width: dto.width ?? null,
+      height: dto.height ?? null,
+      isCover: dto.isCover || existingCount === 0, // first photo is the cover by default
+      moderationStatus: ModerationStatus.APPROVED,
+      displayOrder: existingCount,
+      createdAt: new Date(),
+    });
+    return this.photoRepo.save(photo);
+  }
+
+  /** Legacy multipart upload — see the module-level comment above for why this still exists. */
   async addPhoto(
     roomId: string,
     providerId: string,
     file: { buffer: Buffer; originalname: string; mimetype: string },
     isCover: boolean,
   ): Promise<PhotoEntity> {
-    const room = await this.findById(roomId);
-    if (room.location.providerId !== providerId)
-      throw new ResourceNotFoundException('Room');
+    await this.requireRoomOwnership(roomId, providerId);
 
+    const provider = await this.providersService.findById(providerId);
+    const maxImages = getMaxImageCount(provider.planTier as ProviderPlanTier);
     const existingCount = await this.photoRepo.count({ where: { roomId } });
+    if (existingCount >= maxImages) {
+      throw new PlanLimitReachedException('photos on this room', {
+        limit: maxImages,
+        planTier: provider.planTier,
+      });
+    }
+
     const stored: StoredFile = await this.storageProvider.put(
       file.buffer,
       file.originalname,
       file.mimetype,
     );
 
+    if (isCover) {
+      await this.photoRepo.update({ roomId }, { isCover: false });
+    }
+
     const photo = this.photoRepo.create({
       roomId,
       storageKey: stored.storageKey,
       isCover: isCover || existingCount === 0, // first photo is the cover by default
+      moderationStatus: ModerationStatus.APPROVED,
       displayOrder: existingCount,
       createdAt: new Date(),
     });
     return this.photoRepo.save(photo);
+  }
+
+  async removePhoto(
+    roomId: string,
+    providerId: string,
+    photoId: string,
+  ): Promise<PhotoEntity[]> {
+    await this.requireRoomOwnership(roomId, providerId);
+
+    const photo = await this.photoRepo.findOne({
+      where: { id: photoId, roomId },
+    });
+    if (!photo) throw new ResourceNotFoundException('Photo');
+
+    await this.storageProvider.delete(photo.storageKey);
+    await this.photoRepo.delete({ id: photoId });
+
+    const remaining = await this.photoRepo.find({
+      where: { roomId },
+      order: { displayOrder: 'ASC' },
+    });
+
+    // Keep displayOrder contiguous and make sure a cover still exists
+    // whenever at least one photo remains.
+    const hasCover = remaining.some((p) => p.isCover);
+    for (let i = 0; i < remaining.length; i++) {
+      remaining[i].displayOrder = i;
+      if (!hasCover && i === 0) remaining[i].isCover = true;
+    }
+    if (remaining.length > 0) await this.photoRepo.save(remaining);
+
+    return remaining;
+  }
+
+  async reorderPhotos(
+    roomId: string,
+    providerId: string,
+    dto: ReorderPhotosDto,
+  ): Promise<PhotoEntity[]> {
+    await this.requireRoomOwnership(roomId, providerId);
+
+    const existing = await this.photoRepo.find({ where: { roomId } });
+    const existingIds = new Set(existing.map((p) => p.id));
+    const requestedIds = new Set(dto.photoIds);
+    if (
+      existing.length !== dto.photoIds.length ||
+      [...existingIds].some((id) => !requestedIds.has(id))
+    ) {
+      throw new DomainException(
+        'INVALID_PHOTO_SET',
+        'photoIds must list exactly the photos currently on this room.',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    const byId = new Map(existing.map((p) => [p.id, p]));
+    dto.photoIds.forEach((id, index) => {
+      byId.get(id)!.displayOrder = index;
+    });
+    return this.photoRepo.save(existing);
+  }
+
+  async setCoverPhoto(
+    roomId: string,
+    providerId: string,
+    photoId: string,
+  ): Promise<PhotoEntity[]> {
+    await this.requireRoomOwnership(roomId, providerId);
+
+    const photo = await this.photoRepo.findOne({
+      where: { id: photoId, roomId },
+    });
+    if (!photo) throw new ResourceNotFoundException('Photo');
+
+    await this.photoRepo.update({ roomId }, { isCover: false });
+    await this.photoRepo.update({ id: photoId }, { isCover: true });
+
+    return this.photoRepo.find({
+      where: { roomId },
+      order: { displayOrder: 'ASC' },
+    });
+  }
+
+  // -- Video (PRO/ENTERPRISE only) ---------------------------------------
+
+  private requireVideoAllowed(planTier: ProviderPlanTier): void {
+    if (!canUploadVideo(planTier)) {
+      throw new DomainException(
+        'PLAN_VIDEO_NOT_ALLOWED',
+        'Video is only available on the Pro plan. Upgrade to add a video to this room.',
+        HttpStatus.PAYMENT_REQUIRED,
+        { planTier },
+      );
+    }
+  }
+
+  async presignVideoUpload(
+    roomId: string,
+    providerId: string,
+    originalFilename: string,
+    mimeType: string,
+  ): Promise<PresignedUpload> {
+    await this.requireRoomOwnership(roomId, providerId);
+    this.requireDirectUploadSupport();
+
+    const provider = await this.providersService.findById(providerId);
+    this.requireVideoAllowed(provider.planTier as ProviderPlanTier);
+
+    return this.storageProvider.createPresignedUpload!(
+      originalFilename,
+      mimeType,
+    );
+  }
+
+  async confirmVideo(
+    roomId: string,
+    providerId: string,
+    dto: ConfirmVideoDto,
+  ): Promise<RoomEntity> {
+    const room = await this.requireRoomOwnership(roomId, providerId);
+
+    const provider = await this.providersService.findById(providerId);
+    const plan = provider.planTier as ProviderPlanTier;
+    this.requireVideoAllowed(plan);
+
+    const maxDuration = getMaxVideoDurationSeconds(plan);
+    if (dto.durationSeconds > maxDuration) {
+      await this.storageProvider.delete(dto.storageKey);
+      throw new DomainException(
+        'VIDEO_TOO_LONG',
+        `Video must be ${maxDuration} seconds or shorter.`,
+        HttpStatus.BAD_REQUEST,
+        { maxDurationSeconds: maxDuration },
+      );
+    }
+
+    // Duration is client-reported and can't be verified without
+    // downloading/probing the file (accepted limitation — see the
+    // Provider Listing Media Specification's security section); size
+    // IS independently verified here via a HEAD request against the
+    // actual uploaded object, never trusted from the client.
+    const maxSize = getMaxVideoSizeBytes(plan);
+    const actualSize = this.storageProvider.headSize
+      ? await this.storageProvider.headSize(dto.storageKey)
+      : 0;
+    if (actualSize > maxSize) {
+      await this.storageProvider.delete(dto.storageKey);
+      throw new DomainException(
+        'VIDEO_TOO_LARGE',
+        `Video must be ${Math.round(maxSize / (1024 * 1024))}MB or smaller.`,
+        HttpStatus.BAD_REQUEST,
+        { maxSizeBytes: maxSize },
+      );
+    }
+
+    if (room.videoStorageKey) {
+      await this.storageProvider.delete(room.videoStorageKey);
+    }
+
+    room.videoStorageKey = dto.storageKey;
+    room.videoDurationSeconds = Math.round(dto.durationSeconds);
+    room.videoSizeBytes = String(actualSize);
+    room.videoMimeType = dto.mimeType;
+    room.updatedAt = new Date();
+    return this.roomRepo.save(room);
+  }
+
+  async removeVideo(roomId: string, providerId: string): Promise<RoomEntity> {
+    const room = await this.requireRoomOwnership(roomId, providerId);
+    if (room.videoStorageKey) {
+      await this.storageProvider.delete(room.videoStorageKey);
+    }
+    room.videoStorageKey = null;
+    room.videoDurationSeconds = null;
+    room.videoSizeBytes = null;
+    room.videoMimeType = null;
+    room.updatedAt = new Date();
+    return this.roomRepo.save(room);
   }
 }

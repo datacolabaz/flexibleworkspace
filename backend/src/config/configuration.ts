@@ -81,9 +81,20 @@ export interface AppConfig {
     // personal/legal documents and must stay admin-only, never publicly
     // reachable by a guessable URL.
     privateLocalPath: string;
+    // S3-compatible object storage (e.g. Cloudflare R2 — `region: 'auto'`
+    // is R2's own convention, which is why that's the default below).
+    // TWO buckets, mirroring the local-disk split above: `bucket` is
+    // public-read (a custom domain or the provider's public bucket URL,
+    // `publicBaseUrl`) for room photos/videos and provider logos;
+    // `privateBucket` has NO public access configured at the storage
+    // provider at all — the only way to read from it is
+    // `S3StorageProvider.getBuffer()` via an authenticated, admin-only
+    // route, same as the local-disk private driver today.
     s3: {
       endpoint: string;
       bucket: string;
+      privateBucket: string;
+      publicBaseUrl: string;
       accessKeyId: string;
       secretAccessKey: string;
       region: string;
@@ -220,6 +231,8 @@ export default (): AppConfig => ({
     s3: {
       endpoint: process.env.S3_ENDPOINT || '',
       bucket: process.env.S3_BUCKET || '',
+      privateBucket: process.env.S3_PRIVATE_BUCKET || '',
+      publicBaseUrl: process.env.S3_PUBLIC_BASE_URL || '',
       accessKeyId: process.env.S3_ACCESS_KEY_ID || '',
       secretAccessKey: process.env.S3_SECRET_ACCESS_KEY || '',
       region: process.env.S3_REGION || 'auto',

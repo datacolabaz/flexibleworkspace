@@ -50,4 +50,8 @@ export class LocalStorageProvider implements StorageProvider {
     // caller-supplied path text), so this can't be used for path traversal.
     return fs.readFile(path.join(this.basePath, storageKey));
   }
+
+  async delete(storageKey: string): Promise<void> {
+    await fs.rm(path.join(this.basePath, storageKey), { force: true });
+  }
 }

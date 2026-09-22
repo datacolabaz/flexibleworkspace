@@ -104,6 +104,28 @@ export class RoomEntity {
   @Column({ name: 'review_count', type: 'int', default: 0 })
   reviewCount: number;
 
+  @Column({
+    name: 'video_storage_key',
+    type: 'varchar',
+    length: 500,
+    nullable: true,
+  })
+  videoStorageKey: string | null;
+
+  @Column({ name: 'video_duration_seconds', type: 'int', nullable: true })
+  videoDurationSeconds: number | null;
+
+  @Column({ name: 'video_size_bytes', type: 'bigint', nullable: true })
+  videoSizeBytes: string | null;
+
+  @Column({
+    name: 'video_mime_type',
+    type: 'varchar',
+    length: 100,
+    nullable: true,
+  })
+  videoMimeType: string | null;
+
   // Sprint 4 (Featured Listing) — admin-only on/off flag, no expiry.
   // Toggled from the admin panel's Listings section
   // (AdminListingsService.setFeatured); read by SearchService's public
