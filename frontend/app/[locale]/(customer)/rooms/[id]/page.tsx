@@ -98,8 +98,13 @@ export default async function RoomDetailPage({
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL;
   const pageUrl = siteUrl ? `${siteUrl}/${locale}/rooms/${id}` : `/${locale}/rooms/${id}`;
 
+  const hasPrice = room.pricePerHour?.amount !== undefined && Boolean(room.pricePerHour.currency);
+
   return (
-    <main id="main-content" className="mx-auto max-w-7xl px-4 py-6 sm:px-6">
+    <main
+      id="main-content"
+      className={`mx-auto max-w-7xl px-4 py-6 sm:px-6 ${hasPrice ? 'pb-24 lg:pb-6' : ''}`}
+    >
       {/* 19_SEO.md: "Room detail pages emit LocalBusiness/Product-style
        * structured data (price, availability, rating, address)". Built
        * from data already fetched for the human-readable page — no extra
@@ -188,12 +193,12 @@ export default async function RoomDetailPage({
           </div>
 
           {/* Mobile booking widget: rendered inline, right after the key
-           * facts strip, so the primary CTA never needs a long scroll to
-           * reach — 07_UX_ARCHITECTURE.md §7.4 calls for a fixed
-           * bottom-docked bar on mobile specifically; that's deferred as
-           * a polish item (PHASE4_REPORT.md) in favor of this simpler,
-           * still-reachable placement within this milestone's scope. */}
-          <div className="lg:hidden">
+           * facts strip. `scroll-mt-24` gives the fixed sticky bar's
+           * "Bron et" anchor link room to land below the sticky header
+           * (h-16) rather than right underneath it. 07_UX_ARCHITECTURE.md
+           * §7.4's fixed bottom-docked bar is `MobileBookingBar` below —
+           * previously deferred (PHASE4_REPORT.md); this closes that gap. */}
+          <div id="booking-widget" className="scroll-mt-24 lg:hidden">
             <BookingWidget
               roomId={id}
               pricePerHour={room.pricePerHour}
@@ -239,6 +244,39 @@ export default async function RoomDetailPage({
           />
         </div>
       </div>
+
+      {/* Fixed bottom-docked mobile CTA (07_UX_ARCHITECTURE.md §7.4) — a
+       * plain anchor to #booking-widget, not a client component: no JS
+       * needed for the browser's native same-page scroll, and it keeps
+       * this page a pure Server Component. Hidden once the inline mobile
+       * widget's own price line has scrolled past (peers can't do that
+       * without JS), so instead this simply stays docked for the whole
+       * scroll — same as the reference "sticky checkout bar" pattern —
+       * and `hasPrice` already keeps it from rendering when there's
+       * nothing to show or book. */}
+      {hasPrice && room.pricePerHour && (
+        <div className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-surface px-4 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pt-3 shadow-[0_-4px_12px_rgba(0,0,0,0.06)] lg:hidden">
+          <div className="mx-auto flex max-w-7xl items-center justify-between gap-4">
+            <div>
+              <p className="text-h4 font-display text-text-primary">
+                {formatMoney(room.pricePerHour.amount!, room.pricePerHour.currency!, locale)}
+                <span className="text-small font-normal text-text-muted"> {t('perHour')}</span>
+              </p>
+              {room.averageRating !== undefined && room.reviewCount !== undefined && room.reviewCount > 0 && (
+                <p className="text-caption text-text-muted">
+                  ★ {room.averageRating.toFixed(1)} ({room.reviewCount})
+                </p>
+              )}
+            </div>
+            <a
+              href="#booking-widget"
+              className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-md bg-accent px-6 text-label font-semibold text-accent-on transition-colors hover:bg-accent-hover"
+            >
+              {t('bookCta')}
+            </a>
+          </div>
+        </div>
+      )}
     </main>
   );
 }
