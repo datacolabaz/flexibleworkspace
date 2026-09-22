@@ -301,20 +301,18 @@ export class ProvidersService {
   }
 
   /**
-   * Absolute, publicly-servable URL for a provider's logo — same
-   * derivation as `SearchService.storageKeyToUrl`, kept local here for
-   * the same reason that one is: the frontend runs on its own domain, so
-   * a bare `/uploads/<key>` relative path would resolve against the
-   * wrong origin there. `null` when the provider has no logo yet.
+   * Publicly-servable URL for a provider's logo — delegates to the
+   * injected public StorageProvider (was a hand-rolled `/uploads/<key>`
+   * derivation here until this pass, which produced a dead URL once a
+   * logo was stored on S3/R2 rather than local disk; see the same fix
+   * in `SearchService`/`FavoritesService`). `null` when the provider has
+   * no logo yet.
    */
   publicLogoUrl(
     provider: Pick<ProviderEntity, 'logoStorageKey'>,
   ): string | null {
     if (!provider.logoStorageKey) return null;
-    const origin = this.configService.get<string>('backendPublicUrl');
-    return origin
-      ? `${origin}/uploads/${provider.logoStorageKey}`
-      : `/uploads/${provider.logoStorageKey}`;
+    return this.publicStorageProvider.publicUrlFor(provider.logoStorageKey);
   }
 
   /**

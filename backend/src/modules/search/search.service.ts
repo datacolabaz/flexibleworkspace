@@ -1,4 +1,4 @@
-import { HttpStatus, Injectable } from '@nestjs/common';
+import { HttpStatus, Inject, Injectable } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { ConfigService } from '@nestjs/config';
 import { DataSource } from 'typeorm';
@@ -6,6 +6,8 @@ import { DataSource } from 'typeorm';
 import { SearchQueryDto, SearchSort } from './dto/search-query.dto';
 import { ACTIVE_BOOKING_STATUSES } from '../../common/constants/booking.enum';
 import { DomainException } from '../../common/exceptions/domain.exception';
+import { StorageProvider } from '../storage/storage-provider.interface';
+import { STORAGE_PROVIDER } from '../storage/storage.module';
 
 export interface RoomSearchResult {
   id: string;
@@ -73,6 +75,7 @@ export class SearchService {
   constructor(
     @InjectDataSource() private readonly dataSource: DataSource,
     private readonly configService: ConfigService,
+    @Inject(STORAGE_PROVIDER) private readonly storageProvider: StorageProvider,
   ) {}
 
   async search(dto: SearchQueryDto): Promise<SearchResultPage> {
@@ -352,24 +355,17 @@ export class SearchService {
 
   /**
    * Photo URLs are resolved from the storage key at read time (never
-   * persisted as an absolute URL — 22_INFRASTRUCTURE.md), matching how
-   * StorageProvider is the single source of truth for how a key maps to a
-   * servable path. Kept local to Search rather than importing the storage
-   * module: search only ever needs the read-side URL derivation, not an
-   * upload capability.
+   * persisted as an absolute URL — 22_INFRASTRUCTURE.md). Delegates to
+   * the injected StorageProvider (was a hand-rolled `/uploads/<key>`
+   * path here until this pass) — that hard-coded local-disk shape broke
+   * silently for any photo stored on S3/R2 (`STORAGE_DRIVER=s3`), since
+   * an S3 object was never served from this app's own `/uploads` route
+   * at all. `publicUrlFor` is the one place per driver that knows the
+   * right shape (bucket public URL for S3, backend-origin-prefixed path
+   * for local disk).
    */
   private storageKeyToUrl(storageKey: string): string {
-    // The relative path the backend actually serves the file at (see
-    // main.ts's `app.useStaticAssets(..., { prefix: '/uploads' })`) is
-    // always `/uploads/<key>` regardless of the on-disk directory name, so
-    // this no longer derives it from `storage.localPath`.
-    const origin = this.configService.get<string>('backendPublicUrl');
-    // The frontend runs on its own separate domain, so a bare relative path
-    // would resolve against the WRONG origin there — prepend the backend's
-    // own public origin whenever one is configured (see configuration.ts).
-    return origin
-      ? `${origin}/uploads/${storageKey}`
-      : `/uploads/${storageKey}`;
+    return this.storageProvider.publicUrlFor(storageKey);
   }
 
   /**

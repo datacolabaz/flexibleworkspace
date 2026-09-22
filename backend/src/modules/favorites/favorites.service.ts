@@ -1,11 +1,12 @@
-import { Injectable } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+import { Inject, Injectable } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 
 import { FavoriteEntity } from './entities/favorite.entity';
 import { RoomEntity } from '../rooms/entities/room.entity';
 import { ResourceNotFoundException } from '../../common/exceptions/domain.exception';
+import { StorageProvider } from '../storage/storage-provider.interface';
+import { STORAGE_PROVIDER } from '../storage/storage.module';
 
 export interface FavoriteRoomSummary {
   id: string;
@@ -28,14 +29,19 @@ export class FavoritesService {
     private readonly favoriteRepo: Repository<FavoriteEntity>,
     @InjectRepository(RoomEntity)
     private readonly roomRepo: Repository<RoomEntity>,
-    private readonly configService: ConfigService,
+    @Inject(STORAGE_PROVIDER) private readonly storageProvider: StorageProvider,
   ) {}
 
+  /**
+   * Was hand-derived from `storage.localPath` here (e.g. `./uploads` ->
+   * `/uploads/<key>`) — broken for TWO reasons: it never prefixed the
+   * backend's public origin (same bug `SearchService` had), and it
+   * assumed local-disk storage entirely, so it produced a dead URL for
+   * any photo stored on S3/R2. Delegates to the injected StorageProvider,
+   * the one place per driver that knows the right shape.
+   */
   private storageKeyToUrl(storageKey: string): string {
-    const basePath =
-      this.configService.get<string>('storage.localPath') || './uploads';
-    const publicBase = basePath.replace(/^\.\//, '/');
-    return `${publicBase}/${storageKey}`;
+    return this.storageProvider.publicUrlFor(storageKey);
   }
 
   async add(userId: string, roomId: string): Promise<{ favorited: true }> {

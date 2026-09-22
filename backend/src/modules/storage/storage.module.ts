@@ -60,10 +60,26 @@ function buildStorageProvider(
 
   return new LocalStorageProvider(
     kind === 'public'
-      ? config.get<string>('storage.localPath') ?? './uploads'
+      ? (config.get<string>('storage.localPath') ?? './uploads')
       : (config.get<string>('storage.privateLocalPath') ?? './uploads-private'),
-    kind === 'public' ? '/uploads' : null,
+    kind === 'public' ? localPublicBase(config) : null,
   );
+}
+
+/**
+ * `LocalStorageProvider.publicUrlFor()` just concatenates this prefix with
+ * a storage key — for the PUBLIC provider that has to be an ABSOLUTE URL
+ * (`<backendPublicUrl>/uploads`), not the bare `/uploads` path the app's
+ * own static-file middleware is mounted at, because every caller of
+ * `publicUrlFor()` (search results, favorites, provider logos, room
+ * media) hands that URL straight to the frontend, which runs on its own
+ * separate domain — a relative path would resolve against the WRONG
+ * origin there. `backendPublicUrl` unset (local dev, same-origin via the
+ * Next.js proxy) falls back to the old relative path on purpose.
+ */
+function localPublicBase(config: ConfigService): string {
+  const origin = config.get<string>('backendPublicUrl');
+  return origin ? `${origin.replace(/\/$/, '')}/uploads` : '/uploads';
 }
 
 @Module({
@@ -72,12 +88,14 @@ function buildStorageProvider(
     {
       provide: STORAGE_PROVIDER,
       inject: [ConfigService],
-      useFactory: (config: ConfigService) => buildStorageProvider(config, 'public'),
+      useFactory: (config: ConfigService) =>
+        buildStorageProvider(config, 'public'),
     },
     {
       provide: PRIVATE_STORAGE_PROVIDER,
       inject: [ConfigService],
-      useFactory: (config: ConfigService) => buildStorageProvider(config, 'private'),
+      useFactory: (config: ConfigService) =>
+        buildStorageProvider(config, 'private'),
     },
   ],
   exports: [STORAGE_PROVIDER, PRIVATE_STORAGE_PROVIDER],

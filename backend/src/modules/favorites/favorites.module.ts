@@ -5,9 +5,13 @@ import { FavoritesController } from './favorites.controller';
 import { FavoritesService } from './favorites.service';
 import { FavoriteEntity } from './entities/favorite.entity';
 import { RoomEntity } from '../rooms/entities/room.entity';
+import { StorageModule } from '../storage/storage.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([FavoriteEntity, RoomEntity])],
+  imports: [
+    TypeOrmModule.forFeature([FavoriteEntity, RoomEntity]),
+    StorageModule,
+  ],
   controllers: [FavoritesController],
   providers: [FavoritesService],
   exports: [FavoritesService],
