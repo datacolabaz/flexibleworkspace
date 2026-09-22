@@ -40,6 +40,18 @@ function makeRoomRepoDouble() {
   };
 }
 
+/** In-memory photo repo double — only `count()` is used by `setStatus()`. */
+function makePhotoRepoDouble() {
+  const rows: { roomId: string }[] = [];
+  return {
+    rows,
+    count: jest.fn(async ({ where }: any) => {
+      const roomId = where?.roomId;
+      return rows.filter((p) => p.roomId === roomId).length;
+    }),
+  };
+}
+
 describe('RoomsService', () => {
   const providerId = 'provider-1';
   const otherProviderId = 'provider-2';
@@ -47,6 +59,7 @@ describe('RoomsService', () => {
   const roomTypeId = 'room-type-1';
 
   let roomRepo: ReturnType<typeof makeRoomRepoDouble>;
+  let photoRepo: ReturnType<typeof makePhotoRepoDouble>;
   let amenityRepo: any;
   let roomTypeRepo: any;
   let locationsService: any;
@@ -56,6 +69,7 @@ describe('RoomsService', () => {
 
   beforeEach(() => {
     roomRepo = makeRoomRepoDouble();
+    photoRepo = makePhotoRepoDouble();
     amenityRepo = { find: jest.fn(async () => []) };
     roomTypeRepo = {
       findOne: jest.fn(async ({ where }: any) =>
@@ -83,7 +97,7 @@ describe('RoomsService', () => {
       roomTypeRepo,
       {} as any, // availabilityRepo — unused by the methods under test
       {} as any, // blockedPeriodRepo
-      {} as any, // photoRepo
+      photoRepo as any,
       locationsService,
       providersService,
       storageProvider,
@@ -154,7 +168,7 @@ describe('RoomsService', () => {
       });
     });
 
-    it('activates a room once the owning provider is VERIFIED', async () => {
+    it('activates a room once the owning provider is VERIFIED and the room has a photo', async () => {
       providersService.findById = jest.fn(async (id: string) => ({
         id,
         planTier: ProviderPlanTier.FREE,
@@ -166,6 +180,7 @@ describe('RoomsService', () => {
         location: { providerId },
       };
       roomRepo.rows.push(room);
+      photoRepo.rows.push({ roomId: 'room-y' });
 
       const updated = await service.setStatus(
         'room-y',
@@ -173,6 +188,27 @@ describe('RoomsService', () => {
         RoomStatus.ACTIVE,
       );
       expect(updated.status).toBe(RoomStatus.ACTIVE);
+    });
+
+    it("refuses to activate a VERIFIED provider's room that has no photos yet", async () => {
+      providersService.findById = jest.fn(async (id: string) => ({
+        id,
+        planTier: ProviderPlanTier.FREE,
+        verificationStatus: ProviderVerificationStatus.VERIFIED,
+      }));
+      const room = {
+        id: 'room-no-photo',
+        status: RoomStatus.DRAFT,
+        location: { providerId },
+      };
+      roomRepo.rows.push(room);
+      // No photoRepo.rows entry for this room — zero photos.
+
+      await expect(
+        service.setStatus('room-no-photo', providerId, RoomStatus.ACTIVE),
+      ).rejects.toMatchObject({
+        code: 'ROOM_NO_PHOTOS',
+      });
     });
 
     it('does not gate a transition to INACTIVE on verification status', async () => {

@@ -206,8 +206,13 @@ export class RoomsService {
 
   /**
    * DRAFT -> ACTIVE requires the owning provider to be VERIFIED
-   * (09_DOMAIN_MODEL.md §9.2 Room lifecycle). Any other transition
-   * (-> INACTIVE, back to DRAFT) has no such gate.
+   * (09_DOMAIN_MODEL.md §9.2 Room lifecycle) AND at least one photo — a
+   * provider flagged that the "Add a room" form doesn't ask for photos
+   * up front (they're a separate per-room upload step, since a room
+   * needs to exist before `POST provider/rooms/:id/photos` can target
+   * it), so nothing previously stopped a photo-less room from going
+   * live. Any other transition (-> INACTIVE, back to DRAFT) has no such
+   * gate — a provider can always take a room down or edit it.
    */
   async setStatus(
     id: string,
@@ -224,6 +229,15 @@ export class RoomsService {
         throw new DomainException(
           'PROVIDER_NOT_VERIFIED',
           'Your provider account must be verified before a room can go live.',
+          HttpStatus.FORBIDDEN,
+        );
+      }
+
+      const photoCount = await this.photoRepo.count({ where: { roomId: id } });
+      if (photoCount === 0) {
+        throw new DomainException(
+          'ROOM_NO_PHOTOS',
+          'Add at least one photo before this room can go live.',
           HttpStatus.FORBIDDEN,
         );
       }

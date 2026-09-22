@@ -384,7 +384,9 @@ function RoomRow({
         setStatusError(
           body?.error?.code === 'PROVIDER_NOT_VERIFIED'
             ? "Otağı aktivləşdirmək üçün əvvəlcə hesabınız təsdiqlənməlidir (yuxarıdakı 'Doğrulama sənədləri' bölümünə baxın)."
-            : body?.error?.message ?? 'Status dəyişdirilmədi. Yenidən cəhd edin.',
+            : body?.error?.code === 'ROOM_NO_PHOTOS'
+              ? 'Otağı aktivləşdirmək üçün əvvəlcə ən azı bir şəkil əlavə edin (aşağıdakı "Şəkil əlavə et" sahəsi).'
+              : (body?.error?.message ?? 'Status dəyişdirilmədi. Yenidən cəhd edin.'),
         );
         return;
       }
