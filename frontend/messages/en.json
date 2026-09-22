@@ -699,14 +699,14 @@
       },
       "publish": {
         "title": "Publish",
-        "body": "Create free RSVP, paid tickets or a series."
+        "body": "Coming soon: create free RSVP, paid tickets or a series."
       },
       "manage": {
         "title": "Manage",
-        "body": "Waitlist, reminders, QR check-in and analytics."
+        "body": "Coming soon: waitlist, reminders, QR check-in and analytics."
       }
     },
-    "betaNote": "Note: the event catalog and ticket domain will be introduced in phases; the current booking engine remains the trusted base for venue reservations."
+    "betaNote": "Right now only venue booking for events is available (via the search below). Publishing events, ticket sales and QR check-in are coming soon."
   },
   "pricingPage": {
     "metaTitle": "Monetization and revenue split — Spotva",

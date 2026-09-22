@@ -699,14 +699,14 @@
       },
       "publish": {
         "title": "Dərc et",
-        "body": "Pulsuz RSVP, ödənişli bilet və ya seriya yarat."
+        "body": "Tezliklə: pulsuz RSVP, ödənişli bilet və seriya yaratma."
       },
       "manage": {
         "title": "İdarə et",
-        "body": "Waitlist, xatırlatma, QR check-in və analitika."
+        "body": "Tezliklə: waitlist, xatırlatma, QR check-in və analitika."
       }
     },
-    "betaNote": "Qeyd: tədbir kataloqu və bilet domeni mərhələli şəkildə əlavə olunur; hazırkı bron sistemi məkan rezervasiyasının etibarlı nüvəsidir."
+    "betaNote": "Hazırda yalnız tədbir məkanının bronu mümkündür (aşağıdakı axtarışla). Tədbir dərci, bilet satışı və QR check-in tezliklə əlavə olunacaq."
   },
   "pricingPage": {
     "metaTitle": "Monetizasiya və gəlir bölgüsü — Spotva",
