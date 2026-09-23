@@ -84,7 +84,14 @@ export async function Header() {
             title={t('home')}
             className="group shrink-0 rounded-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary"
           >
-            <Logo variant="auto" height={28} />
+            {/* Text-only wordmark, not the icon+wordmark lockup — the
+                owner's explicit choice for the navbar specifically. Two
+                sizes rather than one, per the brand asset's own navbar
+                guidance: ~46px tall (125px wide) below the `sm` breakpoint,
+                ~55px tall (150px wide) at `sm` and up — this header's
+                h-16 (64px) row was sized for exactly that. */}
+            <Logo variant="wordmark" height={46} className="sm:hidden" />
+            <Logo variant="wordmark" height={55} className="hidden sm:block" />
           </Link>
 
           <nav aria-label={t('primaryNavigation')} className="hidden items-center gap-5 lg:flex">
