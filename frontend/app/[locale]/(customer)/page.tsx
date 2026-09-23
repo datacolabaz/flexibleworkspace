@@ -61,7 +61,7 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
 
   return (
     <main id="main-content" className="pb-8">
-      <div className="mx-auto grid max-w-[1480px] gap-6 px-4 py-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_310px]">
+      <div className="mx-auto grid max-w-[1480px] gap-6 px-4 py-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_310px] lg:items-start">
         <div className="min-w-0 space-y-10">
           <section className="relative min-h-[360px] overflow-hidden rounded-lg border border-border bg-surface shadow-sm sm:min-h-[390px]">
             <Image src="/home/baku-skyline.webp" alt="" fill priority sizes="(max-width: 1024px) 100vw, 1100px" className="object-cover" />
