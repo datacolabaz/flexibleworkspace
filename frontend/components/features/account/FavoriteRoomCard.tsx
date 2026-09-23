@@ -42,8 +42,10 @@ export function FavoriteRoomCard({ room, onRemoved }: FavoriteRoomCardProps) {
             {t('search.noPhoto')}
           </div>
         )}
-        <div className="absolute right-2 top-2 rounded-full bg-surface/90 backdrop-blur-sm">
-          {room.id && <BookmarkButton roomId={room.id} initiallyFavorited={true} onToggled={(favorited) => !favorited && onRemoved()} />}
+        <div className="absolute right-2 top-2 rounded-full bg-surface/60 shadow-sm backdrop-blur-sm transition-colors hover:bg-surface/95 focus-within:bg-surface/95">
+          {room.id && (
+            <BookmarkButton roomId={room.id} initiallyFavorited={true} onToggled={(favorited) => !favorited && onRemoved()} size="sm" />
+          )}
         </div>
       </div>
 

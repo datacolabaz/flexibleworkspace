@@ -53,7 +53,11 @@ describe('RoomListingCard', () => {
   it('renders the room name, translated room type, price, rating, and distance', () => {
     renderCard(BASE_ROOM);
     expect(screen.getByText('Sunny Meeting Room')).toBeInTheDocument();
-    expect(screen.getByText('Meeting room')).toBeInTheDocument();
+    // Room type and city/district now share one line ("Meeting room ·
+    // Nasimi, Baku") rather than two separate paragraphs — a substring
+    // match on that combined text, not an exact one.
+    expect(screen.getByText(/Meeting room/)).toBeInTheDocument();
+    expect(screen.getByText(/Nasimi, Baku/)).toBeInTheDocument();
     expect(screen.getByText('4.7')).toBeInTheDocument();
     expect(screen.getByText('(12)')).toBeInTheDocument();
     expect(screen.getByText(/2\.4 km away/)).toBeInTheDocument();

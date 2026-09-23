@@ -7,6 +7,11 @@ import { IconButton } from '@/components/ui/IconButton';
 
 export interface BookmarkButtonProps {
   roomId: string;
+  /** 'md' (the default) for the room detail page, where this is a
+   * standalone standard-size control. 'sm' for the photo-corner overlay
+   * on a listing card (RoomListingCard, FavoriteRoomCard), where a
+   * full 44px circle reads as too heavy against a small thumbnail. */
+  size?: 'sm' | 'md';
   /** Initial state from the SSR check (`getSessionApiClient()` in the
    * Server Component page) when the visitor is signed in; `null` when
    * signed out — the page never calls the authenticated check for an
@@ -29,7 +34,7 @@ export interface BookmarkButtonProps {
  * A signed-out click doesn't silently fail — the BFF route's 401 becomes
  * a sign-in prompt with a return link back to this room.
  */
-export function BookmarkButton({ roomId, initiallyFavorited, onToggled }: BookmarkButtonProps) {
+export function BookmarkButton({ roomId, initiallyFavorited, onToggled, size = 'md' }: BookmarkButtonProps) {
   const t = useTranslations('room');
   const pathname = usePathname();
   const [favorited, setFavorited] = useState(initiallyFavorited ?? false);
@@ -90,12 +95,14 @@ export function BookmarkButton({ roomId, initiallyFavorited, onToggled }: Bookma
 
   return (
     <IconButton
+      size={size}
       aria-label={favorited ? t('removeFromFavorites') : t('addToFavorites')}
       aria-pressed={favorited}
       onClick={toggle}
       disabled={pending}
+      className={favorited ? 'text-error' : undefined}
     >
-      <span aria-hidden="true" className="text-xl leading-none">
+      <span aria-hidden="true" className={size === 'sm' ? 'text-base leading-none' : 'text-xl leading-none'}>
         {favorited ? '♥' : '♡'}
       </span>
     </IconButton>

@@ -59,6 +59,9 @@ export function RoomListingCard({ room, highlighted = false, onHoverChange, init
 
   const href = room.id ? `/rooms/${room.id}` : '/search';
 
+  const hasCapacity = room.capacityMin !== undefined && room.capacityMax !== undefined;
+  const hasRating = room.averageRating !== undefined && room.reviewCount !== undefined && room.reviewCount > 0;
+
   return (
     // Not a single outer <Link> (as this was before the favorite toggle
     // was added) — nesting BookmarkButton's <button> inside an <a> is
@@ -69,19 +72,33 @@ export function RoomListingCard({ room, highlighted = false, onHoverChange, init
     // on the photo, never inside either Link. Hover/highlight sync with
     // the map moves to this outer <div> so it still covers the whole
     // card, not just its clickable regions.
+    //
+    // Stacked (photo on top, full width) rather than the old side-by-side
+    // layout — a fixed-width thumbnail next to a wide text column left a
+    // large empty gap to the right of short text on anything but a very
+    // narrow list pane (flagged directly against a live screenshot of the
+    // search results page: "Cowork-A card çox boşdur"). A full-width
+    // photo also reads as the primary content instead of competing with
+    // it, matching how every comparable marketplace card (Airbnb,
+    // Peerspace) treats the photo as dominant.
     <div
       onMouseEnter={() => onHoverChange?.(room.id)}
       onMouseLeave={() => onHoverChange?.(undefined)}
       className={[
-        'flex gap-4 rounded-lg border bg-surface p-3 shadow-sm transition-colors hover:border-border-strong',
+        'group flex flex-col overflow-hidden rounded-lg border bg-surface shadow-sm transition-colors hover:border-border-strong hover:shadow-md',
         highlighted ? 'border-primary' : 'border-border',
       ].join(' ')}
     >
-      <div className="relative h-28 w-36 shrink-0 overflow-hidden rounded-md bg-surface-elevated sm:h-32 sm:w-44">
+      <div className="relative aspect-[4/3] w-full shrink-0 overflow-hidden bg-surface-elevated">
         <Link href={href} className="block h-full w-full" tabIndex={-1} aria-hidden="true">
           {room.coverPhotoUrl ? (
             // eslint-disable-next-line @next/next/no-img-element -- remote, provider-uploaded photo URLs (not a fixed local set next/image's domain allowlist assumes); revisit once the storage domain is finalized.
-            <img src={room.coverPhotoUrl} alt="" className="h-full w-full object-cover" loading="lazy" />
+            <img
+              src={room.coverPhotoUrl}
+              alt=""
+              className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
+              loading="lazy"
+            />
           ) : (
             <div className="flex h-full w-full items-center justify-center text-caption text-text-muted">
               {t('search.noPhoto')}
@@ -89,54 +106,88 @@ export function RoomListingCard({ room, highlighted = false, onHoverChange, init
           )}
         </Link>
         {room.verified && (
-          <Badge variant="verified" className="pointer-events-none absolute left-2 top-2">
-            {t('search.verified')}
+          // The checkmark and label are separate spans (not one text run)
+          // so the label's own text content stays exactly the translated
+          // string — matches how tests/room-listing-card.test.tsx already
+          // queries for it by exact text, and keeps the glyph decorative
+          // (aria-hidden) rather than read aloud by a screen reader.
+          <Badge variant="verified" className="pointer-events-none absolute left-2 top-2 shadow-sm">
+            <span aria-hidden="true">✓</span>
+            <span>{t('search.verified')}</span>
           </Badge>
         )}
         {room.id && (
-          <div className="absolute right-2 top-2 rounded-full bg-surface/90 backdrop-blur-sm">
-            <BookmarkButton roomId={room.id} initiallyFavorited={initiallyFavorited ?? null} />
+          // Ghost circle (translucent, not a flat opaque fill) with a
+          // small shadow instead of the old solid bg-surface/90 disc —
+          // that read as a heavy, deliberately-placed UI chrome element
+          // sitting on top of the photo rather than a lightweight
+          // favorite toggle; darkening to a solid surface only on
+          // hover/focus keeps the resting state quiet (also flagged
+          // directly: "ürək... zorla yerləşdirilmiş kimi görünür").
+          <div className="absolute right-2 top-2 rounded-full bg-surface/60 shadow-sm backdrop-blur-sm transition-colors hover:bg-surface/95 focus-within:bg-surface/95">
+            <BookmarkButton roomId={room.id} initiallyFavorited={initiallyFavorited ?? null} size="sm" />
           </div>
         )}
       </div>
 
-      <Link href={href} className="flex min-w-0 flex-1 flex-col gap-1">
-        <div className="flex items-start justify-between gap-2">
-          <h3 className="truncate text-h4 font-display text-text-primary">{room.name ?? t('search.untitledRoom')}</h3>
-        </div>
-        <p className="text-small text-text-secondary">{roomTypeLabel}</p>
-        <p className="truncate text-small text-text-muted">
-          {[room.district, room.city].filter(Boolean).join(', ')}
-          {room.distanceKm !== undefined && room.distanceKm !== null && (
-            <> · {t('search.distanceKm', { distance: room.distanceKm })}</>
-          )}
+      <Link href={href} className="flex min-w-0 flex-1 flex-col gap-1 p-3">
+        <h3 className="truncate text-label font-semibold text-text-primary">{room.name ?? t('search.untitledRoom')}</h3>
+        <p className="truncate text-small text-text-secondary">
+          {roomTypeLabel}
+          {(room.district || room.city) && <> · {[room.district, room.city].filter(Boolean).join(', ')}</>}
         </p>
 
-        {/* flex-wrap (not nowrap-and-hope): at very narrow card widths
-         * (a 390px viewport, minus the fixed-width photo) the rating and
-         * price blocks don't both fit on one line — wrapping the price
-         * onto its own line keeps it fully visible instead of pushing it
-         * past the card's right edge (08_DESIGN_SYSTEM.md §8.6, no
-         * horizontal overflow at 390/375px — caught live, same class of
-         * bug as the header's 390px overflow fix). */}
-        <div className="mt-auto flex flex-wrap items-center justify-between gap-x-2 gap-y-1 pt-1">
-          <div className="flex items-center gap-1 text-small text-text-secondary">
-            {room.averageRating !== undefined && room.reviewCount !== undefined && room.reviewCount > 0 ? (
-              <>
-                <span aria-hidden="true">★</span>
-                <span>{room.averageRating.toFixed(1)}</span>
-                <span className="text-text-muted">({room.reviewCount})</span>
-              </>
-            ) : (
-              <span className="text-text-muted">{t('search.newListing')}</span>
+        {/* Secondary metadata line — capacity (the one RoomSummary field
+         * the old card never surfaced) plus rating/distance, so the card
+         * carries the compare-at-a-glance signals a marketplace listing
+         * needs rather than just name + price. Amenity chips from the
+         * user's mockup aren't here: the search API's RoomSummary doesn't
+         * return amenities per-listing (only RoomDetail does) — adding
+         * that is a backend change, out of scope for this pass. */}
+        {(hasCapacity || hasRating || (room.distanceKm !== undefined && room.distanceKm !== null)) && (
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-caption text-text-muted">
+            {hasCapacity && (
+              <span>
+                <span aria-hidden="true">👥</span> {t('room.capacityValue', { min: room.capacityMin, max: room.capacityMax })}
+              </span>
             )}
+            {hasCapacity && (hasRating || (room.distanceKm !== undefined && room.distanceKm !== null)) && <span aria-hidden="true">·</span>}
+            {hasRating && (
+              <span className="inline-flex items-center gap-1">
+                <span aria-hidden="true">★</span>
+                <span>{room.averageRating!.toFixed(1)}</span>
+                <span>({room.reviewCount})</span>
+              </span>
+            )}
+            {hasRating && room.distanceKm !== undefined && room.distanceKm !== null && <span aria-hidden="true">·</span>}
+            {room.distanceKm !== undefined && room.distanceKm !== null && <span>{t('search.distanceKm', { distance: room.distanceKm })}</span>}
           </div>
-          {priceLabel && (
-            <p className="whitespace-nowrap text-label font-semibold text-text-primary">
-              {priceLabel}
-              <span className="font-normal text-text-muted"> {t('search.perHour')}</span>
+        )}
+
+        {!hasRating && (
+          <p className="text-caption text-text-muted">{t('search.newListing')}</p>
+        )}
+
+        {/* Price is the card's other headline number (alongside the
+         * photo) — sized up from the old shared-line treatment, with a
+         * quiet arrow that only appears on hover as a "view details"
+         * affordance (matches the mockup's bottom row: price left,
+         * chevron right). */}
+        <div className="mt-auto flex items-end justify-between gap-2 pt-2">
+          {priceLabel ? (
+            <p className="whitespace-nowrap text-text-primary">
+              <span className="text-h4 font-display font-semibold">{priceLabel}</span>
+              <span className="text-caption text-text-muted"> {t('search.perHour')}</span>
             </p>
+          ) : (
+            <span />
           )}
+          <span
+            aria-hidden="true"
+            className="pb-0.5 text-text-muted opacity-0 transition-all duration-150 group-hover:translate-x-0.5 group-hover:text-primary group-hover:opacity-100"
+          >
+            →
+          </span>
         </div>
       </Link>
     </div>
