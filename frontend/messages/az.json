@@ -161,6 +161,8 @@
     "getDirections": "İstiqaməti göstər",
     "mapLabel": "{room} otağının məkanını göstərən xəritə",
     "hostTitle": "Sahib",
+    "ownerListingBanner": "Bu sizin elanınızdır.",
+    "ownerListingEditCta": "Redaktə et",
     "hostedBy": "Sahib",
     "unknownHost": "Naməlum sahib",
     "verified": "Təsdiqlənib",

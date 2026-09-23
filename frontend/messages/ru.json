@@ -161,6 +161,8 @@
     "getDirections": "Проложить маршрут",
     "mapLabel": "Карта с местоположением {room}",
     "hostTitle": "Хозяин",
+    "ownerListingBanner": "Это ваше объявление.",
+    "ownerListingEditCta": "Редактировать",
     "hostedBy": "Хозяин",
     "unknownHost": "Неизвестный хозяин",
     "verified": "Подтверждено",

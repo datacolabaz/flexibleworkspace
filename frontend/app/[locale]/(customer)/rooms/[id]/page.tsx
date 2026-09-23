@@ -1,8 +1,10 @@
 import type { Metadata } from 'next';
+import { cookies } from 'next/headers';
 import { notFound } from 'next/navigation';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { getRoomDetail } from '@/lib/api-client/rooms';
-import { getSessionApiClient } from '@/lib/auth/session';
+import { getSessionApiClient, readSession } from '@/lib/auth/session';
+import { listMyRooms } from '@/lib/api-client/provider-rooms';
 import { ApiError } from '@/lib/api-client/client';
 import { formatMoney } from '@/lib/format/money';
 import { roomTypeKeyFromTranslationKey } from '@/lib/constants/taxonomy';
@@ -89,6 +91,26 @@ export default async function RoomDetailPage({
     }
   }
 
+  // Best-effort "is this my own listing" check — a provider had no way to
+  // find their way to editing a room from its own public page, only from
+  // the separate /provider dashboard's room list (which they'd have to
+  // already know about and go find the right room in). Reuses the
+  // existing provider-rooms list rather than exposing providerId on the
+  // public RoomDetail response — a signed-out visitor or a non-provider
+  // account simply never matches (listMyRooms 403s for those, caught
+  // below), and any other failure degrades the same soft way as the
+  // favorite check above.
+  let isOwnRoom = false;
+  const { accessToken } = readSession(await cookies());
+  if (accessToken) {
+    try {
+      const myRooms = await listMyRooms(accessToken);
+      isOwnRoom = myRooms.some((myRoom) => myRoom.id === id);
+    } catch (err) {
+      console.error('Best-effort own-room check failed (page still renders normally):', err);
+    }
+  }
+
   const roomTypeKey = roomTypeKeyFromTranslationKey(room.roomType);
   // `tTaxonomy` is scoped to the top-level `taxonomy` namespace (sibling
   // of `search`, not nested under it) — `tSearch('taxonomy.roomType....')`
@@ -144,6 +166,18 @@ export default async function RoomDetailPage({
 
       <div className="flex flex-col gap-6 lg:flex-row">
         <div className="flex min-w-0 flex-1 flex-col gap-6">
+          {isOwnRoom && (
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-primary/30 bg-primary/5 px-4 py-3">
+              <p className="text-small font-medium text-text-primary">{t('ownerListingBanner')}</p>
+              <a
+                href={`/provider#room-${id}`}
+                className="inline-flex min-h-9 shrink-0 items-center justify-center rounded-md bg-accent px-4 text-label font-semibold text-accent-on transition-colors hover:bg-accent-hover"
+              >
+                {t('ownerListingEditCta')}
+              </a>
+            </div>
+          )}
+
           <RoomGallery photos={room.photos ?? []} roomName={room.name ?? ''} />
 
           <div className="flex flex-col gap-2">

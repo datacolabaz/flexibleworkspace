@@ -741,6 +741,17 @@ function RoomRow({
   const [statusError, setStatusError] = useState<string | undefined>();
   const [editing, setEditing] = useState(false);
 
+  // Auto-opens the edit form when arriving via the room detail page's
+  // "Bu sizin elanınızdır" banner (`/provider#room-{id}`) — landing here
+  // and still having to find the right room and click "Redaktə et" again
+  // would defeat the point of that link.
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.location.hash === `#room-${room.id}`) {
+      setEditing(true);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const roomType = roomTypes.find((rt) => rt.id === room.roomTypeId);
   const roomTypeLabel = roomType ? ROOM_TYPE_LABEL_AZ[roomType.translationKey] ?? roomType.translationKey : '—';
 
@@ -774,7 +785,7 @@ function RoomRow({
 
   if (editing) {
     return (
-      <li className="flex flex-col gap-3 rounded-md border border-border p-4">
+      <li id={`room-${room.id}`} className="scroll-mt-6 flex flex-col gap-3 rounded-md border border-border p-4">
         <EditRoomForm
           room={room}
           roomTypes={roomTypes}
@@ -789,7 +800,7 @@ function RoomRow({
   }
 
   return (
-    <li className="flex flex-col gap-3 rounded-md border border-border p-4">
+    <li id={`room-${room.id}`} className="scroll-mt-6 flex flex-col gap-3 rounded-md border border-border p-4">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
           <p className="text-body font-semibold text-text-primary">{room.name}</p>

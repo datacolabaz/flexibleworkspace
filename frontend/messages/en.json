@@ -161,6 +161,8 @@
     "getDirections": "Get directions",
     "mapLabel": "Map showing {room}'s location",
     "hostTitle": "Host",
+    "ownerListingBanner": "This is your listing.",
+    "ownerListingEditCta": "Edit",
     "hostedBy": "Hosted by",
     "unknownHost": "Unknown host",
     "verified": "Verified",
