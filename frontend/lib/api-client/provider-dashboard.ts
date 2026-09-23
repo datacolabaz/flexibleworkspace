@@ -12,6 +12,8 @@ import 'server-only';
 
 export type MyProviderVerificationStatus = 'PENDING' | 'VERIFIED' | 'REJECTED' | 'SUSPENDED';
 
+export type MyProviderPlanTier = 'FREE' | 'STARTER' | 'PRO' | 'ENTERPRISE';
+
 export type MyProviderVerificationDocumentType =
   | 'ID_DOCUMENT'
   | 'BUSINESS_REGISTRATION'
@@ -35,6 +37,7 @@ export type MyProvider = {
   taxId: string | null;
   verificationStatus: MyProviderVerificationStatus;
   verificationDocuments: MyProviderVerificationDocument[];
+  planTier: MyProviderPlanTier;
   createdAt: string;
 };
 

@@ -13,10 +13,12 @@ import {
   type MediaCapabilities,
 } from '@/lib/api-client/provider-rooms';
 import { getMyProviderAnalytics, type ProviderAnalytics } from '@/lib/api-client/provider-analytics';
+import { getMyPlanUpgradeRequest, type PlanUpgradeRequest } from '@/lib/api-client/plan-upgrade-requests';
 import { ProviderVerificationPanel } from '@/components/features/provider/ProviderVerificationPanel';
 import { ProviderLeadsPanel } from '@/components/features/provider/ProviderLeadsPanel';
 import { ProviderRoomsPanel } from '@/components/features/provider/ProviderRoomsPanel';
 import { ProviderAnalyticsPanel } from '@/components/features/provider/ProviderAnalyticsPanel';
+import { ProviderPlanPanel } from '@/components/features/provider/ProviderPlanPanel';
 
 export const metadata: Metadata = {
   title: 'Provider paneli — Spotva',
@@ -62,6 +64,11 @@ function Shell({ children }: { children: React.ReactNode }) {
  * Sprint 6 adds `ProviderAnalyticsPanel` — room views, booking requests,
  * and confirmation rate for the last 30 days, all scoped to this
  * provider's own rooms (`GET provider/analytics`).
+ *
+ * Adds `ProviderPlanPanel` — FREE vs PRO comparison and a way to ask for
+ * an upgrade. No live payment gateway yet (user's explicit choice): the
+ * button opens an in-app request instead of a checkout, and an admin
+ * grants PRO by hand from the admin panel.
  */
 export default async function ProviderHome() {
   const { accessToken } = readSession(await cookies());
@@ -122,6 +129,16 @@ export default async function ProviderHome() {
       console.error('Best-effort media capabilities fetch failed (falling back to conservative defaults):', err);
     }
 
+    // Same best-effort convention — a hiccup here must not block the rest
+    // of the dashboard; `null` just means `ProviderPlanPanel` shows the
+    // upgrade form instead of the "request sent" state.
+    let planUpgradeRequest: PlanUpgradeRequest | null = null;
+    try {
+      planUpgradeRequest = await getMyPlanUpgradeRequest(accessToken);
+    } catch (err) {
+      console.error('Best-effort plan-upgrade-request fetch failed:', err);
+    }
+
     return (
       <Shell>
         <ProviderVerificationPanel initialProvider={provider} />
@@ -132,6 +149,7 @@ export default async function ProviderHome() {
           roomTypes={roomTypes}
           mediaCapabilities={mediaCapabilities}
         />
+        <ProviderPlanPanel planTier={provider.planTier} initialRequest={planUpgradeRequest} />
         <ProviderLeadsPanel initialLeads={leads} />
       </Shell>
     );
