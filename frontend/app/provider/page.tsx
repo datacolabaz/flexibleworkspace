@@ -146,12 +146,18 @@ export default async function ProviderHome() {
       <Shell>
         <ProviderVerificationPanel initialProvider={provider} />
         {analytics && <ProviderAnalyticsPanel analytics={analytics} />}
-        <ProviderRoomsPanel
-          initialLocations={locations}
-          initialRooms={rooms}
-          roomTypes={roomTypes}
-          mediaCapabilities={mediaCapabilities}
-        />
+        {/* id targeted by ProviderVerificationPanel's post-verification
+            "Otaqlarım bölməsinə keçin" link — this page has no tabs, every
+            panel is just stacked on one scrollable route, so that link is
+            a same-page anchor jump rather than real navigation. */}
+        <div id="provider-rooms">
+          <ProviderRoomsPanel
+            initialLocations={locations}
+            initialRooms={rooms}
+            roomTypes={roomTypes}
+            mediaCapabilities={mediaCapabilities}
+          />
+        </div>
         <ProviderPlanPanel planTier={provider.planTier} initialRequest={planUpgradeRequest} />
         <ProviderLeadsPanel initialLeads={leads} />
       </Shell>

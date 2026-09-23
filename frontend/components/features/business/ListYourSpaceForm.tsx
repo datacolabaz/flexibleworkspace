@@ -14,6 +14,21 @@ interface BffErrorBody {
 
 const MAX_LOGO_BYTES = 8 * 1024 * 1024;
 
+// Drag-and-drop always hands the browser a File with `.type` correctly
+// resolved from the OS. A file picked through the native <input
+// type="file"> dialog isn't guaranteed the same treatment — some OS/
+// browser combinations leave `file.type` as an empty string for a
+// perfectly valid image, which the strict `file.type.startsWith('image/')`
+// check then rejected with no visible reason (see the matching fix and
+// longer comment in ProviderRoomsPanel.tsx, where the same pattern
+// broke room-photo uploads specifically for the click-to-choose path).
+const IMAGE_EXTENSION_PATTERN = /\.(jpe?g|png|webp|heic|heif|gif|avif)$/i;
+
+function isLikelyImageFile(file: File): boolean {
+  if (file.type) return file.type.startsWith('image/');
+  return IMAGE_EXTENSION_PATTERN.test(file.name);
+}
+
 /**
  * `/list-your-space`'s registration form — proxies `POST /providers`
  * through `app/api/providers/route.ts` (a Client Component can't read
@@ -74,7 +89,7 @@ export function ListYourSpaceForm() {
       setLogoFile(null);
       return;
     }
-    if (!file.type.startsWith('image/')) {
+    if (!isLikelyImageFile(file)) {
       setError(t('logoTypeError'));
       return;
     }

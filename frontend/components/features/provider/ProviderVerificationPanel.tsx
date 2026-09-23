@@ -154,7 +154,20 @@ export function ProviderVerificationPanel({ initialProvider }: { initialProvider
           <p className="text-small text-error">Hesabınız müvəqqəti dayandırılıb. Ətraflı məlumat üçün bizimlə əlaqə saxlayın.</p>
         )}
         {provider.verificationStatus === 'VERIFIED' && (
-          <p className="text-small text-success">Hesabınız təsdiqlənib.</p>
+          <div className="flex flex-col items-start gap-2">
+            <p className="text-small text-success">Hesabınız təsdiqlənib.</p>
+            {/* Verification alone doesn't get a listing live — the room
+                section further down the same page (#provider-rooms) is
+                the actual next step, and nothing on the page pointed
+                there before this, so a freshly verified provider had no
+                way to tell where to go next. */}
+            <a
+              href="#provider-rooms"
+              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-accent px-5 text-label font-semibold text-accent-on transition-colors hover:bg-accent-hover"
+            >
+              Otaqlarım bölməsinə keçin →
+            </a>
+          </div>
         )}
       </Card>
 

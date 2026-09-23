@@ -64,6 +64,49 @@ const STATUS_TONE: Record<MyRoomStatus, string> = {
 
 const MAX_PHOTO_BYTES = 8 * 1024 * 1024;
 
+// Drag-and-drop always hands the browser a File with `.type` correctly
+// resolved from the OS (Finder/Explorer already knows each file's kind).
+// A file picked through the native <input type="file"> dialog isn't
+// guaranteed the same treatment — some OS/browser combinations (seen with
+// Chrome on macOS for certain PNG/JPEG files, depending on how the file
+// was created — a screenshot, an export from another app, a cloud-synced
+// copy) leave `file.type` as an empty string, and the strict
+// `file.type.startsWith('image/')` check below then rejected a perfectly
+// valid image with no visible reason: same photo worked by dragging it
+// into the exact same dropzone, silently failed by clicking + choosing
+// it. Falling back to the file's extension when the browser didn't
+// supply a MIME type closes that gap without loosening the check for
+// files that do report a (wrong, non-image) type.
+const IMAGE_EXTENSION_PATTERN = /\.(jpe?g|png|webp|heic|heif|gif|avif)$/i;
+
+function isLikelyImageFile(file: File): boolean {
+  if (file.type) return file.type.startsWith('image/');
+  return IMAGE_EXTENSION_PATTERN.test(file.name);
+}
+
+const EXTENSION_MIME_TYPE: Record<string, string> = {
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  png: 'image/png',
+  webp: 'image/webp',
+  heic: 'image/heic',
+  heif: 'image/heif',
+  gif: 'image/gif',
+  avif: 'image/avif',
+};
+
+// Same empty-`file.type` gap as isLikelyImageFile above, but here it
+// matters for a second reason: this resolved value is sent to BOTH the
+// presign request and the actual PUT's Content-Type header, and they
+// have to agree with each other regardless of what the browser reported
+// — an empty string in one and something else in the other is exactly
+// how an S3-compatible PUT ends up signature-mismatched.
+function resolveImageMimeType(file: File): string {
+  if (file.type) return file.type;
+  const extension = file.name.split('.').pop()?.toLowerCase();
+  return (extension && EXTENSION_MIME_TYPE[extension]) || 'application/octet-stream';
+}
+
 async function readBffError(response: Response, fallback: string): Promise<string> {
   try {
     const body = (await response.json()) as BffErrorBody;
@@ -481,17 +524,18 @@ function RoomMediaManager({ roomId, capabilities }: { roomId: string; capabiliti
 
   async function uploadOnePhoto(file: File): Promise<void> {
     if (capabilities.directUploadSupported) {
+      const mimeType = resolveImageMimeType(file);
       const presignRes = await fetch(`/api/provider/rooms/${roomId}/media/photos/presign`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ originalFilename: file.name, mimeType: file.type }),
+        body: JSON.stringify({ originalFilename: file.name, mimeType }),
       });
       if (!presignRes.ok) throw new Error(await readBffError(presignRes, 'Şəkil yüklənmədi.'));
       const { uploadUrl, storageKey } = (await presignRes.json()) as { uploadUrl: string; storageKey: string };
 
       const putRes = await fetch(uploadUrl, {
         method: 'PUT',
-        headers: { 'Content-Type': file.type },
+        headers: { 'Content-Type': mimeType },
         body: file,
       });
       if (!putRes.ok) throw new Error('Şəkil saxlama xidmətinə yüklənmədi. Yenidən cəhd edin.');
@@ -537,7 +581,7 @@ function RoomMediaManager({ roomId, capabilities }: { roomId: string; capabiliti
     }
 
     for (const file of toUpload) {
-      if (!file.type.startsWith('image/')) {
+      if (!isLikelyImageFile(file)) {
         setPhotoError('Yalnız şəkil faylı yükləyin (JPG və ya PNG).');
         continue;
       }
