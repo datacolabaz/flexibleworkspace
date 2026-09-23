@@ -7,6 +7,7 @@ import { ProviderVerificationEventEntity } from './entities/provider-verificatio
 import { UserRoleEntity } from '../auth/entities/user-role.entity';
 import { RoleName } from '../../common/constants/roles.enum';
 import {
+  ProviderPlanTier,
   ProviderVerificationDocumentType,
   ProviderVerificationStatus,
 } from '../../common/constants/provider.enum';
@@ -240,6 +241,40 @@ export class ProvidersService {
       beforeState: before,
       afterState: { verificationStatus: provider.verificationStatus },
       reason: notes ?? null,
+    });
+
+    return saved;
+  }
+
+  /**
+   * Admin sets a provider's plan tier directly — standalone (a downgrade,
+   * or granting a plan the provider never formally requested) and also
+   * the action `PlanUpgradeRequestsService.resolve()` calls when an admin
+   * grants a plan while resolving a request. Same audit-log discipline as
+   * `verify()`/`setSuspended()` above; no separate approval workflow of
+   * its own since — per the owner's "no payment integration for initial
+   * launch" decision — every upgrade today is already a manual, trusted
+   * admin action, not something a provider can trigger by paying.
+   */
+  async setPlanTier(
+    providerId: string,
+    adminUserId: string,
+    planTier: ProviderPlanTier,
+  ): Promise<ProviderEntity> {
+    const provider = await this.findById(providerId);
+    const before = { planTier: provider.planTier };
+    provider.planTier = planTier;
+    provider.updatedAt = new Date();
+    const saved = await this.providerRepo.save(provider);
+
+    await this.auditLogService.recordChange({
+      actorUserId: adminUserId,
+      action: 'provider.plan_manage',
+      entityType: 'Provider',
+      entityId: providerId,
+      beforeState: before,
+      afterState: { planTier },
+      reason: null,
     });
 
     return saved;

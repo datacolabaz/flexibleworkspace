@@ -16,6 +16,7 @@ export enum AdminPermission {
   PROVIDER_UPDATE = 'provider.update',
   PROVIDER_VERIFY = 'provider.verify',
   PROVIDER_SUSPEND = 'provider.suspend',
+  PROVIDER_PLAN_MANAGE = 'provider.plan_manage',
 
   LISTING_READ = 'listing.read',
   LISTING_UPDATE = 'listing.update',
@@ -67,6 +68,7 @@ export const ROLE_PERMISSIONS: Partial<Record<RoleName, AdminPermission[]>> = {
     AdminPermission.PROVIDER_UPDATE,
     AdminPermission.PROVIDER_VERIFY,
     AdminPermission.PROVIDER_SUSPEND,
+    AdminPermission.PROVIDER_PLAN_MANAGE,
     AdminPermission.LISTING_READ,
     AdminPermission.LISTING_UPDATE,
     AdminPermission.LISTING_PUBLISH,

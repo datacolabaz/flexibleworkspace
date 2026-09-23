@@ -29,6 +29,7 @@ import { AnalyticsModule } from './modules/analytics/analytics.module';
 import { AiSearchModule } from './modules/ai-search/ai-search.module';
 import { AdminModule } from './modules/admin/admin.module';
 import { LeadsModule } from './modules/leads/leads.module';
+import { PlanUpgradeRequestsModule } from './modules/plan-upgrade-requests/plan-upgrade-requests.module';
 
 @Module({
   imports: [
@@ -83,6 +84,7 @@ import { LeadsModule } from './modules/leads/leads.module';
     AiSearchModule,
     AdminModule,
     LeadsModule,
+    PlanUpgradeRequestsModule,
   ],
   controllers: [AppController],
   providers: [

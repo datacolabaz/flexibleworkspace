@@ -26,6 +26,7 @@ import { AuthenticatedUser } from '../../common/guards/jwt-auth.guard';
 import { RoleName, ADMIN_ROLES } from '../../common/constants/roles.enum';
 import { AdminPermission } from '../../common/constants/admin-permission.enum';
 import {
+  ProviderPlanTier,
   ProviderVerificationDocumentType,
   ProviderVerificationStatus,
 } from '../../common/constants/provider.enum';
@@ -183,6 +184,20 @@ export class ProvidersController {
       body.suspended,
       body.notes,
     );
+  }
+
+  @Patch('admin/providers/:id/plan')
+  @Roles(...ADMIN_ROLES)
+  @RequirePermission(AdminPermission.PROVIDER_PLAN_MANAGE)
+  @ApiOperation({
+    summary: "Set a provider's plan tier (FREE/STARTER/PRO/ENTERPRISE)",
+  })
+  async setPlanTier(
+    @Param('id') id: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() body: { planTier: ProviderPlanTier },
+  ) {
+    return this.providersService.setPlanTier(id, user.userId, body.planTier);
   }
 
   @Get('admin/providers/:id/verification-documents/:storageKey')
