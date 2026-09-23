@@ -236,6 +236,27 @@ export async function createMyRoom(accessToken: string, input: CreateRoomInput):
 }
 
 /**
+ * `PATCH provider/rooms/:roomId` — full-object update (`RoomInputDto`),
+ * so unlike `updateRoomAmenities` this has full-replace semantics on
+ * every field it's given: an omitted `amenityIds` leaves the amenities
+ * relation untouched (RoomsService.update() only reassigns it `if
+ * (dto.amenityIds)`), so this deliberately never sends that key —
+ * amenities have their own dedicated editor/endpoint. `description`,
+ * `sizeSqm`, and `cancellationPolicy` DO get reset to null when omitted,
+ * so callers should always pass the room's current values for anything
+ * they aren't intentionally changing.
+ */
+export async function updateMyRoom(accessToken: string, roomId: string, input: CreateRoomInput): Promise<MyRoom> {
+  const response = await fetch(backendUrl(`provider/rooms/${encodeURIComponent(roomId)}`), {
+    method: 'PATCH',
+    headers: authHeaders(accessToken, true),
+    body: JSON.stringify(input),
+    cache: 'no-store',
+  });
+  return jsonOrThrow<MyRoom>(response);
+}
+
+/**
  * `PATCH provider/rooms/:roomId/status` — DRAFT->ACTIVE additionally
  * requires the provider account to be VERIFIED (backend gate); the BFF
  * route just passes the resulting `PROVIDER_NOT_VERIFIED` error through

@@ -468,6 +468,151 @@ function AddRoomForm({
   );
 }
 
+/**
+ * Editing an already-created room — until this, there was no way to
+ * change a room's name/type/capacity/price/description at all once it
+ * existed (only the "add a room" form set them, once, at creation).
+ * Uses the general `PATCH :roomId` endpoint (full-object `RoomInputDto`
+ * semantics — see `updateMyRoom`'s own comment): every field this form
+ * doesn't collect is passed through from the room's current value so
+ * the full-replace update can't silently wipe it, and `amenityIds` is
+ * deliberately never sent since amenities have their own editor/endpoint.
+ */
+function EditRoomForm({
+  room,
+  roomTypes,
+  onSaved,
+  onCancel,
+}: {
+  room: MyRoom;
+  roomTypes: RoomTypeOption[];
+  onSaved: (room: MyRoom) => void;
+  onCancel: () => void;
+}) {
+  const [roomTypeId, setRoomTypeId] = useState(room.roomTypeId);
+  const [name, setName] = useState(room.name);
+  const [capacityMax, setCapacityMax] = useState(String(room.capacityMax));
+  const [price, setPrice] = useState(String(Number(room.basePriceAmount) / 100));
+  const [description, setDescription] = useState(room.description ?? '');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | undefined>();
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!roomTypeId) {
+      setError('Otaq növünü seçin.');
+      return;
+    }
+    if (!Number.isFinite(Number(price)) || Number(price) <= 0) {
+      setError('Saatlıq qiymət 0-dan böyük olmalıdır.');
+      return;
+    }
+    if (!Number.isInteger(Number(capacityMax)) || Number(capacityMax) < 1) {
+      setError('Maksimum tutum ən azı 1 olmalıdır.');
+      return;
+    }
+    setSaving(true);
+    setError(undefined);
+    try {
+      const response = await fetch(`/api/provider/rooms/${room.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          locationId: room.locationId,
+          roomTypeId,
+          name: name.trim(),
+          description: description.trim() || undefined,
+          capacityMin: room.capacityMin,
+          capacityMax: Number(capacityMax),
+          basePriceAmount: Math.round(Number(price) * 100),
+          basePriceCurrency: room.basePriceCurrency,
+        }),
+      });
+      if (!response.ok) {
+        setError(await readBffError(response, 'Otaq yadda saxlanmadı. Yenidən cəhd edin.'));
+        return;
+      }
+      onSaved((await response.json()) as MyRoom);
+    } catch {
+      setError('Otaq yadda saxlanmadı. Yenidən cəhd edin.');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-4">
+      {error && <Alert variant="error">{error}</Alert>}
+      <FormField id={`edit-room-type-${room.id}`} label="Otaq növü">
+        <Select
+          id={`edit-room-type-${room.id}`}
+          value={roomTypeId}
+          disabled={saving}
+          onChange={(event) => setRoomTypeId(event.target.value)}
+        >
+          {roomTypes.map((rt) => (
+            <option key={rt.id} value={rt.id}>
+              {ROOM_TYPE_LABEL_AZ[rt.translationKey] ?? rt.translationKey}
+            </option>
+          ))}
+        </Select>
+      </FormField>
+      <FormField id={`edit-room-name-${room.id}`} label="Otağın adı">
+        <Input
+          id={`edit-room-name-${room.id}`}
+          required
+          value={name}
+          disabled={saving}
+          onChange={(event) => setName(event.target.value)}
+        />
+      </FormField>
+      <div className="grid grid-cols-2 gap-4">
+        <FormField id={`edit-room-capacity-${room.id}`} label="Maks. tutum (nəfər)">
+          <Input
+            id={`edit-room-capacity-${room.id}`}
+            type="number"
+            min="1"
+            required
+            value={capacityMax}
+            disabled={saving}
+            onChange={(event) => setCapacityMax(event.target.value)}
+          />
+        </FormField>
+        <FormField id={`edit-room-price-${room.id}`} label="Saatlıq qiymət (AZN)">
+          <Input
+            id={`edit-room-price-${room.id}`}
+            type="number"
+            min="0.01"
+            step="0.01"
+            required
+            value={price}
+            disabled={saving}
+            onChange={(event) => setPrice(event.target.value)}
+          />
+        </FormField>
+      </div>
+      <FormField id={`edit-room-description-${room.id}`} label="Təsvir (könüllü)">
+        <textarea
+          id={`edit-room-description-${room.id}`}
+          rows={3}
+          value={description}
+          disabled={saving}
+          onChange={(event) => setDescription(event.target.value)}
+          className="w-full min-h-24 rounded-sm border border-border-strong bg-surface px-4 py-2.5 text-body text-text-primary placeholder:text-text-muted focus:border-primary focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+        />
+      </FormField>
+      <div className="flex gap-3">
+        <Button type="submit" isLoading={saving}>
+          {saving ? 'Yadda saxlanılır…' : 'Yadda saxla'}
+        </Button>
+        <Button type="button" variant="secondary" onClick={onCancel} disabled={saving}>
+          Ləğv et
+        </Button>
+      </div>
+    </form>
+  );
+}
+
 function RoomRow({
   room,
   roomTypes,
@@ -483,6 +628,7 @@ function RoomRow({
 }) {
   const [statusBusy, setStatusBusy] = useState(false);
   const [statusError, setStatusError] = useState<string | undefined>();
+  const [editing, setEditing] = useState(false);
 
   const roomType = roomTypes.find((rt) => rt.id === room.roomTypeId);
   const roomTypeLabel = roomType ? ROOM_TYPE_LABEL_AZ[roomType.translationKey] ?? roomType.translationKey : '—';
@@ -515,16 +661,37 @@ function RoomRow({
     }
   }
 
+  if (editing) {
+    return (
+      <li className="flex flex-col gap-3 rounded-md border border-border p-4">
+        <EditRoomForm
+          room={room}
+          roomTypes={roomTypes}
+          onSaved={(updated) => {
+            onUpdated(updated);
+            setEditing(false);
+          }}
+          onCancel={() => setEditing(false)}
+        />
+      </li>
+    );
+  }
+
   return (
     <li className="flex flex-col gap-3 rounded-md border border-border p-4">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
           <p className="text-body font-semibold text-text-primary">{room.name}</p>
           <p className="text-small text-text-secondary">
-            {roomTypeLabel} · {room.capacityMin}–{room.capacityMax} nəfər
+            {roomTypeLabel} · {room.capacityMin}–{room.capacityMax} nəfər · {(Number(room.basePriceAmount) / 100).toFixed(2)} {room.basePriceCurrency}/saat
           </p>
         </div>
-        <span className={`rounded-full px-2.5 py-1 text-caption ${STATUS_TONE[room.status]}`}>{STATUS_LABEL[room.status]}</span>
+        <div className="flex items-center gap-2">
+          <span className={`rounded-full px-2.5 py-1 text-caption ${STATUS_TONE[room.status]}`}>{STATUS_LABEL[room.status]}</span>
+          <Button type="button" variant="secondary" size="sm" onClick={() => setEditing(true)}>
+            Redaktə et
+          </Button>
+        </div>
       </div>
 
       {statusError && <Alert variant="error">{statusError}</Alert>}
