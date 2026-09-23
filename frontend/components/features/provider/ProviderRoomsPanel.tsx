@@ -730,7 +730,7 @@ function RoomMediaManager({ roomId, capabilities }: { roomId: string; capabiliti
                     <Spinner label="Yenilənir" />
                   </div>
                 )}
-                <div className="absolute inset-x-0 bottom-0 flex items-center justify-between gap-0.5 bg-gradient-to-t from-black/60 to-transparent p-1 opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100">
+                <div className="absolute inset-x-0 bottom-0 flex items-center justify-between gap-0.5 bg-gradient-to-t from-black/60 to-transparent p-1">
                   <IconButton
                     aria-label="Sola daşı"
                     disabled={index === 0 || busyPhotoId !== null}
