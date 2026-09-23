@@ -489,6 +489,26 @@ export class RoomsService {
       });
     }
 
+    // The browser PUTs the file straight to object storage and this call
+    // only tells us it's done — verify server-side (via a HEAD request,
+    // the same check confirmVideo() already does for its own upload)
+    // rather than trusting that self-report. Without this, a PUT that
+    // silently failed or never completed (dropped connection, CORS
+    // misconfiguration, browser giving up) still left confirmPhoto()
+    // creating a photo row that points at nothing — a broken thumbnail
+    // that only shows up later, once the provider looks at the room.
+    if (this.storageProvider.headSize) {
+      try {
+        await this.storageProvider.headSize(dto.storageKey);
+      } catch {
+        throw new DomainException(
+          'PHOTO_UPLOAD_INCOMPLETE',
+          'The uploaded photo could not be found in storage. Please try uploading it again.',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+    }
+
     if (dto.isCover) {
       await this.photoRepo.update({ roomId }, { isCover: false });
     }

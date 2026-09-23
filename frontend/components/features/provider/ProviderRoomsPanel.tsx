@@ -501,7 +501,18 @@ function RoomMediaManager({ roomId, capabilities }: { roomId: string; capabiliti
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ storageKey }),
       });
-      if (!confirmRes.ok) throw new Error(await readBffError(confirmRes, 'Şəkil yaddaşa yazılmadı.'));
+      if (!confirmRes.ok) {
+        const body = (await confirmRes.json().catch(() => undefined)) as BffErrorBody | undefined;
+        // The backend verifies the object actually landed in storage before
+        // recording it (server-side HEAD check) — surface a clear retry
+        // message here instead of the backend's English one, since this is
+        // the one failure a slow/dropped connection can genuinely cause.
+        throw new Error(
+          body?.error?.code === 'PHOTO_UPLOAD_INCOMPLETE'
+            ? 'Şəkil yaddaşa tam yüklənmədi (bağlantı kəsilmiş ola bilər). Yenidən cəhd edin.'
+            : (body?.error?.message ?? 'Şəkil yaddaşa yazılmadı.'),
+        );
+      }
     } else {
       const formData = new FormData();
       formData.set('file', file);

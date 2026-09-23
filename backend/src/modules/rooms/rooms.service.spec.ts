@@ -469,6 +469,30 @@ describe('RoomsService', () => {
       const oldCover = photoRepo.rows.find((p: any) => p.id === 'old-cover');
       expect(oldCover.isCover).toBe(false);
     });
+
+    it('rejects when the object never actually landed in storage, instead of creating a broken photo record (verified via headSize, not trusted from the client)', async () => {
+      roomRepo.rows.push({ id: 'room-c4', location: { providerId } });
+      storageProvider.headSize = jest.fn(async () => {
+        throw new Error('NotFound: the object does not exist');
+      });
+      await expect(
+        service.confirmPhoto('room-c4', providerId, {
+          storageKey: 'never-uploaded-key',
+        } as any),
+      ).rejects.toMatchObject({ code: 'PHOTO_UPLOAD_INCOMPLETE' });
+      expect(
+        photoRepo.rows.find((p: any) => p.storageKey === 'never-uploaded-key'),
+      ).toBeUndefined();
+    });
+
+    it('skips the storage check when the active driver has no headSize support (local dev)', async () => {
+      roomRepo.rows.push({ id: 'room-c5', location: { providerId } });
+      storageProvider.headSize = undefined;
+      const photo = await service.confirmPhoto('room-c5', providerId, {
+        storageKey: 'key-3',
+      } as any);
+      expect(photo.storageKey).toBe('key-3');
+    });
   });
 
   describe('addPhoto() — legacy multipart fallback', () => {
