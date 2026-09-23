@@ -38,15 +38,6 @@ function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString('az-AZ', { year: 'numeric', month: 'long', day: 'numeric' });
 }
 
-async function readBffError(response: Response, fallback: string): Promise<string> {
-  try {
-    const body = (await response.json()) as BffErrorBody;
-    return body.error?.message ?? fallback;
-  } catch {
-    return fallback;
-  }
-}
-
 export function ProviderVerificationPanel({ initialProvider }: { initialProvider: MyProvider }) {
   const [provider, setProvider] = useState(initialProvider);
 
@@ -73,7 +64,15 @@ export function ProviderVerificationPanel({ initialProvider }: { initialProvider
         body: JSON.stringify({ taxId: taxId.trim() }),
       });
       if (!response.ok) {
-        setTaxIdError(await readBffError(response, 'VÖEN yadda saxlanmadı. Yenidən cəhd edin.'));
+        const body = (await response.json().catch(() => undefined)) as BffErrorBody | undefined;
+        // Backend rejects a VÖEN already registered to a different
+        // account (fraud check, 2026-09-23) — surface that plainly rather
+        // than the raw English DomainException message.
+        setTaxIdError(
+          body?.error?.code === 'DUPLICATE_TAX_ID'
+            ? 'Bu VÖEN artıq başqa hesabda qeydiyyatdan keçib.'
+            : (body?.error?.message ?? 'VÖEN yadda saxlanmadı. Yenidən cəhd edin.'),
+        );
         return;
       }
       const updated = (await response.json()) as MyProvider;
@@ -104,7 +103,14 @@ export function ProviderVerificationPanel({ initialProvider }: { initialProvider
         body: formData,
       });
       if (!response.ok) {
-        setUploadError(await readBffError(response, 'Sənəd yüklənmədi. Yenidən cəhd edin.'));
+        const body = (await response.json().catch(() => undefined)) as BffErrorBody | undefined;
+        // Backend rejects a document whose exact bytes are already on
+        // file for a different account (fraud check, 2026-09-23).
+        setUploadError(
+          body?.error?.code === 'DUPLICATE_DOCUMENT'
+            ? 'Bu sənəd artıq başqa hesabda qeydiyyatdan keçib.'
+            : (body?.error?.message ?? 'Sənəd yüklənmədi. Yenidən cəhd edin.'),
+        );
         return;
       }
       const updated = (await response.json()) as MyProvider;
