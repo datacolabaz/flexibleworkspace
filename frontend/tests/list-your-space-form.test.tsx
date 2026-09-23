@@ -12,6 +12,11 @@ function renderForm() {
   );
 }
 
+function attachLogo() {
+  const file = new File(['fake-image-bytes'], 'logo.png', { type: 'image/png' });
+  fireEvent.change(screen.getByLabelText('Logo / cover photo'), { target: { files: [file] } });
+}
+
 describe('ListYourSpaceForm', () => {
   beforeEach(() => {
     vi.stubGlobal('fetch', vi.fn());
@@ -23,6 +28,17 @@ describe('ListYourSpaceForm', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Submit application' }));
 
     expect(screen.getByText('Enter your legal and display name.')).toBeInTheDocument();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('rejects submission with no logo attached, without calling the BFF route', () => {
+    const fetchMock = fetch as unknown as ReturnType<typeof vi.fn>;
+    renderForm();
+    fireEvent.change(screen.getByLabelText('Legal business name'), { target: { value: 'Acme LLC' } });
+    fireEvent.change(screen.getByLabelText('Display name'), { target: { value: 'Acme Spaces' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Submit application' }));
+
+    expect(screen.getByText('Please upload a logo / cover photo.')).toBeInTheDocument();
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
@@ -45,6 +61,7 @@ describe('ListYourSpaceForm', () => {
     fireEvent.change(screen.getByLabelText('Legal business name'), { target: { value: '  Acme LLC  ' } });
     fireEvent.change(screen.getByLabelText('Display name'), { target: { value: '  Acme Spaces  ' } });
     fireEvent.change(screen.getByLabelText('Category'), { target: { value: '  Coworking  ' } });
+    attachLogo();
     fireEvent.click(screen.getByRole('button', { name: 'Submit application' }));
 
     await waitFor(() => expect(screen.getByText('Application received')).toBeInTheDocument());
@@ -72,6 +89,7 @@ describe('ListYourSpaceForm', () => {
     renderForm();
     fireEvent.change(screen.getByLabelText('Legal business name'), { target: { value: 'Acme LLC' } });
     fireEvent.change(screen.getByLabelText('Display name'), { target: { value: 'Acme Spaces' } });
+    attachLogo();
     fireEvent.click(screen.getByRole('button', { name: 'Submit application' }));
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalled());
@@ -91,6 +109,7 @@ describe('ListYourSpaceForm', () => {
     renderForm();
     fireEvent.change(screen.getByLabelText('Legal business name'), { target: { value: 'Acme LLC' } });
     fireEvent.change(screen.getByLabelText('Display name'), { target: { value: 'Acme Spaces' } });
+    attachLogo();
     fireEvent.click(screen.getByRole('button', { name: 'Submit application' }));
 
     expect(await screen.findByText("You've been signed out. Please sign in again.")).toBeInTheDocument();

@@ -25,15 +25,20 @@ const MAX_LOGO_BYTES = 8 * 1024 * 1024;
  * §9.2's Provider/Location split).
  *
  * A provider flagged this form had no way to add a photo at all — the
- * logo/cover photo below is a second, best-effort step: `POST /providers`
- * (JSON) creates the provider, then (only if a file was picked)
- * `POST /api/providers/:id/logo` (multipart) uploads it. It's a separate
- * request rather than one combined multipart submit because `POST
- * /providers` is the typed, OpenAPI-contracted endpoint (`providers.ts`'s
+ * logo/cover photo below is now a REQUIRED second step, validated
+ * client-side before submit (owner's decision: every application needs
+ * at least one photo, mirroring `ROOM_NO_PHOTOS` gating a room's own
+ * activation). `POST /providers` (JSON) creates the provider, then
+ * `POST /api/providers/:id/logo` (multipart) uploads the photo that
+ * validation already guaranteed is picked. It's a separate request
+ * rather than one combined multipart submit because `POST /providers`
+ * is the typed, OpenAPI-contracted endpoint (`providers.ts`'s
  * `registerProvider`) — changing its shape would mean updating
  * `29_API_OPENAPI.yaml` and regenerating the generated client, out of
- * scope for adding an optional photo. A failed logo upload never blocks
- * registration success — the application is real either way.
+ * scope here. A failed *upload* (network hiccup, etc.) still never blocks
+ * registration success once the provider row exists — the application is
+ * real either way; `logoFailed` just surfaces that the photo itself needs
+ * retrying.
  *
  * On success, shows a confirmation rather than redirecting anywhere —
  * there's no provider dashboard built yet to send them to
@@ -77,6 +82,10 @@ export function ListYourSpaceForm() {
     const trimmedDisplayName = displayName.trim();
     if (!trimmedLegalName || !trimmedDisplayName) {
       setError(t('requiredFieldsError'));
+      return;
+    }
+    if (!logoFile) {
+      setError(t('logoRequiredError'));
       return;
     }
 
