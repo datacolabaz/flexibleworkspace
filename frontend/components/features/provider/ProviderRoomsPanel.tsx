@@ -10,9 +10,11 @@ import { IconButton } from '@/components/ui/IconButton';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 import { Spinner } from '@/components/ui/Spinner';
+import { LocationPickerMap } from './LocationPickerMap';
 import type {
   AvailabilityRule,
   AvailabilityRuleInput,
+  CreateLocationInput,
   MediaCapabilities,
   MyLocation,
   MyRoom,
@@ -31,8 +33,11 @@ interface BffErrorBody {
 // (lib/api-client/provider-rooms.ts's DEFAULT_LOCATION_LAT/LNG) — kept
 // as a plain literal here rather than imported, since that module is
 // `server-only` and can't be imported into a Client Component. There's
-// no geocoding tool in this codebase to turn an address into real
-// coordinates; admin can correct a location's exact point later.
+// still no geocoding tool in this codebase to turn a typed address into
+// real coordinates, so this is only ever the map picker's STARTING
+// point — `LocationForm`'s `<LocationPickerMap>` is what actually lets
+// the provider drag/click the pin onto their real location before
+// saving (both on first setup and when editing later via `LocationCard`).
 const DEFAULT_LAT = 40.3777;
 const DEFAULT_LNG = 49.892;
 
@@ -190,22 +195,70 @@ export function ProviderRoomsPanel({
   }
 
   return (
-    <RoomsCard
-      locationId={locations[0].id}
-      rooms={rooms}
-      roomTypes={roomTypes}
-      amenityOptions={amenityOptions}
-      mediaCapabilities={mediaCapabilities}
-      onCreated={(room) => setRooms((prev) => [room, ...prev])}
-      onUpdated={(room) => setRooms((prev) => prev.map((item) => (item.id === room.id ? room : item)))}
-    />
+    <div className="flex flex-col gap-4">
+      <LocationCard location={locations[0]} onUpdated={(location) => setLocations([location])} />
+      <RoomsCard
+        locationId={locations[0].id}
+        rooms={rooms}
+        roomTypes={roomTypes}
+        amenityOptions={amenityOptions}
+        mediaCapabilities={mediaCapabilities}
+        onCreated={(room) => setRooms((prev) => [room, ...prev])}
+        onUpdated={(room) => setRooms((prev) => prev.map((item) => (item.id === room.id ? room : item)))}
+      />
+    </div>
   );
 }
 
 function LocationSetupCard({ onCreated }: { onCreated: (location: MyLocation) => void }) {
-  const [name, setName] = useState('');
-  const [city, setCity] = useState('Bakı');
-  const [addressLine, setAddressLine] = useState('');
+  return (
+    <Card className="flex flex-col gap-4 p-5">
+      <div>
+        <h3 className="font-display text-h4 text-text-primary">Biznes ünvanı</h3>
+        <p className="mt-1 text-small text-text-secondary">
+          Otaq əlavə etməzdən əvvəl məkanınızın ünvanını və dəqiq xəritə mövqeyini təyin edin — müştərilər axtarış
+          və otaq səhifələrindəki xəritədə sizi məhz bu nöqtədə görəcək.
+        </p>
+      </div>
+      <LocationForm
+        submitLabel="Davam et"
+        onSubmit={(input) =>
+          fetch('/api/provider/locations', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(input),
+          })
+        }
+        onSaved={onCreated}
+      />
+    </Card>
+  );
+}
+
+/**
+ * Shared by `LocationSetupCard` (first-time create) and `LocationCard`
+ * (editing an already-created location) — same fields, same map picker,
+ * only the submit target differs (POST vs PATCH), passed in as
+ * `onSubmit` rather than duplicating the form twice.
+ */
+function LocationForm({
+  initial,
+  submitLabel,
+  onSubmit,
+  onSaved,
+  onCancel,
+}: {
+  initial?: MyLocation;
+  submitLabel: string;
+  onSubmit: (input: CreateLocationInput) => Promise<Response>;
+  onSaved: (location: MyLocation) => void;
+  onCancel?: () => void;
+}) {
+  const [name, setName] = useState(initial?.name ?? '');
+  const [city, setCity] = useState(initial?.city ?? 'Bakı');
+  const [addressLine, setAddressLine] = useState(initial?.addressLine ?? '');
+  const [lat, setLat] = useState(initial?.lat ?? DEFAULT_LAT);
+  const [lng, setLng] = useState(initial?.lng ?? DEFAULT_LNG);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | undefined>();
 
@@ -214,22 +267,18 @@ function LocationSetupCard({ onCreated }: { onCreated: (location: MyLocation) =>
     setSaving(true);
     setError(undefined);
     try {
-      const response = await fetch('/api/provider/locations', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: name.trim(),
-          city: city.trim(),
-          addressLine: addressLine.trim(),
-          lat: DEFAULT_LAT,
-          lng: DEFAULT_LNG,
-        }),
+      const response = await onSubmit({
+        name: name.trim(),
+        city: city.trim(),
+        addressLine: addressLine.trim(),
+        lat,
+        lng,
       });
       if (!response.ok) {
         setError(await readBffError(response, 'Ünvan yadda saxlanmadı. Yenidən cəhd edin.'));
         return;
       }
-      onCreated((await response.json()) as MyLocation);
+      onSaved((await response.json()) as MyLocation);
     } catch {
       setError('Ünvan yadda saxlanmadı. Yenidən cəhd edin.');
     } finally {
@@ -238,29 +287,91 @@ function LocationSetupCard({ onCreated }: { onCreated: (location: MyLocation) =>
   }
 
   return (
-    <Card className="flex flex-col gap-4 p-5">
-      <div>
-        <h3 className="font-display text-h4 text-text-primary">Biznes ünvanı</h3>
-        <p className="mt-1 text-small text-text-secondary">
-          Otaq əlavə etməzdən əvvəl məkanınızın ünvanını daxil edin. Dəqiq xəritə koordinatını admin sonra
-          dəqiqləşdirə bilər.
+    <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-4 sm:max-w-sm">
+      {error && <Alert variant="error">{error}</Alert>}
+      <FormField id="location-name" label="Filialın adı">
+        <Input id="location-name" required value={name} disabled={saving} onChange={(event) => setName(event.target.value)} placeholder="Məs. Əsas ofis" />
+      </FormField>
+      <FormField id="location-city" label="Şəhər">
+        <Input id="location-city" required value={city} disabled={saving} onChange={(event) => setCity(event.target.value)} />
+      </FormField>
+      <FormField id="location-address" label="Ünvan">
+        <Input id="location-address" required value={addressLine} disabled={saving} onChange={(event) => setAddressLine(event.target.value)} placeholder="Küçə, bina" />
+      </FormField>
+      <FormField id="location-map" label="Məkanı xəritədə seçin">
+        <LocationPickerMap
+          lat={lat}
+          lng={lng}
+          onChange={(newLat, newLng) => {
+            setLat(newLat);
+            setLng(newLng);
+          }}
+          className="h-64 w-full"
+        />
+        <p className="mt-1.5 text-caption text-text-muted">
+          Doğru mövqeyi göstərmək üçün nişanı sürükləyin və ya xəritəyə klikləyin.
         </p>
-      </div>
-      <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-4 sm:max-w-sm">
-        {error && <Alert variant="error">{error}</Alert>}
-        <FormField id="location-name" label="Filialın adı">
-          <Input id="location-name" required value={name} disabled={saving} onChange={(event) => setName(event.target.value)} placeholder="Məs. Əsas ofis" />
-        </FormField>
-        <FormField id="location-city" label="Şəhər">
-          <Input id="location-city" required value={city} disabled={saving} onChange={(event) => setCity(event.target.value)} />
-        </FormField>
-        <FormField id="location-address" label="Ünvan">
-          <Input id="location-address" required value={addressLine} disabled={saving} onChange={(event) => setAddressLine(event.target.value)} placeholder="Küçə, bina" />
-        </FormField>
+      </FormField>
+      <div className="flex gap-3">
         <Button type="submit" isLoading={saving} className="self-start">
-          {saving ? 'Saxlanılır…' : 'Davam et'}
+          {saving ? 'Saxlanılır…' : submitLabel}
         </Button>
-      </form>
+        {onCancel && (
+          <Button type="button" variant="secondary" onClick={onCancel} disabled={saving}>
+            Ləğv et
+          </Button>
+        )}
+      </div>
+    </form>
+  );
+}
+
+/**
+ * Shows the current business address/pin with an "edit" toggle — before
+ * this there was no frontend path to change a location at all once
+ * created, so a location made while `DEFAULT_LOCATION_LAT`/`LNG` was
+ * still the only option (or with the wrong address) had no way to be
+ * corrected. Uses the same `LocationForm` as first-time setup, pointed
+ * at the update endpoint instead of create.
+ */
+function LocationCard({ location, onUpdated }: { location: MyLocation; onUpdated: (location: MyLocation) => void }) {
+  const [editing, setEditing] = useState(false);
+
+  if (!editing) {
+    return (
+      <Card className="flex flex-col gap-2 p-5 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h3 className="font-display text-h4 text-text-primary">Biznes ünvanı</h3>
+          <p className="text-small text-text-secondary">
+            {location.name} · {location.addressLine}, {location.city}
+          </p>
+        </div>
+        <Button type="button" variant="secondary" size="sm" className="self-start sm:self-auto" onClick={() => setEditing(true)}>
+          Ünvanı / xəritəni redaktə et
+        </Button>
+      </Card>
+    );
+  }
+
+  return (
+    <Card className="flex flex-col gap-4 p-5">
+      <h3 className="font-display text-h4 text-text-primary">Ünvanı redaktə et</h3>
+      <LocationForm
+        initial={location}
+        submitLabel="Yadda saxla"
+        onSubmit={(input) =>
+          fetch(`/api/provider/locations/${location.id}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(input),
+          })
+        }
+        onSaved={(updated) => {
+          onUpdated(updated);
+          setEditing(false);
+        }}
+        onCancel={() => setEditing(false)}
+      />
     </Card>
   );
 }

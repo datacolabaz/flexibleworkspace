@@ -177,6 +177,25 @@ export async function createMyLocation(accessToken: string, input: CreateLocatio
   return jsonOrThrow<MyLocation>(response);
 }
 
+/**
+ * `PATCH provider/locations/:locationId` — lets a provider fix a
+ * location's address/pin after creation (full-object `LocationInputDto`,
+ * same required fields as create). Added alongside `LocationPickerMap`
+ * so the location the "add a room" flow silently pins at
+ * `DEFAULT_LOCATION_LAT`/`LNG` (central Baku) can actually be corrected
+ * to the provider's real spot — before this there was no frontend path
+ * to change a location at all once created.
+ */
+export async function updateMyLocation(accessToken: string, locationId: string, input: CreateLocationInput): Promise<MyLocation> {
+  const response = await fetch(backendUrl(`provider/locations/${encodeURIComponent(locationId)}`), {
+    method: 'PATCH',
+    headers: authHeaders(accessToken, true),
+    body: JSON.stringify(input),
+    cache: 'no-store',
+  });
+  return jsonOrThrow<MyLocation>(response);
+}
+
 export async function listRoomTypes(accessToken: string): Promise<RoomTypeOption[]> {
   const response = await fetch(backendUrl('provider/rooms/types'), {
     headers: authHeaders(accessToken, false),
