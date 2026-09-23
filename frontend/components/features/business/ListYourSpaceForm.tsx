@@ -129,6 +129,23 @@ export function ListYourSpaceForm() {
       } catch {
         // best-effort — see comment above
       }
+      // The backend just granted this account the PROVIDER_OWNER role
+      // (ProvidersService.create()), but the access token cookie already
+      // sitting in the browser was issued BEFORE that — roles are baked
+      // into the JWT at sign-in time, not looked up fresh per request
+      // (JwtAuthGuard/RolesGuard). Without rotating it here, the redirect
+      // below lands back on `/provider` with a still-stale token, and
+      // every @Roles(PROVIDER_OWNER)-gated call it makes (locations,
+      // rooms, leads) 403s — the account looks broken on its very first
+      // visit. `/api/auth/refresh` re-reads this user's roles from the DB
+      // and rotates both cookies; best-effort like the logo upload above,
+      // since a redirect with a still-stale token is still better than no
+      // redirect at all.
+      try {
+        await fetch('/api/auth/refresh', { method: 'POST' });
+      } catch {
+        // best-effort — see comment above
+      }
       // `router.refresh()` first: when this form is rendered standalone
       // on `/list-your-space` the push below does the real navigation,
       // but when it's embedded inline on `/provider` itself (the
