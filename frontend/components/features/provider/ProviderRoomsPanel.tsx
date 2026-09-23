@@ -289,7 +289,12 @@ function AddRoomForm({
         }),
       });
       if (!response.ok) {
-        setError(await readBffError(response, 'Otaq yaradılmadı. Yenidən cəhd edin.'));
+        const body = (await response.json().catch(() => undefined)) as BffErrorBody | undefined;
+        setError(
+          body?.error?.code === 'PLAN_LIMIT_REACHED'
+            ? 'FREE planda yalnız 1 otaq əlavə edə bilərsiniz. Daha çox otaq üçün "Planım" bölməsindən Pro-ya keçid sorğusu göndərin.'
+            : (body?.error?.message ?? 'Otaq yaradılmadı. Yenidən cəhd edin.'),
+        );
         return;
       }
       onCreated((await response.json()) as MyRoom);

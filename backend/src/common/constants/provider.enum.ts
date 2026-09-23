@@ -46,8 +46,13 @@ export const PLAN_LOCATION_LIMITS: Record<ProviderPlanTier, number> = {
   [ProviderPlanTier.ENTERPRISE]: Number.POSITIVE_INFINITY,
 };
 
+// FREE capped at 1 room (owner's decision, same pass that shrank the
+// FREE/PRO photo counts below) — consistent with PLAN_LOCATION_LIMITS'
+// existing FREE cap of 1 business address: a FREE account gets exactly
+// one listing, full stop, which is also the strongest natural nudge
+// toward PRO this app has.
 export const PLAN_ROOM_LIMITS: Record<ProviderPlanTier, number> = {
-  [ProviderPlanTier.FREE]: 3,
+  [ProviderPlanTier.FREE]: 1,
   [ProviderPlanTier.STARTER]: 10,
   [ProviderPlanTier.PRO]: 50, // soft cap, raise on request per §25.2
   [ProviderPlanTier.ENTERPRISE]: Number.POSITIVE_INFINITY,

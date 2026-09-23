@@ -1,9 +1,12 @@
 import type { Metadata } from 'next';
 import { cookies } from 'next/headers';
 import Link from 'next/link';
+import { NextIntlClientProvider } from 'next-intl';
 import { Logo } from '@/components/ui/Logo';
 import { readSession } from '@/lib/auth/session';
 import { getMyProvider, ProviderApiError } from '@/lib/api-client/provider-dashboard';
+import { ListYourSpaceForm } from '@/components/features/business/ListYourSpaceForm';
+import azMessages from '@/messages/az.json';
 import { listMyLeads } from '@/lib/api-client/leads';
 import {
   listMyLocations,
@@ -155,19 +158,25 @@ export default async function ProviderHome() {
     );
   } catch (error) {
     if (error instanceof ProviderApiError && error.code === 'NOT_A_PROVIDER') {
+      // Embeds the same registration form `/list-your-space` uses,
+      // right here — the owner's explicit fix for "doldur sonra ordan
+      // ora keç, burdan ora keç": whether someone arrives at /provider
+      // directly or via the marketing page, filling this in redirects
+      // (ListYourSpaceForm's own router.refresh()+push) straight back
+      // into the full dashboard below, no extra hop either way.
+      // NextIntlClientProvider is needed only here — the rest of this
+      // route hardcodes Azerbaijani copy directly (see ProviderLayout's
+      // comment: provider-dashboard i18n isn't set up yet).
       return (
         <Shell>
           <h1 className="font-display text-h2 text-text-primary">Provider paneli</h1>
           <p className="text-body text-text-secondary">
-            Hesabınızda hələ provider qeydiyyatı yoxdur. Otağınızı əlavə etmək üçün əvvəlcə provider kimi
-            qeydiyyatdan keçin.
+            Başlamaq üçün biznesiniz haqqında qısa məlumat verin — göndərdikdən dərhal sonra öz panelinizə
+            keçəcəksiniz.
           </p>
-          <Link
-            href="/az/list-your-space"
-            className="self-start rounded-md bg-accent px-5 py-3 text-label text-accent-on transition-colors hover:bg-accent-hover"
-          >
-            Provider kimi qeydiyyatdan keç
-          </Link>
+          <NextIntlClientProvider locale="az" messages={azMessages}>
+            <ListYourSpaceForm />
+          </NextIntlClientProvider>
         </Shell>
       );
     }

@@ -4,6 +4,13 @@ import { NextIntlClientProvider } from 'next-intl';
 import messages from '../messages/en.json';
 import { ListYourSpaceForm } from '@/components/features/business/ListYourSpaceForm';
 
+const pushMock = vi.fn();
+const refreshMock = vi.fn();
+
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ push: pushMock, refresh: refreshMock }),
+}));
+
 function renderForm() {
   render(
     <NextIntlClientProvider locale="en" messages={messages}>
@@ -20,6 +27,8 @@ function attachLogo() {
 describe('ListYourSpaceForm', () => {
   beforeEach(() => {
     vi.stubGlobal('fetch', vi.fn());
+    pushMock.mockClear();
+    refreshMock.mockClear();
   });
 
   it('rejects submission with legal/display name blank, without calling the BFF route', () => {
@@ -42,7 +51,7 @@ describe('ListYourSpaceForm', () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it('POSTs the trimmed fields to /api/providers, and shows the success confirmation', async () => {
+  it('POSTs the trimmed fields to /api/providers, uploads the logo, and redirects straight into /provider', async () => {
     const fetchMock = fetch as unknown as ReturnType<typeof vi.fn>;
     fetchMock.mockResolvedValueOnce(
       new Response(
@@ -56,6 +65,7 @@ describe('ListYourSpaceForm', () => {
         { status: 201 },
       ),
     );
+    fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({ id: 'provider-1' }), { status: 200 }));
 
     renderForm();
     fireEvent.change(screen.getByLabelText('Legal business name'), { target: { value: '  Acme LLC  ' } });
@@ -64,12 +74,13 @@ describe('ListYourSpaceForm', () => {
     attachLogo();
     fireEvent.click(screen.getByRole('button', { name: 'Submit application' }));
 
-    await waitFor(() => expect(screen.getByText('Application received')).toBeInTheDocument());
+    await waitFor(() => expect(pushMock).toHaveBeenCalledWith('/provider'));
     expect(fetchMock).toHaveBeenCalledWith('/api/providers', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ legalName: 'Acme LLC', displayName: 'Acme Spaces', category: 'Coworking' }),
     });
+    expect(fetchMock).toHaveBeenCalledWith('/api/providers/provider-1/logo', expect.objectContaining({ method: 'POST' }));
   });
 
   it('omits category from the request body when left blank', async () => {
@@ -92,7 +103,7 @@ describe('ListYourSpaceForm', () => {
     attachLogo();
     fireEvent.click(screen.getByRole('button', { name: 'Submit application' }));
 
-    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+    await waitFor(() => expect(pushMock).toHaveBeenCalledWith('/provider'));
     expect(fetchMock).toHaveBeenCalledWith('/api/providers', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

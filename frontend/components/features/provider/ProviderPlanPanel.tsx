@@ -101,6 +101,7 @@ export function ProviderPlanPanel({
           <p className="font-display text-h4 text-text-primary">FREE</p>
           <p className="text-small text-text-secondary">0 AZN</p>
           <ul className="mt-1 flex flex-col gap-1 text-small text-text-secondary">
+            <li>1 otaq (elan)</li>
             <li>5 şəkil</li>
             <li>1 üz qabığı (cover) şəkli</li>
             <li>Video yoxdur</li>

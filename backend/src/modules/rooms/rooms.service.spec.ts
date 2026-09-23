@@ -179,8 +179,8 @@ describe('RoomsService', () => {
       expect(room.name).toBe('Test Room');
     });
 
-    it('throws PlanLimitReachedException once the FREE tier room limit (3) is reached', async () => {
-      // Pre-seed 3 existing rooms for this provider — the FREE limit.
+    it('throws PlanLimitReachedException once the FREE tier room limit is reached', async () => {
+      // Pre-seed rooms up to the FREE limit (currently 1) for this provider.
       for (let i = 0; i < PLAN_ROOM_LIMITS[ProviderPlanTier.FREE]; i++) {
         roomRepo.rows.push({ id: `existing-${i}`, __providerId: providerId });
       }

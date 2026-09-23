@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, type ChangeEvent, type FormEvent } from 'react';
+import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { Alert } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/Button';
@@ -40,13 +41,17 @@ const MAX_LOGO_BYTES = 8 * 1024 * 1024;
  * real either way; `logoFailed` just surfaces that the photo itself needs
  * retrying.
  *
- * On success, shows a confirmation rather than redirecting anywhere —
- * there's no provider dashboard built yet to send them to
- * (`verificationStatus` starts `PENDING`; an admin reviews it, same flow
- * `admin.e2e-spec.ts` already covers on the backend side).
+ * On success, redirects straight into `/provider` (owner's decision:
+ * "doldur sonra ordan ora keç lazım deyil" — one continuous flow, not a
+ * dead-end thank-you screen the person has to navigate away from
+ * themselves). `verificationStatus` starts `PENDING` — the provider can
+ * still add rooms/photos immediately; only *activating* a room needs
+ * admin verification (`ROOM_NO_PHOTOS`/`PROVIDER_NOT_VERIFIED` gating in
+ * `RoomsService.setStatus`), so there's nothing to wait for here.
  */
 export function ListYourSpaceForm() {
   const t = useTranslations('listYourSpace');
+  const router = useRouter();
 
   const [legalName, setLegalName] = useState('');
   const [displayName, setDisplayName] = useState('');
@@ -54,8 +59,6 @@ export function ListYourSpaceForm() {
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | undefined>();
-  const [submitted, setSubmitted] = useState(false);
-  const [logoFailed, setLogoFailed] = useState(false);
 
   function handleLogoChange(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
@@ -109,36 +112,35 @@ export function ListYourSpaceForm() {
           // no JSON body — fall through to the generic message
         }
         setError(code === 'UNAUTHENTICATED' ? t('signedOutError') : t('genericError'));
+        setIsSubmitting(false);
         return;
       }
 
       const provider = (await response.json()) as { id: string };
-      if (logoFile) {
-        try {
-          const formData = new FormData();
-          formData.set('logo', logoFile);
-          const logoResponse = await fetch(`/api/providers/${provider.id}/logo`, { method: 'POST', body: formData });
-          setLogoFailed(!logoResponse.ok);
-        } catch {
-          setLogoFailed(true);
-        }
+      // logoFile is guaranteed non-null past the check above — the
+      // provider row already exists at this point regardless of what
+      // happens to the photo upload, so an upload hiccup here must not
+      // block the redirect; the provider can just re-add a logo from
+      // `/provider` afterward.
+      try {
+        const formData = new FormData();
+        formData.set('logo', logoFile);
+        await fetch(`/api/providers/${provider.id}/logo`, { method: 'POST', body: formData });
+      } catch {
+        // best-effort — see comment above
       }
-      setSubmitted(true);
+      // `router.refresh()` first: when this form is rendered standalone
+      // on `/list-your-space` the push below does the real navigation,
+      // but when it's embedded inline on `/provider` itself (the
+      // NOT_A_PROVIDER branch), pushing to the SAME url is a no-op in
+      // the App Router — refresh() is what actually re-runs that Server
+      // Component now that `getMyProvider` will succeed.
+      router.refresh();
+      router.push('/provider');
     } catch {
       setError(t('genericError'));
-    } finally {
       setIsSubmitting(false);
     }
-  }
-
-  if (submitted) {
-    return (
-      <Alert variant="success">
-        <p className="font-semibold">{t('successTitle')}</p>
-        <p className="mt-1">{t('successMessage')}</p>
-        {logoFailed && <p className="mt-2 text-small">{t('logoUploadFailedNote')}</p>}
-      </Alert>
-    );
   }
 
   return (
