@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from 'react';
 import { useTranslations } from 'next-intl';
-import { useRouter } from '@/lib/i18n/navigation';
+import { useRouter } from 'next/navigation';
 import { loadGoogleIdentityServices } from '@/lib/auth/loadGoogleIdentity';
 import { oauthErrorMessageKey } from './oauth-error-messages';
 
@@ -28,6 +28,15 @@ export interface OAuthSignInButtonProps {
  */
 export function GoogleSignInButton({ redirectTo, onError }: OAuthSignInButtonProps) {
   const t = useTranslations('auth.login');
+  // Plain next/navigation router, not the locale-aware one from
+  // lib/i18n/navigation — redirectTo can point at /provider or /admin,
+  // which deliberately live outside app/[locale]/** (see
+  // frontend/middleware.ts's matcher). The locale-aware router prepends
+  // the current locale to every push(), turning '/provider' into
+  // '/az/provider', a 404 (matches AdminPasswordForm.tsx's own router
+  // choice for the same reason). A customer route like '/account/bookings'
+  // still resolves correctly without a client-side prefix: middleware
+  // redirects the unprefixed request to its localized URL itself.
   const router = useRouter();
   const containerRef = useRef<HTMLDivElement>(null);
   const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;

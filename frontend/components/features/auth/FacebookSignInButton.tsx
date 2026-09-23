@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useTranslations } from 'next-intl';
-import { useRouter } from '@/lib/i18n/navigation';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/Button';
 import { loadFacebookSdk } from '@/lib/auth/loadFacebookSdk';
 import { oauthErrorMessageKey } from './oauth-error-messages';
@@ -20,6 +20,15 @@ import type { OAuthSignInButtonProps } from './GoogleSignInButton';
  */
 export function FacebookSignInButton({ redirectTo, onError }: OAuthSignInButtonProps) {
   const t = useTranslations('auth.login');
+  // Plain next/navigation router, not the locale-aware one from
+  // lib/i18n/navigation — redirectTo can point at /provider or /admin,
+  // which deliberately live outside app/[locale]/** (see
+  // frontend/middleware.ts's matcher). The locale-aware router prepends
+  // the current locale to every push(), turning '/provider' into
+  // '/az/provider', a 404 (matches AdminPasswordForm.tsx's own router
+  // choice for the same reason). A customer route like '/account/bookings'
+  // still resolves correctly without a client-side prefix: middleware
+  // redirects the unprefixed request to its localized URL itself.
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const appId = process.env.NEXT_PUBLIC_FACEBOOK_APP_ID;
