@@ -39,6 +39,11 @@ export type RoomTypeOption = {
 
 export type MyRoomStatus = 'DRAFT' | 'ACTIVE' | 'INACTIVE';
 
+export type MyRoomAmenity = {
+  id: string;
+  translationKey: string;
+};
+
 export type MyRoom = {
   id: string;
   locationId: string;
@@ -50,6 +55,8 @@ export type MyRoom = {
   basePriceAmount: string;
   basePriceCurrency: string;
   status: MyRoomStatus;
+  /** Loaded relation — always present (empty array, never undefined) since the entity has no @Exclude() on it. */
+  amenities: MyRoomAmenity[];
   createdAt: string;
   updatedAt: string;
 };
@@ -178,6 +185,26 @@ export async function listRoomTypes(accessToken: string): Promise<RoomTypeOption
   return jsonOrThrow<RoomTypeOption[]>(response);
 }
 
+/** Amenity taxonomy (id + translationKey) — same shape as `RoomTypeOption`, reused as-is rather than declaring a near-identical type. */
+export async function listAmenities(accessToken: string): Promise<RoomTypeOption[]> {
+  const response = await fetch(backendUrl('provider/rooms/amenities'), {
+    headers: authHeaders(accessToken, false),
+    cache: 'no-store',
+  });
+  return jsonOrThrow<RoomTypeOption[]>(response);
+}
+
+/** `PATCH provider/rooms/:roomId/amenities` — full-replace on just the amenities relation, unlike the main `update()`/`RoomInputDto` PATCH which nulls out any omitted optional field. */
+export async function updateRoomAmenities(accessToken: string, roomId: string, amenityIds: string[]): Promise<MyRoom> {
+  const response = await fetch(backendUrl(`provider/rooms/${encodeURIComponent(roomId)}/amenities`), {
+    method: 'PATCH',
+    headers: authHeaders(accessToken, true),
+    body: JSON.stringify({ amenityIds }),
+    cache: 'no-store',
+  });
+  return jsonOrThrow<MyRoom>(response);
+}
+
 export async function listMyRooms(accessToken: string): Promise<MyRoom[]> {
   const response = await fetch(backendUrl('provider/rooms'), {
     headers: authHeaders(accessToken, false),
@@ -195,6 +222,7 @@ export type CreateRoomInput = {
   capacityMax: number;
   basePriceAmount: number;
   basePriceCurrency?: string;
+  amenityIds?: string[];
 };
 
 export async function createMyRoom(accessToken: string, input: CreateRoomInput): Promise<MyRoom> {
@@ -352,4 +380,59 @@ export async function removeRoomVideo(accessToken: string, roomId: string): Prom
     cache: 'no-store',
   });
   return jsonOrThrow<MyRoom>(response);
+}
+
+
+// -- Availability rules (weekly opening hours / date-specific overrides) ---
+//
+// A room has zero bookable time until at least one of these is set — the
+// PUT endpoint existed before this pass but nothing could ever read the
+// rules back, so no frontend UI could show what was already saved. This
+// closes that gap (GET added alongside the existing PUT).
+
+export type AvailabilityRecurrenceType = 'WEEKLY' | 'DATE_SPECIFIC';
+
+export type AvailabilityRule = {
+  id: string;
+  roomId: string;
+  recurrenceType: AvailabilityRecurrenceType;
+  /** 0=Sunday..6=Saturday, set when recurrenceType=WEEKLY. */
+  dayOfWeek: number | null;
+  /** Set when recurrenceType=DATE_SPECIFIC. */
+  specificDate: string | null;
+  startTime: string;
+  endTime: string;
+  isOpen: boolean;
+  createdAt: string;
+};
+
+export type AvailabilityRuleInput = {
+  recurrenceType: AvailabilityRecurrenceType;
+  dayOfWeek?: number;
+  specificDate?: string;
+  startTime: string;
+  endTime: string;
+  isOpen?: boolean;
+};
+
+export async function listRoomAvailabilityRules(accessToken: string, roomId: string): Promise<AvailabilityRule[]> {
+  const response = await fetch(backendUrl(`provider/rooms/${encodeURIComponent(roomId)}/availability-rules`), {
+    headers: authHeaders(accessToken, false),
+    cache: 'no-store',
+  });
+  return jsonOrThrow<AvailabilityRule[]>(response);
+}
+
+export async function replaceRoomAvailabilityRules(
+  accessToken: string,
+  roomId: string,
+  rules: AvailabilityRuleInput[],
+): Promise<AvailabilityRule[]> {
+  const response = await fetch(backendUrl(`provider/rooms/${encodeURIComponent(roomId)}/availability-rules`), {
+    method: 'PUT',
+    headers: authHeaders(accessToken, true),
+    body: JSON.stringify({ rules }),
+    cache: 'no-store',
+  });
+  return jsonOrThrow<AvailabilityRule[]>(response);
 }

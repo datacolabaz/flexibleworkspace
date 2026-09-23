@@ -31,6 +31,7 @@ const room: MyRoom = {
   basePriceAmount: '5000',
   basePriceCurrency: 'AZN',
   status: 'DRAFT',
+  amenities: [],
   createdAt: '2026-01-01T00:00:00Z',
   updatedAt: '2026-01-01T00:00:00Z',
 };
@@ -50,6 +51,7 @@ function renderPanel(overrides: { rooms?: MyRoom[]; capabilities?: MediaCapabili
       initialLocations={[location]}
       initialRooms={overrides.rooms ?? [room]}
       roomTypes={roomTypes}
+      amenityOptions={[]}
       mediaCapabilities={overrides.capabilities ?? freeCapabilities}
     />,
   );

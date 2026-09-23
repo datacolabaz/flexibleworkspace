@@ -12,6 +12,7 @@ import {
   listMyLocations,
   listMyRooms,
   listRoomTypes,
+  listAmenities,
   getMediaCapabilities,
   type MediaCapabilities,
 } from '@/lib/api-client/provider-rooms';
@@ -95,11 +96,12 @@ export default async function ProviderHome() {
 
   try {
     const provider = await getMyProvider(accessToken);
-    const [leads, locations, rooms, roomTypes] = await Promise.all([
+    const [leads, locations, rooms, roomTypes, amenityOptions] = await Promise.all([
       listMyLeads(accessToken),
       listMyLocations(accessToken),
       listMyRooms(accessToken),
       listRoomTypes(accessToken),
+      listAmenities(accessToken),
     ]);
 
     // Best-effort — analytics is a secondary panel, not a core part of the
@@ -155,6 +157,7 @@ export default async function ProviderHome() {
             initialLocations={locations}
             initialRooms={rooms}
             roomTypes={roomTypes}
+            amenityOptions={amenityOptions}
             mediaCapabilities={mediaCapabilities}
           />
         </div>

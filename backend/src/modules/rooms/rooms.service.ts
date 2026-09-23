@@ -164,6 +164,25 @@ export class RoomsService {
     });
   }
 
+  /**
+   * Amenity taxonomy (id + translationKey) for the "Add a room" form's
+   * amenity checkboxes — same reasoning and shape as listRoomTypes()
+   * above: the room-creation/edit form needs real amenity.id UUIDs
+   * (RoomInputDto.amenityIds / UpdateRoomAmenitiesDto.amenityIds), and
+   * no provider-facing endpoint returned that id<->translationKey
+   * mapping before this (only the admin-gated taxonomy CRUD surface
+   * did). The frontend's own lib/constants/taxonomy.ts already hardcodes
+   * the same 18 seeded amenities' translationKeys/labels/icons for
+   * customer-facing display — this just supplies the DB ids that
+   * hardcoded list doesn't have.
+   */
+  async listAmenities(): Promise<{ id: string; translationKey: string }[]> {
+    return this.amenityRepo.find({
+      select: ['id', 'translationKey'],
+      order: { translationKey: 'ASC' },
+    });
+  }
+
   async findById(id: string): Promise<RoomEntity> {
     const room = await this.roomRepo.findOne({
       where: { id },
@@ -211,6 +230,23 @@ export class RoomsService {
       room.amenities = await this.resolveAmenities(dto.amenityIds);
     room.updatedAt = new Date();
 
+    return this.roomRepo.save(room);
+  }
+
+  /** Full-replace semantics for just the amenities relation — see
+   * UpdateRoomAmenitiesDto's own comment for why this exists alongside
+   * the full-object update() above. */
+  async updateAmenities(
+    id: string,
+    providerId: string,
+    amenityIds: string[],
+  ): Promise<RoomEntity> {
+    const room = await this.findById(id);
+    if (room.location.providerId !== providerId)
+      throw new ResourceNotFoundException('Room');
+
+    room.amenities = await this.resolveAmenities(amenityIds);
+    room.updatedAt = new Date();
     return this.roomRepo.save(room);
   }
 
@@ -267,6 +303,31 @@ export class RoomsService {
   }
 
   // -- Availability rules ---------------------------------------------------
+
+  /**
+   * There was no way for a provider (or this form) to read back what
+   * they last saved — only the full-replace PUT existed. Without this,
+   * every room's availability rules are permanently write-only from the
+   * frontend's perspective: a provider revisiting the page after saving
+   * hours once would see a blank form again, with no way to tell "I set
+   * this already" from "I never set this" (found investigating why a
+   * newly-created room's booking widget always shows "no availability
+   * on this date" — nothing in the provider dashboard ever called the
+   * replace endpoint at all, since there was no UI for it either).
+   */
+  async listAvailabilityRules(
+    roomId: string,
+    providerId: string,
+  ): Promise<AvailabilityRuleEntity[]> {
+    const room = await this.findById(roomId);
+    if (room.location.providerId !== providerId)
+      throw new ResourceNotFoundException('Room');
+
+    return this.availabilityRepo.find({
+      where: { roomId },
+      order: { dayOfWeek: 'ASC', startTime: 'ASC' },
+    });
+  }
 
   /** Full-replace semantics, matching PUT /provider/rooms/{roomId}/availability-rules. */
   async replaceAvailabilityRules(

@@ -100,6 +100,22 @@ function makePhotoRepoDouble() {
   };
 }
 
+/**
+ * In-memory availability-rule repo double — same array-of-plain-objects
+ * philosophy as the doubles above. `find` supports the `{where: {roomId},
+ * order}` shape listAvailabilityRules() actually calls with.
+ */
+function makeAvailabilityRepoDouble() {
+  const rows: any[] = [];
+  return {
+    rows,
+    find: jest.fn(async ({ where }: any = {}) => {
+      const roomId = where?.roomId;
+      return roomId ? rows.filter((r) => r.roomId === roomId) : [...rows];
+    }),
+  };
+}
+
 describe('RoomsService', () => {
   const providerId = 'provider-1';
   const otherProviderId = 'provider-2';
@@ -108,6 +124,7 @@ describe('RoomsService', () => {
 
   let roomRepo: ReturnType<typeof makeRoomRepoDouble>;
   let photoRepo: ReturnType<typeof makePhotoRepoDouble>;
+  let availabilityRepo: ReturnType<typeof makeAvailabilityRepoDouble>;
   let amenityRepo: any;
   let roomTypeRepo: any;
   let locationsService: any;
@@ -118,6 +135,7 @@ describe('RoomsService', () => {
   beforeEach(() => {
     roomRepo = makeRoomRepoDouble();
     photoRepo = makePhotoRepoDouble();
+    availabilityRepo = makeAvailabilityRepoDouble();
     amenityRepo = { find: jest.fn(async () => []) };
     roomTypeRepo = {
       findOne: jest.fn(async ({ where }: any) =>
@@ -157,7 +175,7 @@ describe('RoomsService', () => {
       roomRepo as any,
       amenityRepo,
       roomTypeRepo,
-      {} as any, // availabilityRepo — unused by the methods under test
+      availabilityRepo as any,
       {} as any, // blockedPeriodRepo
       photoRepo as any,
       locationsService,
@@ -709,6 +727,118 @@ describe('RoomsService', () => {
       expect(storageProvider.delete).toHaveBeenCalledWith('existing-key');
       expect(room.videoStorageKey).toBeNull();
       expect(room.videoDurationSeconds).toBeNull();
+    });
+  });
+
+  describe('listAmenities()', () => {
+    it('returns the amenity repo rows via a plain select/order query', async () => {
+      amenityRepo.find = jest.fn(async () => [
+        { id: 'am-1', translationKey: 'amenity.wifi' },
+      ]);
+      const result = await service.listAmenities();
+      expect(result).toEqual([{ id: 'am-1', translationKey: 'amenity.wifi' }]);
+      expect(amenityRepo.find).toHaveBeenCalledWith({
+        select: ['id', 'translationKey'],
+        order: { translationKey: 'ASC' },
+      });
+    });
+  });
+
+  describe('updateAmenities()', () => {
+    it("replaces just a room's amenities relation, leaving its other fields untouched", async () => {
+      const room = {
+        id: 'room-am1',
+        name: 'Original name',
+        location: { providerId },
+        amenities: [],
+      };
+      roomRepo.rows.push(room);
+      amenityRepo.find = jest.fn(async () => [
+        { id: 'am-1', translationKey: 'amenity.wifi' },
+      ]);
+
+      const updated = await service.updateAmenities('room-am1', providerId, [
+        'am-1',
+      ]);
+      expect(updated.amenities).toEqual([
+        { id: 'am-1', translationKey: 'amenity.wifi' },
+      ]);
+      expect(updated.name).toBe('Original name');
+    });
+
+    it('rejects an amenityId that does not exist', async () => {
+      roomRepo.rows.push({
+        id: 'room-am2',
+        location: { providerId },
+        amenities: [],
+      });
+      amenityRepo.find = jest.fn(async () => []);
+
+      await expect(
+        service.updateAmenities('room-am2', providerId, ['missing-id']),
+      ).rejects.toMatchObject({ code: 'INVALID_AMENITY' });
+    });
+
+    it('404s (not 403) when a provider tries to change amenities on a room it does not own', async () => {
+      roomRepo.rows.push({
+        id: 'room-am3',
+        location: { providerId },
+        amenities: [],
+      });
+
+      await expect(
+        service.updateAmenities('room-am3', otherProviderId, []),
+      ).rejects.toBeInstanceOf(ResourceNotFoundException);
+    });
+  });
+
+  describe('listAvailabilityRules()', () => {
+    it("returns only the requested room's rules", async () => {
+      roomRepo.rows.push({
+        id: 'room-av1',
+        location: { providerId },
+        amenities: [],
+      });
+      availabilityRepo.rows.push(
+        {
+          roomId: 'room-av1',
+          dayOfWeek: 1,
+          startTime: '09:00',
+          endTime: '18:00',
+        },
+        {
+          roomId: 'other-room',
+          dayOfWeek: 1,
+          startTime: '09:00',
+          endTime: '18:00',
+        },
+      );
+
+      const rules = await service.listAvailabilityRules('room-av1', providerId);
+      expect(rules).toHaveLength(1);
+      expect(rules[0].roomId).toBe('room-av1');
+    });
+
+    it('returns an empty array for a room nobody has set hours for yet', async () => {
+      roomRepo.rows.push({
+        id: 'room-av2',
+        location: { providerId },
+        amenities: [],
+      });
+      const rules = await service.listAvailabilityRules('room-av2', providerId);
+      expect(rules).toEqual([]);
+    });
+
+    it('404s (not 403) when a provider tries to read availability for a room it does not own', async () => {
+      roomRepo.rows.push({
+        id: 'room-av3',
+        location: { providerId },
+        amenities: [],
+      });
+
+      await expect(
+        service.listAvailabilityRules('room-av3', otherProviderId),
+      ).rejects.toBeInstanceOf(ResourceNotFoundException);
     });
   });
 });

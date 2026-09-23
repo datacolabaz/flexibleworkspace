@@ -15,7 +15,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
 
 import { RoomsService } from './rooms.service';
-import { RoomInputDto } from './dto/room-input.dto';
+import { RoomInputDto, UpdateRoomAmenitiesDto } from './dto/room-input.dto';
 import { ReplaceAvailabilityRulesDto } from './dto/availability-rule-input.dto';
 import { BlockedPeriodInputDto } from './dto/blocked-period-input.dto';
 import {
@@ -65,6 +65,15 @@ export class RoomsController {
     return this.roomsService.listRoomTypes();
   }
 
+  @Get('amenities')
+  @ApiOperation({
+    summary:
+      'Amenity taxonomy (id + translationKey) for the "Add a room" form\'s amenity checkboxes',
+  })
+  async listAmenities() {
+    return this.roomsService.listAmenities();
+  }
+
   @Get('media/capabilities')
   @ApiOperation({
     summary:
@@ -94,6 +103,23 @@ export class RoomsController {
     @Body() dto: RoomInputDto,
   ) {
     return this.roomsService.update(roomId, this.requireProviderId(user), dto);
+  }
+
+  @Patch(':roomId/amenities')
+  @ApiOperation({
+    summary:
+      "Replace just this room's amenities (full-replace semantics), without touching its other fields",
+  })
+  async updateAmenities(
+    @Param('roomId') roomId: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: UpdateRoomAmenitiesDto,
+  ) {
+    return this.roomsService.updateAmenities(
+      roomId,
+      this.requireProviderId(user),
+      dto.amenityIds,
+    );
   }
 
   @Patch(':roomId/status')
@@ -274,6 +300,20 @@ export class RoomsController {
     @CurrentUser() user: AuthenticatedUser,
   ) {
     return this.roomsService.removeVideo(roomId, this.requireProviderId(user));
+  }
+
+  @Get(':roomId/availability-rules')
+  @ApiOperation({
+    summary: "This room's current availability rules",
+  })
+  async listAvailabilityRules(
+    @Param('roomId') roomId: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.roomsService.listAvailabilityRules(
+      roomId,
+      this.requireProviderId(user),
+    );
   }
 
   @Put(':roomId/availability-rules')

@@ -77,3 +77,21 @@ export class RoomInputDto {
   @IsObject()
   cancellationPolicy?: Record<string, unknown>;
 }
+
+/**
+ * PATCH /provider/rooms/{roomId}/amenities — a narrow, amenities-only
+ * sibling to the full-object RoomInputDto used by PATCH /:roomId.
+ * Editing just the amenity checkboxes on an already-created room
+ * shouldn't require resubmitting every other field (name, price,
+ * capacity, …) — that full-object PATCH's own semantics (each omitted
+ * optional field like sizeSqm/cancellationPolicy is reset to null, per
+ * RoomsService.update()) would silently wipe them if a caller only meant
+ * to change amenities.
+ */
+export class UpdateRoomAmenitiesDto {
+  @ApiProperty({ type: [String] })
+  @IsArray()
+  @ArrayUnique()
+  @IsUUID(undefined, { each: true })
+  amenityIds: string[];
+}

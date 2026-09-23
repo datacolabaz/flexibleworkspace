@@ -3,6 +3,7 @@ import {
   listMyRooms,
   createMyRoom,
   listRoomTypes,
+  listAmenities,
   getMediaCapabilities,
   ProviderRoomsApiError,
   type CreateRoomInput,
@@ -24,7 +25,7 @@ function tokenOrNull(request: NextRequest) {
   return readSession(request.cookies).accessToken ?? null;
 }
 
-/** `?types=1` returns the room-type taxonomy, `?capabilities=1` this provider's media (photo/video) limits, instead of the room list — kept on this same route rather than new files, since all three are simple provider-authenticated GETs the "Add a room" / media UI need together. */
+/** `?types=1` returns the room-type taxonomy, `?amenities=1` the amenity taxonomy, `?capabilities=1` this provider's media (photo/video) limits, instead of the room list — kept on this same route rather than new files, since all four are simple provider-authenticated GETs the "Add a room" / media UI need together. */
 export async function GET(request: NextRequest) {
   const accessToken = tokenOrNull(request);
   if (!accessToken) {
@@ -33,6 +34,9 @@ export async function GET(request: NextRequest) {
   try {
     if (request.nextUrl.searchParams.get('types') === '1') {
       return NextResponse.json(await listRoomTypes(accessToken));
+    }
+    if (request.nextUrl.searchParams.get('amenities') === '1') {
+      return NextResponse.json(await listAmenities(accessToken));
     }
     if (request.nextUrl.searchParams.get('capabilities') === '1') {
       return NextResponse.json(await getMediaCapabilities(accessToken));

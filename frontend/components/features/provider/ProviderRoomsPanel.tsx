@@ -11,9 +11,12 @@ import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 import { Spinner } from '@/components/ui/Spinner';
 import type {
+  AvailabilityRule,
+  AvailabilityRuleInput,
   MediaCapabilities,
   MyLocation,
   MyRoom,
+  MyRoomAmenity,
   MyRoomStatus,
   RoomMedia,
   RoomMediaPhoto,
@@ -49,6 +52,38 @@ const ROOM_TYPE_LABEL_AZ: Record<string, string> = {
   'room_type.interview_room': 'Müsahibə otağı',
   'room_type.tutor_teacher_room': 'Dərs otağı',
 };
+
+const AMENITY_LABEL_AZ: Record<string, string> = {
+  'amenity.wifi': 'Wi-Fi',
+  'amenity.projector': 'Proyektor',
+  'amenity.whiteboard': 'Ağ lövhə',
+  'amenity.tv_screen': 'TV ekranı',
+  'amenity.video_conferencing': 'Video konfrans',
+  'amenity.sound_system': 'Səs sistemi',
+  'amenity.soundproofing': 'Səsizolyasiya',
+  'amenity.lighting_kit': 'İşıqlandırma dəsti',
+  'amenity.air_conditioning': 'Kondisioner',
+  'amenity.natural_light': 'Təbii işıq',
+  'amenity.coffee_tea': 'Çay və qəhvə',
+  'amenity.kitchen_access': 'Mətbəxdən istifadə',
+  'amenity.parking': 'Avtodayanacaq',
+  'amenity.wheelchair_accessible': 'Əlil arabası üçün əlçatan',
+  'amenity.near_metro': 'Metroya yaxın',
+  'amenity.reception_staff': 'Qarşılama heyəti',
+  'amenity.printer_scanner': 'Printer / skaner',
+  'amenity.private_entrance': 'Ayrıca giriş',
+};
+
+// 0=Sunday..6=Saturday, matching AvailabilityRuleEntity.dayOfWeek.
+const DAY_LABEL_AZ: string[] = [
+  'Bazar',
+  'Bazar ertəsi',
+  'Çərşənbə axşamı',
+  'Çərşənbə',
+  'Cümə axşamı',
+  'Cümə',
+  'Şənbə',
+];
 
 const STATUS_LABEL: Record<MyRoomStatus, string> = {
   DRAFT: 'Qaralama',
@@ -138,11 +173,13 @@ export function ProviderRoomsPanel({
   initialLocations,
   initialRooms,
   roomTypes,
+  amenityOptions,
   mediaCapabilities,
 }: {
   initialLocations: MyLocation[];
   initialRooms: MyRoom[];
   roomTypes: RoomTypeOption[];
+  amenityOptions: RoomTypeOption[];
   mediaCapabilities: MediaCapabilities;
 }) {
   const [locations, setLocations] = useState(initialLocations);
@@ -157,6 +194,7 @@ export function ProviderRoomsPanel({
       locationId={locations[0].id}
       rooms={rooms}
       roomTypes={roomTypes}
+      amenityOptions={amenityOptions}
       mediaCapabilities={mediaCapabilities}
       onCreated={(room) => setRooms((prev) => [room, ...prev])}
       onUpdated={(room) => setRooms((prev) => prev.map((item) => (item.id === room.id ? room : item)))}
@@ -231,6 +269,7 @@ function RoomsCard({
   locationId,
   rooms,
   roomTypes,
+  amenityOptions,
   mediaCapabilities,
   onCreated,
   onUpdated,
@@ -238,6 +277,7 @@ function RoomsCard({
   locationId: string;
   rooms: MyRoom[];
   roomTypes: RoomTypeOption[];
+  amenityOptions: RoomTypeOption[];
   mediaCapabilities: MediaCapabilities;
   onCreated: (room: MyRoom) => void;
   onUpdated: (room: MyRoom) => void;
@@ -262,6 +302,7 @@ function RoomsCard({
         <AddRoomForm
           locationId={locationId}
           roomTypes={roomTypes}
+          amenityOptions={amenityOptions}
           onCreated={(room) => {
             onCreated(room);
             setShowForm(false);
@@ -275,7 +316,14 @@ function RoomsCard({
       {rooms.length > 0 && (
         <ul className="flex flex-col gap-3">
           {rooms.map((room) => (
-            <RoomRow key={room.id} room={room} roomTypes={roomTypes} mediaCapabilities={mediaCapabilities} onUpdated={onUpdated} />
+            <RoomRow
+              key={room.id}
+              room={room}
+              roomTypes={roomTypes}
+              amenityOptions={amenityOptions}
+              mediaCapabilities={mediaCapabilities}
+              onUpdated={onUpdated}
+            />
           ))}
         </ul>
       )}
@@ -286,11 +334,13 @@ function RoomsCard({
 function AddRoomForm({
   locationId,
   roomTypes,
+  amenityOptions,
   onCreated,
   onCancel,
 }: {
   locationId: string;
   roomTypes: RoomTypeOption[];
+  amenityOptions: RoomTypeOption[];
   onCreated: (room: MyRoom) => void;
   onCancel?: () => void;
 }) {
@@ -299,8 +349,13 @@ function AddRoomForm({
   const [capacityMax, setCapacityMax] = useState('4');
   const [price, setPrice] = useState('');
   const [description, setDescription] = useState('');
+  const [selectedAmenityIds, setSelectedAmenityIds] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | undefined>();
+
+  function toggleAmenity(id: string) {
+    setSelectedAmenityIds((prev) => (prev.includes(id) ? prev.filter((existing) => existing !== id) : [...prev, id]));
+  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -329,6 +384,7 @@ function AddRoomForm({
           description: description.trim() || undefined,
           capacityMax: Number(capacityMax),
           basePriceAmount: Math.round(Number(price) * 100),
+          amenityIds: selectedAmenityIds.length > 0 ? selectedAmenityIds : undefined,
         }),
       });
       if (!response.ok) {
@@ -371,6 +427,22 @@ function AddRoomForm({
           <Input id="room-price" type="number" min="0.01" step="0.01" required value={price} disabled={saving} onChange={(event) => setPrice(event.target.value)} />
         </FormField>
       </div>
+      <FormField id="room-amenities" label="Amenitlər (könüllü)">
+        <div id="room-amenities" className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+          {amenityOptions.map((amenity) => (
+            <label key={amenity.id} className="flex min-h-11 items-center gap-2 text-small text-text-primary">
+              <input
+                type="checkbox"
+                checked={selectedAmenityIds.includes(amenity.id)}
+                disabled={saving}
+                onChange={() => toggleAmenity(amenity.id)}
+                className="h-4 w-4 rounded-sm border-border-strong text-primary focus:ring-primary"
+              />
+              {AMENITY_LABEL_AZ[amenity.translationKey] ?? amenity.translationKey}
+            </label>
+          ))}
+        </div>
+      </FormField>
       <FormField id="room-description" label="Təsvir (könüllü)">
         <textarea
           id="room-description"
@@ -399,11 +471,13 @@ function AddRoomForm({
 function RoomRow({
   room,
   roomTypes,
+  amenityOptions,
   mediaCapabilities,
   onUpdated,
 }: {
   room: MyRoom;
   roomTypes: RoomTypeOption[];
+  amenityOptions: RoomTypeOption[];
   mediaCapabilities: MediaCapabilities;
   onUpdated: (room: MyRoom) => void;
 }) {
@@ -474,9 +548,286 @@ function RoomRow({
       )}
 
       <div className="border-t border-border pt-3">
+        <AmenitiesEditor
+          roomId={room.id}
+          amenityOptions={amenityOptions}
+          currentAmenities={room.amenities}
+          onUpdated={onUpdated}
+        />
+      </div>
+
+      <div className="border-t border-border pt-3">
+        <AvailabilityEditor roomId={room.id} />
+      </div>
+
+      <div className="border-t border-border pt-3">
         <RoomMediaManager roomId={room.id} capabilities={mediaCapabilities} />
       </div>
     </li>
+  );
+}
+
+/**
+ * Lets a provider set/change which amenities a room has, directly from
+ * the dashboard — before this there was NO frontend path to set
+ * amenities on an existing room at all (only `RoomInputDto.amenityIds`
+ * existed on the backend, wired only into room creation). Uses the
+ * narrow `PATCH :roomId/amenities` endpoint (full-replace on just this
+ * relation) rather than the general room PATCH, which nulls out any
+ * omitted optional field.
+ */
+function AmenitiesEditor({
+  roomId,
+  amenityOptions,
+  currentAmenities,
+  onUpdated,
+}: {
+  roomId: string;
+  amenityOptions: RoomTypeOption[];
+  currentAmenities: MyRoomAmenity[];
+  onUpdated: (room: MyRoom) => void;
+}) {
+  const [selectedIds, setSelectedIds] = useState<string[]>(currentAmenities.map((a) => a.id));
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | undefined>();
+  const [saved, setSaved] = useState(false);
+
+  function toggle(id: string) {
+    setSaved(false);
+    setSelectedIds((prev) => (prev.includes(id) ? prev.filter((existing) => existing !== id) : [...prev, id]));
+  }
+
+  async function handleSave() {
+    setSaving(true);
+    setError(undefined);
+    setSaved(false);
+    try {
+      const response = await fetch(`/api/provider/rooms/${roomId}/amenities`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ amenityIds: selectedIds }),
+      });
+      if (!response.ok) {
+        setError(await readBffError(response, 'Amenitlər yadda saxlanmadı. Yenidən cəhd edin.'));
+        return;
+      }
+      onUpdated((await response.json()) as MyRoom);
+      setSaved(true);
+    } catch {
+      setError('Amenitlər yadda saxlanmadı. Yenidən cəhd edin.');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="flex flex-col gap-2">
+      <label className="text-label text-text-primary" id={`room-amenities-${roomId}`}>
+        Amenitlər
+      </label>
+      {error && <Alert variant="error">{error}</Alert>}
+      <div aria-labelledby={`room-amenities-${roomId}`} className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+        {amenityOptions.map((amenity) => (
+          <label key={amenity.id} className="flex min-h-11 items-center gap-2 text-small text-text-primary">
+            <input
+              type="checkbox"
+              checked={selectedIds.includes(amenity.id)}
+              disabled={saving}
+              onChange={() => toggle(amenity.id)}
+              className="h-4 w-4 rounded-sm border-border-strong text-primary focus:ring-primary"
+            />
+            {AMENITY_LABEL_AZ[amenity.translationKey] ?? amenity.translationKey}
+          </label>
+        ))}
+      </div>
+      <div className="flex items-center gap-3">
+        <Button type="button" variant="secondary" size="sm" isLoading={saving} onClick={handleSave} className="self-start">
+          {saving ? 'Saxlanılır…' : 'Amenitləri yadda saxla'}
+        </Button>
+        {saved && <span className="text-caption text-success">Saxlanıldı ✓</span>}
+      </div>
+    </div>
+  );
+}
+
+type WeeklyDay = {
+  dayOfWeek: number;
+  isOpen: boolean;
+  startTime: string;
+  endTime: string;
+};
+
+const DEFAULT_OPEN_START = '09:00';
+const DEFAULT_OPEN_END = '21:00';
+
+function buildWeekFromRules(rules: AvailabilityRule[]): WeeklyDay[] {
+  return DAY_LABEL_AZ.map((_, dayOfWeek) => {
+    const rule = rules.find((r) => r.recurrenceType === 'WEEKLY' && r.dayOfWeek === dayOfWeek);
+    if (!rule) {
+      return { dayOfWeek, isOpen: false, startTime: DEFAULT_OPEN_START, endTime: DEFAULT_OPEN_END };
+    }
+    return {
+      dayOfWeek,
+      isOpen: rule.isOpen,
+      startTime: rule.startTime.slice(0, 5),
+      endTime: rule.endTime.slice(0, 5),
+    };
+  });
+}
+
+/**
+ * Root fix for "rezerv etmək olmur" (can't reserve) — a room has zero
+ * bookable time until working hours are set somewhere, and before this
+ * there was NO frontend UI anywhere that let a provider set them (only
+ * the backend's `PUT :roomId/availability-rules` existed, and nothing
+ * could even read back what was saved — the paired GET was added
+ * alongside this UI). One WEEKLY rule per day of week, open/closed
+ * toggle plus a start/end time when open.
+ *
+ * Loads lazily on first expand rather than on mount — every `RoomRow`
+ * in the list would otherwise fire its own availability-rules GET the
+ * moment the dashboard renders, on top of `RoomMediaManager`'s own
+ * on-mount fetch for every room; there's no need to pay for that before
+ * the provider has actually asked to see or edit the hours.
+ */
+function AvailabilityEditor({ roomId }: { roomId: string }) {
+  const [expanded, setExpanded] = useState(false);
+  const [week, setWeek] = useState<WeeklyDay[] | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | undefined>();
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | undefined>();
+  const [saved, setSaved] = useState(false);
+
+  async function handleExpand() {
+    setExpanded(true);
+    if (week) return;
+    setLoading(true);
+    setLoadError(undefined);
+    try {
+      const response = await fetch(`/api/provider/rooms/${roomId}/availability-rules`, { cache: 'no-store' });
+      if (!response.ok) {
+        setLoadError(await readBffError(response, 'İş saatları yüklənmədi.'));
+        return;
+      }
+      const rules = (await response.json()) as AvailabilityRule[];
+      setWeek(buildWeekFromRules(rules));
+    } catch {
+      setLoadError('İş saatları yüklənmədi.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function updateDay(dayOfWeek: number, patch: Partial<WeeklyDay>) {
+    setSaved(false);
+    setWeek((prev) => prev && prev.map((day) => (day.dayOfWeek === dayOfWeek ? { ...day, ...patch } : day)));
+  }
+
+  async function handleSave() {
+    if (!week) return;
+    if (week.every((day) => !day.isOpen)) {
+      setSaveError('Otağın rezerv edilə bilməsi üçün ən azı bir gün açıq olmalıdır.');
+      return;
+    }
+    for (const day of week) {
+      if (day.isOpen && day.startTime >= day.endTime) {
+        setSaveError(`${DAY_LABEL_AZ[day.dayOfWeek]} üçün bitmə vaxtı başlanğıc vaxtından sonra olmalıdır.`);
+        return;
+      }
+    }
+    setSaving(true);
+    setSaveError(undefined);
+    setSaved(false);
+    try {
+      const rules: AvailabilityRuleInput[] = week.map((day) => ({
+        recurrenceType: 'WEEKLY',
+        dayOfWeek: day.dayOfWeek,
+        startTime: day.startTime,
+        endTime: day.endTime,
+        isOpen: day.isOpen,
+      }));
+      const response = await fetch(`/api/provider/rooms/${roomId}/availability-rules`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rules }),
+      });
+      if (!response.ok) {
+        setSaveError(await readBffError(response, 'İş saatları yadda saxlanmadı. Yenidən cəhd edin.'));
+        return;
+      }
+      const savedRules = (await response.json()) as AvailabilityRule[];
+      setWeek(buildWeekFromRules(savedRules));
+      setSaved(true);
+    } catch {
+      setSaveError('İş saatları yadda saxlanmadı. Yenidən cəhd edin.');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="flex flex-col gap-2">
+      <div>
+        <label className="text-label text-text-primary">İş saatları</label>
+        <p className="text-caption text-text-muted">
+          Otaq yalnız aşağıda açıq işarələnmiş günlərdə və saatlarda rezerv üçün görünəcək.
+        </p>
+      </div>
+
+      {!expanded && (
+        <Button type="button" variant="secondary" size="sm" onClick={handleExpand} className="self-start">
+          İş saatlarını göstər / redaktə et
+        </Button>
+      )}
+
+      {expanded && loadError && <Alert variant="error">{loadError}</Alert>}
+      {expanded && saveError && <Alert variant="error">{saveError}</Alert>}
+
+      {expanded && loading && <Spinner label="Yüklənir" />}
+
+      {expanded && week && (
+        <div className="flex flex-col gap-1.5">
+          {week.map((day) => (
+            <div key={day.dayOfWeek} className="flex flex-wrap items-center gap-2 sm:gap-3">
+              <label className="flex min-h-11 w-36 shrink-0 items-center gap-2 text-small text-text-primary">
+                <input
+                  type="checkbox"
+                  checked={day.isOpen}
+                  disabled={saving}
+                  onChange={(event) => updateDay(day.dayOfWeek, { isOpen: event.target.checked })}
+                  className="h-4 w-4 rounded-sm border-border-strong text-primary focus:ring-primary"
+                />
+                {DAY_LABEL_AZ[day.dayOfWeek]}
+              </label>
+              <input
+                type="time"
+                aria-label={`${DAY_LABEL_AZ[day.dayOfWeek]} başlanğıc`}
+                value={day.startTime}
+                disabled={saving || !day.isOpen}
+                onChange={(event) => updateDay(day.dayOfWeek, { startTime: event.target.value })}
+                className="min-h-9 rounded-sm border border-border-strong bg-surface px-2 py-1 text-small text-text-primary disabled:cursor-not-allowed disabled:opacity-50"
+              />
+              <span className="text-small text-text-muted">—</span>
+              <input
+                type="time"
+                aria-label={`${DAY_LABEL_AZ[day.dayOfWeek]} bitmə`}
+                value={day.endTime}
+                disabled={saving || !day.isOpen}
+                onChange={(event) => updateDay(day.dayOfWeek, { endTime: event.target.value })}
+                className="min-h-9 rounded-sm border border-border-strong bg-surface px-2 py-1 text-small text-text-primary disabled:cursor-not-allowed disabled:opacity-50"
+              />
+            </div>
+          ))}
+          <div className="mt-1 flex items-center gap-3">
+            <Button type="button" size="sm" isLoading={saving} onClick={handleSave} className="self-start">
+              {saving ? 'Saxlanılır…' : 'İş saatlarını yadda saxla'}
+            </Button>
+            {saved && <span className="text-caption text-success">Saxlanıldı ✓</span>}
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 
