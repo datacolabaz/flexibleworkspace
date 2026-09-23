@@ -15,11 +15,16 @@ import {
   listAdminProviders,
   verifyAdminProvider,
   setAdminProviderSuspended,
+  setAdminProviderPlanTier,
+  listAdminPlanUpgradeRequests,
+  resolveAdminPlanUpgradeRequest,
   setAdminUserSuspended,
   updateAdminPricing,
   updateAdminCancellationPolicy,
   type CorrectRoomInput,
   type AdminProviderVerificationStatus,
+  type AdminProviderPlanTier,
+  type AdminPlanUpgradeRequestStatus,
 } from '@/lib/api-client/admin';
 import { readSession } from '@/lib/auth/session';
 
@@ -107,6 +112,10 @@ export async function GET(
       const status = request.nextUrl.searchParams.get('verificationStatus') as AdminProviderVerificationStatus | null;
       return NextResponse.json(await listAdminProviders(accessToken, status ?? undefined));
     }
+    if (key === 'plan-upgrade-requests') {
+      const status = request.nextUrl.searchParams.get('status') as AdminPlanUpgradeRequestStatus | null;
+      return NextResponse.json(await listAdminPlanUpgradeRequests(accessToken, status ?? undefined));
+    }
     if (key === 'access') {
       await assertAdminAccess(accessToken);
       return NextResponse.json({ ok: true });
@@ -149,6 +158,10 @@ export async function PATCH(
       const body = (await request.json()) as { suspended: boolean; notes?: string };
       return NextResponse.json(await setAdminProviderSuspended(accessToken, path[1], body.suspended, body.notes));
     }
+    if (path.length === 3 && path[0] === 'providers' && path[2] === 'plan') {
+      const body = (await request.json()) as { planTier: AdminProviderPlanTier };
+      return NextResponse.json(await setAdminProviderPlanTier(accessToken, path[1], body.planTier));
+    }
     return NextResponse.json({ error: { code: 'NOT_FOUND', message: 'Admin endpoint not found.' } }, { status: 404 });
   } catch (error) {
     return errorResponse(error);
@@ -170,6 +183,10 @@ export async function POST(
     if (path.length === 3 && path[0] === 'providers' && path[2] === 'verify') {
       const body = (await request.json()) as { decision: 'VERIFIED' | 'REJECTED'; notes?: string };
       return NextResponse.json(await verifyAdminProvider(accessToken, path[1], body.decision, body.notes));
+    }
+    if (path.length === 3 && path[0] === 'plan-upgrade-requests' && path[2] === 'resolve') {
+      const body = (await request.json()) as { grantPlanTier?: AdminProviderPlanTier };
+      return NextResponse.json(await resolveAdminPlanUpgradeRequest(accessToken, path[1], body.grantPlanTier));
     }
     return NextResponse.json({ error: { code: 'NOT_FOUND', message: 'Admin endpoint not found.' } }, { status: 404 });
   } catch (error) {

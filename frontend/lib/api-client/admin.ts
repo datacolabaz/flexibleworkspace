@@ -68,6 +68,20 @@ export type AdminProvider = {
   updatedAt: string;
 };
 
+export type AdminProviderPlanTier = 'FREE' | 'STARTER' | 'PRO' | 'ENTERPRISE';
+
+export type AdminPlanUpgradeRequestStatus = 'PENDING' | 'RESOLVED';
+
+export type AdminPlanUpgradeRequest = {
+  id: string;
+  providerId: string;
+  note: string | null;
+  status: AdminPlanUpgradeRequestStatus;
+  createdAt: string;
+  resolvedAt: string | null;
+  resolvedByUserId: string | null;
+};
+
 export type AdminSummary = {
   totalRooms: number;
   activeRooms: number;
@@ -277,6 +291,26 @@ export function setAdminProviderSuspended(accessToken: string, providerId: strin
   return adminFetch<AdminProvider>(accessToken, `admin/providers/${encodeURIComponent(providerId)}/suspend`, {
     method: 'PATCH',
     body: JSON.stringify({ suspended, notes }),
+  });
+}
+
+export function setAdminProviderPlanTier(accessToken: string, providerId: string, planTier: AdminProviderPlanTier) {
+  return adminFetch<AdminProvider>(accessToken, `admin/providers/${encodeURIComponent(providerId)}/plan`, {
+    method: 'PATCH',
+    body: JSON.stringify({ planTier }),
+  });
+}
+
+/** See the 1700000000015-PlanUpgradeRequest migration's comment — a provider asking for a higher plan while there's no live payment gateway; admin follows up manually (same pattern as `verifyAdminProvider`/`setAdminProviderSuspended`). */
+export function listAdminPlanUpgradeRequests(accessToken: string, status?: AdminPlanUpgradeRequestStatus) {
+  const suffix = status ? `?status=${encodeURIComponent(status)}` : '';
+  return adminFetch<AdminPlanUpgradeRequest[]>(accessToken, `admin/plan-upgrade-requests${suffix}`);
+}
+
+export function resolveAdminPlanUpgradeRequest(accessToken: string, requestId: string, grantPlanTier?: AdminProviderPlanTier) {
+  return adminFetch<AdminPlanUpgradeRequest>(accessToken, `admin/plan-upgrade-requests/${encodeURIComponent(requestId)}/resolve`, {
+    method: 'POST',
+    body: JSON.stringify({ grantPlanTier }),
   });
 }
 

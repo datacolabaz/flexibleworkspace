@@ -52,6 +52,9 @@ type ProviderVerificationStatus = 'PENDING' | 'VERIFIED' | 'REJECTED' | 'SUSPEND
 type ProviderVerificationDocumentType = 'ID_DOCUMENT' | 'BUSINESS_REGISTRATION' | 'ADDRESS_PROOF' | 'OTHER';
 type ProviderVerificationDocument = { type: ProviderVerificationDocumentType; storageKey: string; originalFilename: string; mimeType: string; uploadedAt: string };
 type AdminProvider = { id: string; legalName: string; displayName: string; slug: string; category: string | null; taxId: string | null; verificationStatus: ProviderVerificationStatus; planTier: string; verificationDocuments: ProviderVerificationDocument[]; createdAt: string };
+type PlanTier = 'FREE' | 'STARTER' | 'PRO' | 'ENTERPRISE';
+type PlanUpgradeRequestStatus = 'PENDING' | 'RESOLVED';
+type AdminPlanUpgradeRequest = { id: string; providerId: string; note: string | null; status: PlanUpgradeRequestStatus; createdAt: string; resolvedAt: string | null; resolvedByUserId: string | null };
 
 const NAV_ITEMS: Array<{ id: Section; label: string; description: string }> = [
   { id: 'overview', label: 'İcmal', description: 'Canlı kataloq göstəriciləri və növbəti addımlar' },
@@ -94,6 +97,7 @@ export default function AdminHome() {
   const [cancellationPolicy, setCancellationPolicy] = useState<AdminCancellationPolicy | null>(null);
   const [providers, setProviders] = useState<AdminProvider[]>([]);
   const [providerStatusFilter, setProviderStatusFilter] = useState<string>('');
+  const [planUpgradeRequests, setPlanUpgradeRequests] = useState<AdminPlanUpgradeRequest[]>([]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -116,20 +120,33 @@ export default function AdminHome() {
       return () => controller.abort();
     }
 
+    if (section === 'providers') {
+      Promise.all([
+        requestJson<AdminProvider[]>(`/api/admin/providers${providerStatusFilter ? `?verificationStatus=${providerStatusFilter}` : ''}`, { signal: controller.signal }),
+        requestJson<AdminPlanUpgradeRequest[]>('/api/admin/plan-upgrade-requests?status=PENDING', { signal: controller.signal }),
+      ])
+        .then(([providersData, requestsData]) => {
+          setProviders(providersData);
+          setPlanUpgradeRequests(requestsData);
+        })
+        .catch((reason: Error) => {
+          if (reason.name !== 'AbortError') setError(reason.message);
+        })
+        .finally(() => setLoading(false));
+      return () => controller.abort();
+    }
+
     const endpoint = section === 'overview'
       ? '/api/admin/dashboard/summary'
-      : section === 'providers'
-        ? `/api/admin/providers${providerStatusFilter ? `?verificationStatus=${providerStatusFilter}` : ''}`
-        : section === 'audit'
+      : section === 'audit'
       ? '/api/admin/audit-log'
       : section === 'users'
         ? `/api/admin/users${query.trim() ? `?q=${encodeURIComponent(query.trim())}` : ''}`
         : `/api/admin/rooms${query.trim() ? `?q=${encodeURIComponent(query.trim())}` : ''}`;
 
-    requestJson<AdminRoom[] | AdminAuditEntry[] | AdminUser[] | AdminProvider[]>(endpoint, { signal: controller.signal })
+    requestJson<AdminRoom[] | AdminAuditEntry[] | AdminUser[]>(endpoint, { signal: controller.signal })
       .then((data) => {
         if (section === 'overview') setSummary(data as unknown as AdminSummary);
-        else if (section === 'providers') setProviders(data as AdminProvider[]);
         else if (section === 'audit') setAudit(data as AdminAuditEntry[]);
         else if (section === 'users') setUsers(data as AdminUser[]);
         else setRooms(data as AdminRoom[]);
@@ -189,7 +206,16 @@ export default function AdminHome() {
           {section === 'overview' && <Overview rooms={rooms} summary={summary} activeRooms={activeRooms} pendingRooms={pendingRooms} onNavigate={setSection} />}
           {section === 'listings' && <Listings rooms={rooms} query={query} onQuery={setQuery} editingRoom={editingRoom} onEdit={setEditingRoom} onSaved={(room) => { setRooms((current) => current.map((item) => item.id === room.id ? room : item)); setEditingRoom(null); }} />}
           {section === 'pricing' && <PricingSection pricing={pricing} onSaved={setPricing} cancellationPolicy={cancellationPolicy} onCancellationPolicySaved={setCancellationPolicy} />}
-          {section === 'providers' && <ProvidersSection providers={providers} statusFilter={providerStatusFilter} onFilterChange={setProviderStatusFilter} onUpdated={(updated) => setProviders((current) => current.map((item) => item.id === updated.id ? updated : item))} />}
+          {section === 'providers' && (
+            <ProvidersSection
+              providers={providers}
+              statusFilter={providerStatusFilter}
+              onFilterChange={setProviderStatusFilter}
+              onUpdated={(updated) => setProviders((current) => current.map((item) => item.id === updated.id ? updated : item))}
+              planUpgradeRequests={planUpgradeRequests}
+              onRequestResolved={(resolved) => setPlanUpgradeRequests((current) => current.filter((item) => item.id !== resolved.id))}
+            />
+          )}
           {section === 'users' && <UsersSection users={users} query={query} onQuery={setQuery} />}
           {section === 'audit' && <AuditSection entries={audit} />}
         </main>
@@ -352,9 +378,33 @@ function CancellationPolicyCard({ cancellationPolicy, onSaved }: { cancellationP
   </Card>;
 }
 
-function ProvidersSection({ providers, statusFilter, onFilterChange, onUpdated }: { providers: AdminProvider[]; statusFilter: string; onFilterChange: (value: string) => void; onUpdated: (provider: AdminProvider) => void }) {
+function ProvidersSection({ providers, statusFilter, onFilterChange, onUpdated, planUpgradeRequests, onRequestResolved }: { providers: AdminProvider[]; statusFilter: string; onFilterChange: (value: string) => void; onUpdated: (provider: AdminProvider) => void; planUpgradeRequests: AdminPlanUpgradeRequest[]; onRequestResolved: (request: AdminPlanUpgradeRequest) => void }) {
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [busyRequestId, setBusyRequestId] = useState<string | null>(null);
   const [error, setError] = useState('');
+
+  async function changePlan(provider: AdminProvider, planTier: PlanTier) {
+    if (planTier === provider.planTier) return;
+    setBusyId(provider.id); setError('');
+    try {
+      const updated = await requestJson<AdminProvider>(`/api/admin/providers/${provider.id}/plan`, { method: 'PATCH', body: JSON.stringify({ planTier }) });
+      onUpdated(updated);
+    } catch (caught) { setError(caught instanceof Error ? caught.message : 'Plan dəyişdirilmədi.'); }
+    finally { setBusyId(null); }
+  }
+
+  async function resolveRequest(request: AdminPlanUpgradeRequest, grantPlanTier?: PlanTier) {
+    setBusyRequestId(request.id); setError('');
+    try {
+      const resolved = await requestJson<AdminPlanUpgradeRequest>(`/api/admin/plan-upgrade-requests/${request.id}/resolve`, { method: 'POST', body: JSON.stringify({ grantPlanTier }) });
+      if (grantPlanTier) {
+        const provider = providers.find((p) => p.id === request.providerId);
+        if (provider) onUpdated({ ...provider, planTier: grantPlanTier });
+      }
+      onRequestResolved(resolved);
+    } catch (caught) { setError(caught instanceof Error ? caught.message : 'Sorğu həll edilmədi.'); }
+    finally { setBusyRequestId(null); }
+  }
 
   async function verify(provider: AdminProvider, decision: 'VERIFIED' | 'REJECTED') {
     const notes = window.prompt(decision === 'VERIFIED' ? 'Təsdiq qeydi (istəyə bağlı):' : 'Rədd səbəbi:');
@@ -395,6 +445,31 @@ function ProvidersSection({ providers, statusFilter, onFilterChange, onUpdated }
       </select>
     </div>
     {error && <p className="rounded-md bg-error-bg px-4 py-3 text-small text-error">{error}</p>}
+
+    {planUpgradeRequests.length > 0 && (
+      <Card className="space-y-3 p-5">
+        <h3 className="font-display text-h4">Yüksəltmə sorğuları ({planUpgradeRequests.length})</h3>
+        <ul className="flex flex-col gap-3">
+          {planUpgradeRequests.map((req) => {
+            const provider = providers.find((p) => p.id === req.providerId);
+            return (
+              <li key={req.id} className="flex flex-col gap-2 rounded-md border border-border p-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="font-semibold">{provider?.displayName ?? req.providerId}</p>
+                  {req.note && <p className="mt-0.5 text-small text-text-secondary">&ldquo;{req.note}&rdquo;</p>}
+                  <p className="mt-0.5 text-caption text-text-muted">{formatDate(req.createdAt)} · hazırkı plan: {provider?.planTier ?? '—'}</p>
+                </div>
+                <div className="flex gap-2">
+                  <Button type="button" size="sm" disabled={busyRequestId === req.id} onClick={() => resolveRequest(req, 'PRO')}>Pro ver</Button>
+                  <Button type="button" variant="secondary" size="sm" disabled={busyRequestId === req.id} onClick={() => resolveRequest(req)}>Rədd et</Button>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      </Card>
+    )}
+
     <Card className="overflow-hidden p-0">
       <div className="overflow-x-auto">
         <table className="w-full min-w-[980px] text-left text-small">
@@ -404,6 +479,7 @@ function ProvidersSection({ providers, statusFilter, onFilterChange, onUpdated }
               <th className="px-5 py-3">Kateqoriya</th>
               <th className="px-5 py-3">VÖEN</th>
               <th className="px-5 py-3">Status</th>
+              <th className="px-5 py-3">Plan</th>
               <th className="px-5 py-3">Sənədlər</th>
               <th className="px-5 py-3">Qeydiyyat</th>
               <th className="px-5 py-3">Əməliyyat</th>
@@ -416,6 +492,19 @@ function ProvidersSection({ providers, statusFilter, onFilterChange, onUpdated }
                 <td className="px-5 py-4 text-text-secondary">{provider.category ?? '—'}</td>
                 <td className="px-5 py-4 text-text-secondary">{provider.taxId ?? '—'}</td>
                 <td className="px-5 py-4"><span className={`rounded-full px-2.5 py-1 text-caption ${statusTone[provider.verificationStatus]}`}>{statusLabel[provider.verificationStatus]}</span></td>
+                <td className="px-5 py-4">
+                  <select
+                    className="min-h-9 rounded-md border border-border-strong bg-surface px-2 text-caption"
+                    value={provider.planTier}
+                    disabled={busyId === provider.id}
+                    onChange={(event) => changePlan(provider, event.target.value as PlanTier)}
+                  >
+                    <option value="FREE">FREE</option>
+                    <option value="STARTER">STARTER</option>
+                    <option value="PRO">PRO</option>
+                    <option value="ENTERPRISE">ENTERPRISE</option>
+                  </select>
+                </td>
                 <td className="px-5 py-4">
                   {provider.verificationDocuments.length === 0 ? (
                     <span className="text-text-muted">—</span>
