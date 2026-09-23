@@ -62,7 +62,13 @@ export function ListYourSpaceForm() {
 
   function handleLogoChange(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
-    event.target.value = '';
+    // Unlike ProviderRoomsPanel's photo input, this one is NOT reset to ''
+    // after reading the file — this is a single required field, not a
+    // repeatable multi-select, and clearing it here was wiping out the
+    // browser's own native "<filename>" indicator right next to the
+    // Choose File button, leaving it stuck on "No file chosen" even once
+    // a valid logo was picked (the small caption below it still showed
+    // the name, but that native label reading empty looked broken).
     setError(undefined);
     if (!file) {
       setLogoFile(null);
