@@ -179,6 +179,8 @@
     "noPhotos": "Hələ şəkil yoxdur",
     "galleryThumbnails": "Şəkil miniatürləri",
     "galleryThumbnailLabel": "{total} şəkildən {index}-cisi",
+    "galleryPrevious": "Əvvəlki şəkil",
+    "galleryNext": "Növbəti şəkil",
     "perHour": "/ saat",
     "dateLabel": "Tarix",
     "availabilityError": "Uyğunluq yüklənmədi. Zəhmət olmasa yenidən cəhd edin.",

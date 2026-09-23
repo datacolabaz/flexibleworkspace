@@ -179,6 +179,8 @@
     "noPhotos": "Пока нет фото",
     "galleryThumbnails": "Миниатюры фото",
     "galleryThumbnailLabel": "Фото {index} из {total}",
+    "galleryPrevious": "Предыдущее фото",
+    "galleryNext": "Следующее фото",
     "perHour": "/ ч",
     "dateLabel": "Дата",
     "availabilityError": "Не удалось загрузить доступность. Попробуйте снова.",

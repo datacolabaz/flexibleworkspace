@@ -179,6 +179,8 @@
     "noPhotos": "No photos yet",
     "galleryThumbnails": "Photo thumbnails",
     "galleryThumbnailLabel": "Photo {index} of {total}",
+    "galleryPrevious": "Previous photo",
+    "galleryNext": "Next photo",
     "perHour": "/ hr",
     "dateLabel": "Date",
     "availabilityError": "Couldn't load availability. Please try again.",
