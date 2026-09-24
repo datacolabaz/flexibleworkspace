@@ -73,6 +73,12 @@ export class EmailChannel implements NotificationChannel {
     subject: string | null,
     body: string,
   ): Promise<NotificationSendResult> {
+    const requestPayload = {
+      from: this.fromAddress,
+      to: recipient,
+      subject: subject ?? 'FlexSpace',
+      html: body,
+    };
     try {
       const res = await fetch('https://api.resend.com/emails', {
         method: 'POST',
@@ -80,17 +86,32 @@ export class EmailChannel implements NotificationChannel {
           Authorization: `Bearer ${this.resendApiKey}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          from: this.fromAddress,
-          to: recipient,
-          subject: subject ?? 'FlexSpace',
-          html: body,
-        }),
+        body: JSON.stringify(requestPayload),
       });
-      const payload = (await res.json().catch(() => null)) as {
-        id?: string;
-        message?: string;
-      } | null;
+      const rawBody = await res.text();
+      let payload: { id?: string; message?: string; name?: string } | null =
+        null;
+      try {
+        payload = rawBody ? JSON.parse(rawBody) : null;
+      } catch {
+        payload = null;
+      }
+      // Temporary, deliberately verbose diagnostic log — Resend's sandbox
+      // domain (onboarding@resend.dev) silently restricts delivery to only
+      // the account owner's own verified address until a custom domain is
+      // verified, so a 2xx response here does NOT guarantee the recipient
+      // actually receives anything. Logging the exact request/response lets
+      // us see that restriction (or any other cause) directly, rather than
+      // guessing. `html` is deliberately omitted from the logged request —
+      // it carries the live OTP code, which shouldn't sit in plaintext logs.
+      this.logger.warn(
+        `Resend API call for ${recipient} — request: ${JSON.stringify({
+          from: requestPayload.from,
+          to: requestPayload.to,
+          subject: requestPayload.subject,
+          html: `[${body.length} chars, omitted]`,
+        })} | response status: ${res.status} | response body: ${rawBody}`,
+      );
       if (!res.ok) {
         // Most common cause here: `from` (smtp.from / SMTP_FROM) is on a
         // domain not yet verified in Resend. Either verify the domain in
