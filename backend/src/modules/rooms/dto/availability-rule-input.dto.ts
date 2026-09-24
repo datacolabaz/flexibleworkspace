@@ -1,5 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
+  IsArray,
   IsBoolean,
   IsDateString,
   IsEnum,
@@ -10,7 +11,9 @@ import {
   Min,
   Matches,
   ValidateIf,
+  ValidateNested,
 } from 'class-validator';
+import { Type } from 'class-transformer';
 import { RecurrenceType } from '../entities/availability-rule.entity';
 
 const TIME_PATTERN = /^([01]\d|2[0-3]):([0-5]\d)(:[0-5]\d)?$/;
@@ -52,8 +55,20 @@ export class AvailabilityRuleInputDto {
   isOpen?: boolean;
 }
 
-/** PUT /provider/rooms/{roomId}/availability-rules replaces the full rule set. */
+/**
+ * PUT /provider/rooms/{roomId}/availability-rules replaces the full rule
+ * set. `rules` needs its own class-validator decorators, not just
+ * @ApiProperty (Swagger metadata only) - main.ts's global ValidationPipe
+ * runs with whitelist+forbidNonWhitelisted, which rejects ANY property
+ * with no validation decorator of its own as "should not exist". Without
+ * @ValidateNested/@Type here, that was `rules` itself: every save of the
+ * working-hours form failed with "property rules should not exist" even
+ * though the field is very much expected.
+ */
 export class ReplaceAvailabilityRulesDto {
   @ApiProperty({ type: [AvailabilityRuleInputDto] })
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => AvailabilityRuleInputDto)
   rules: AvailabilityRuleInputDto[];
 }
