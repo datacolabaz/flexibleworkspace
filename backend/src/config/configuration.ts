@@ -72,6 +72,9 @@ export interface AppConfig {
     password: string;
     from: string;
   };
+  resend: {
+    apiKey: string;
+  };
   storage: {
     driver: 'local' | 's3';
     localPath: string;
@@ -248,6 +251,15 @@ export default (): AppConfig => ({
     user: process.env.SMTP_USER || '',
     password: process.env.SMTP_PASSWORD || '',
     from: process.env.SMTP_FROM || 'FlexSpace <no-reply@flexspace.az>',
+  },
+  // Resend's HTTPS API (2026-09-24 staging incident — see EmailChannel):
+  // raw SMTP sockets (587/465/25) were found to be silently dropped
+  // outbound on Railway, hanging requestOtp() forever since it awaits the
+  // send. When set, EmailChannel sends over HTTPS via Resend instead of
+  // nodemailer/SMTP; when unset, it falls back to the smtp.* config above
+  // (local dev against Mailhog/Mailpit).
+  resend: {
+    apiKey: process.env.RESEND_API_KEY || '',
   },
   storage: {
     driver: (process.env.STORAGE_DRIVER as 'local' | 's3') || 'local',
