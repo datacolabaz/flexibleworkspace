@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState, type ChangeEvent, type DragEvent, type FormEvent } from 'react';
+import { useCallback, useEffect, useRef, useState, type ChangeEvent, type DragEvent, type FormEvent } from 'react';
 import { Alert } from '@/components/ui/Alert';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -10,7 +10,8 @@ import { IconButton } from '@/components/ui/IconButton';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 import { Spinner } from '@/components/ui/Spinner';
-import { LocationPickerMap } from './LocationPickerMap';
+import { LocationPickerMap, type LocationPickerMapHandle } from './LocationPickerMap';
+import { geocodeAddress } from '@/lib/maps/geocodeAddress';
 import type {
   AvailabilityRule,
   AvailabilityRuleInput,
@@ -261,6 +262,47 @@ function LocationForm({
   const [lng, setLng] = useState(initial?.lng ?? DEFAULT_LNG);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | undefined>();
+  const [geocoding, setGeocoding] = useState(false);
+  const mapHandleRef = useRef<LocationPickerMapHandle>(null);
+  const mapboxToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
+
+  // Provider feedback: typing/selecting the name/city/address fields had no
+  // effect on the map below, so the pin stayed wherever it started (the
+  // Baku-center default, or wherever it was last dragged) — "otherwise the
+  // map has no value there". Debounced so we don't fire a geocode request
+  // on every keystroke; only once typing has paused for a moment.
+  useEffect(() => {
+    if (!mapboxToken) return undefined;
+    const query = [addressLine.trim(), city.trim()].filter(Boolean).join(', ');
+    // Require a real street/address, not just a city, so we don't jump the
+    // pin to the middle of Bakı the instant the form opens with its
+    // default city value already filled in.
+    if (addressLine.trim().length < 4) return undefined;
+
+    const controller = new AbortController();
+    const timer = setTimeout(() => {
+      setGeocoding(true);
+      geocodeAddress(query, mapboxToken, controller.signal)
+        .then((result) => {
+          if (!result || controller.signal.aborted) return;
+          setLat(result.lat);
+          setLng(result.lng);
+          mapHandleRef.current?.recenter(result.lat, result.lng);
+        })
+        .catch((err) => {
+          if (controller.signal.aborted) return;
+          console.error('Address geocoding failed:', err);
+        })
+        .finally(() => {
+          if (!controller.signal.aborted) setGeocoding(false);
+        });
+    }, 700);
+
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
+  }, [addressLine, city, mapboxToken]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -300,6 +342,7 @@ function LocationForm({
       </FormField>
       <FormField id="location-map" label="Məkanı xəritədə seçin">
         <LocationPickerMap
+          ref={mapHandleRef}
           lat={lat}
           lng={lng}
           onChange={(newLat, newLng) => {
@@ -309,7 +352,9 @@ function LocationForm({
           className="h-64 w-full"
         />
         <p className="mt-1.5 text-caption text-text-muted">
-          Doğru mövqeyi göstərmək üçün nişanı sürükləyin və ya xəritəyə klikləyin.
+          {geocoding
+            ? 'Xəritə ünvana əsasən yenilənir…'
+            : 'Yazdığınız ünvana görə nişan avtomatik yerləşir — dəqiqləşdirmək üçün onu sürükləyə və ya xəritəyə klikləyə bilərsiniz.'}
         </p>
       </FormField>
       <div className="flex gap-3">

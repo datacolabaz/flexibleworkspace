@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { loadMapboxGl } from '@/lib/maps/loadMapbox';
 import type mapboxgl from 'mapbox-gl';
@@ -10,6 +10,17 @@ export interface LocationPickerMapProps {
   lng: number;
   onChange: (lat: number, lng: number) => void;
   className?: string;
+}
+
+/** Imperative handle for moving the pin from OUTSIDE user interaction — see `recenter` below. */
+export interface LocationPickerMapHandle {
+  /**
+   * Moves the map + marker to a new point without going through the
+   * `lat`/`lng` props (see the component doc comment for why prop changes
+   * are ignored after mount). Used by `LocationForm` to jump the pin to a
+   * geocoded address; a no-op before the map has finished loading.
+   */
+  recenter: (lat: number, lng: number) => void;
 }
 
 /**
@@ -31,7 +42,10 @@ export interface LocationPickerMapProps {
  * driven purely by the user's own click/drag, not by prop changes, so a
  * parent re-render mid-drag can't fight the gesture in progress.
  */
-export function LocationPickerMap({ lat, lng, onChange, className }: LocationPickerMapProps) {
+export const LocationPickerMap = forwardRef<LocationPickerMapHandle, LocationPickerMapProps>(function LocationPickerMap(
+  { lat, lng, onChange, className },
+  ref,
+) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const markerRef = useRef<mapboxgl.Marker | null>(null);
@@ -39,6 +53,20 @@ export function LocationPickerMap({ lat, lng, onChange, className }: LocationPic
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
   const accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      recenter: (nextLat: number, nextLng: number) => {
+        const map = mapRef.current;
+        const marker = markerRef.current;
+        if (!map || !marker) return;
+        marker.setLngLat([nextLng, nextLat]);
+        map.flyTo({ center: [nextLng, nextLat], zoom: Math.max(map.getZoom(), 14), essential: true });
+      },
+    }),
+    [],
+  );
 
   useEffect(() => {
     if (!accessToken || !containerRef.current) return undefined;
@@ -105,4 +133,4 @@ export function LocationPickerMap({ lat, lng, onChange, className }: LocationPic
       className={['rounded-lg', className ?? ''].join(' ')}
     />
   );
-}
+});
