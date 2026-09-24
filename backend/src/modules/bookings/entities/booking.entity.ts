@@ -1,5 +1,8 @@
 import { Column, Entity, OneToMany, PrimaryGeneratedColumn } from 'typeorm';
-import { BookingStatus } from '../../../common/constants/booking.enum';
+import {
+  BookingMode,
+  BookingStatus,
+} from '../../../common/constants/booking.enum';
 import { BookingItemEntity } from './booking-item.entity';
 
 /** Maps to `booking` (28_DATABASE_DDL.sql §5). */
@@ -13,6 +16,14 @@ export class BookingEntity {
 
   @Column({ type: 'enum', enum: BookingStatus, default: BookingStatus.DRAFT })
   status: BookingStatus;
+
+  /** REQUEST_BASED (new, no-payment) vs PAYMENT_BASED (existing, untouched flow). T1. */
+  @Column({
+    type: 'enum',
+    enum: BookingMode,
+    default: BookingMode.REQUEST_BASED,
+  })
+  mode: BookingMode;
 
   @Column({ type: 'char', length: 3, default: 'AZN' })
   currency: string;

@@ -28,8 +28,16 @@ CREATE TYPE room_status AS ENUM ('DRAFT', 'ACTIVE', 'INACTIVE');
 
 CREATE TYPE booking_status AS ENUM (
   'DRAFT', 'PENDING', 'PAYMENT_PENDING', 'CONFIRMED', 'COMPLETED',
-  'CANCELLED', 'EXPIRED', 'NO_SHOW', 'REFUND_PENDING', 'REFUNDED'
+  'CANCELLED', 'EXPIRED', 'NO_SHOW', 'REFUND_PENDING', 'REFUNDED',
+  -- Phase 1A (T1, migration 1700000000017-BookingMode) — REQUEST_BASED
+  -- flow only; the PAYMENT_BASED flow above never uses these.
+  'REJECTED', 'CANCELLED_BY_USER', 'CANCELLED_BY_PROVIDER'
 );
+
+-- Phase 1A (T1) — which transition table a booking is validated against.
+-- PAYMENT_BASED = existing flow, unchanged. REQUEST_BASED = new no-payment
+-- "request -> provider accepts/rejects" flow.
+CREATE TYPE booking_mode AS ENUM ('REQUEST_BASED', 'PAYMENT_BASED');
 
 CREATE TYPE payment_adapter AS ENUM ('EPOINT', 'PAYRIFF', 'STRIPE');
 CREATE TYPE payment_status AS ENUM ('INITIATED', 'AUTHORIZED', 'CAPTURED', 'FAILED', 'CANCELLED', 'REFUND_PENDING', 'PARTIALLY_REFUNDED', 'REFUNDED', 'CHARGEBACK');
@@ -281,6 +289,7 @@ CREATE TABLE booking (
   id                    UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   customer_user_id      UUID NOT NULL REFERENCES app_user(id),
   status                booking_status NOT NULL DEFAULT 'DRAFT',
+  mode                  booking_mode NOT NULL DEFAULT 'REQUEST_BASED',  -- existing rows backfilled to PAYMENT_BASED (T1)
   currency              CHAR(3) NOT NULL DEFAULT 'AZN',
   gross_amount          BIGINT NOT NULL,
   service_fee_amount    BIGINT NOT NULL DEFAULT 0,
@@ -299,6 +308,7 @@ CREATE TABLE booking (
 CREATE INDEX idx_booking_customer_status ON booking (customer_user_id, status);
 CREATE INDEX idx_booking_created_at ON booking (created_at);
 CREATE INDEX idx_booking_hold_expiry ON booking (hold_expires_at) WHERE status IN ('PENDING','PAYMENT_PENDING');
+CREATE INDEX idx_booking_mode_status ON booking (mode, status);  -- T1
 
 CREATE TABLE booking_item (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
