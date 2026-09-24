@@ -19,10 +19,14 @@ import {
 } from '../../common/constants/payment.enum';
 import { BookingsService } from '../bookings/bookings.service';
 import { BookingEntity } from '../bookings/entities/booking.entity';
-import { BookingStatus } from '../../common/constants/booking.enum';
+import {
+  BookingMode,
+  BookingStatus,
+} from '../../common/constants/booking.enum';
 import { NotificationsService } from '../notifications/notifications.service';
 import { AppUserEntity } from '../auth/entities/app-user.entity';
 import {
+  BookingModeNotSupportedException,
   DomainException,
   ResourceNotFoundException,
 } from '../../common/exceptions/domain.exception';
@@ -246,6 +250,17 @@ export class PaymentsService {
           where: { id: payment.bookingId },
         });
         if (!bookingBefore) throw new ResourceNotFoundException('Booking');
+        // T4 defense-in-depth — PENDING -> CONFIRMED is a legal edge in
+        // BOTH transition tables (REQUEST_BASED_TRANSITIONS allows it for
+        // the provider-accept path), so transition() alone can't tell a
+        // misdirected payment-gateway webhook for a REQUEST_BASED booking
+        // (should never happen — checkout is only ever initiated for
+        // PAYMENT_BASED bookings — but a webhook is untrusted external
+        // input, so this is checked explicitly rather than assumed) apart
+        // from a legitimate PAYMENT_BASED confirmation.
+        if (bookingBefore.mode !== BookingMode.PAYMENT_BASED) {
+          throw new BookingModeNotSupportedException('payment');
+        }
         bookingIdForNotification = bookingBefore.id;
 
         const confirmed = await this.bookingsService.transition(

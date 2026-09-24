@@ -91,3 +91,26 @@ export class InvalidBookingStateTransitionException extends DomainException {
     );
   }
 }
+
+/** T4 — a non-VERIFIED provider (PENDING/REJECTED/SUSPENDED) may not accept or reject a booking. */
+export class ProviderSuspendedException extends DomainException {
+  constructor() {
+    super(
+      'PROVIDER_NOT_VERIFIED',
+      'Your provider account is not currently verified. Contact support for assistance.',
+      HttpStatus.FORBIDDEN,
+    );
+  }
+}
+
+/** T4 — an action that only makes sense for one booking.mode was attempted on the other. */
+export class BookingModeNotSupportedException extends DomainException {
+  constructor(action: 'accept' | 'reject' | 'payment') {
+    super(
+      'BOOKING_MODE_NOT_SUPPORTED',
+      `This booking's mode does not support the "${action}" action.`,
+      HttpStatus.BAD_REQUEST,
+      { action },
+    );
+  }
+}

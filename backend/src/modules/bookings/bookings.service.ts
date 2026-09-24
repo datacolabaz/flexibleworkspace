@@ -10,6 +10,11 @@ import { AvailabilityService } from './availability.service';
 import { CreateBookingDto } from './dto/create-booking.dto';
 import { AuthService } from '../auth/auth.service';
 import { ReferralTrackingService } from '../partners/referral-tracking.service';
+import { AppUserEntity } from '../auth/entities/app-user.entity';
+import { NotificationsService } from '../notifications/notifications.service';
+import { ProvidersService } from '../providers/providers.service';
+import { ProviderVerificationStatus } from '../../common/constants/provider.enum';
+import { BookingRejectionReason } from '../../common/constants/booking-rejection-reason.enum';
 import {
   BOOKING_TRANSITIONS,
   BookingMode,
@@ -18,8 +23,10 @@ import {
 } from '../../common/constants/booking.enum';
 import { RoomStatus } from '../../common/constants/provider.enum';
 import {
+  BookingModeNotSupportedException,
   DomainException,
   InvalidBookingStateTransitionException,
+  ProviderSuspendedException,
   ResourceNotFoundException,
   SlotUnavailableException,
 } from '../../common/exceptions/domain.exception';
@@ -39,10 +46,14 @@ export class BookingsService {
     private readonly bookingItemRepo: Repository<BookingItemEntity>,
     @InjectRepository(RoomEntity)
     private readonly roomRepo: Repository<RoomEntity>,
+    @InjectRepository(AppUserEntity)
+    private readonly appUserRepo: Repository<AppUserEntity>,
     private readonly availabilityService: AvailabilityService,
     private readonly authService: AuthService,
     private readonly configService: ConfigService,
     private readonly referralTrackingService: ReferralTrackingService,
+    private readonly notificationsService: NotificationsService,
+    private readonly providersService: ProvidersService,
   ) {}
 
   /**
@@ -114,8 +125,21 @@ export class BookingsService {
       grossAmount * (serviceFeePercentage / 100),
     );
     const totalAmount = grossAmount + serviceFeeAmount;
+
+    // T4 — which mode this NEW booking gets, and thus which hold window it
+    // gets (see configuration.ts's `booking.paymentsEnabled` doc comment for
+    // why this must be set explicitly rather than left to the DB column
+    // default). Never reinterprets an existing booking's mode.
+    const paymentsEnabled =
+      this.configService.get<boolean>('booking.paymentsEnabled') ?? true;
+    const mode = paymentsEnabled
+      ? BookingMode.PAYMENT_BASED
+      : BookingMode.REQUEST_BASED;
     const holdMinutes =
-      this.configService.get<number>('booking.holdMinutes') ?? 15;
+      mode === BookingMode.REQUEST_BASED
+        ? (this.configService.get<number>('booking.requestBasedHoldMinutes') ??
+          120)
+        : (this.configService.get<number>('booking.holdMinutes') ?? 15);
 
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
@@ -125,6 +149,7 @@ export class BookingsService {
       const booking = queryRunner.manager.create(BookingEntity, {
         customerUserId: resolvedCustomerId,
         status: BookingStatus.PENDING,
+        mode,
         currency: room.basePriceCurrency,
         grossAmount: String(grossAmount),
         serviceFeeAmount: String(serviceFeeAmount),
@@ -208,6 +233,11 @@ export class BookingsService {
           BookingStatus.CANCELLED,
           BookingStatus.REFUNDED,
           BookingStatus.EXPIRED,
+          // T4 — REQUEST_BASED's own terminal "didn't happen" statuses
+          // belong in the same customer-facing bucket as the existing ones.
+          BookingStatus.REJECTED,
+          BookingStatus.CANCELLED_BY_USER,
+          BookingStatus.CANCELLED_BY_PROVIDER,
         ],
       });
     } else if (status === 'upcoming') {
@@ -248,23 +278,67 @@ export class BookingsService {
    * entries, so a crash between the two can never leave a charged customer
    * with a still-PENDING booking or vice versa — can pass its own
    * QueryRunner's EntityManager instead of this service's own repositories.
+   *
+   * T4 — locks the booking row (`pessimistic_write`) before reading its
+   * current status, so two concurrent callers racing on the same booking
+   * (provider accept vs. provider reject; provider accept vs. the
+   * hold-expiry cron) can never both see the pre-transition status and both
+   * "win" — the second to acquire the lock re-reads the ALREADY-transitioned
+   * status and correctly hits InvalidBookingStateTransitionException instead
+   * of silently overwriting the first caller's result. A plain
+   * `repo.findOne({ relations: [...] })` cannot take a lock together with a
+   * joined relation (TypeORM/Postgres restriction), so this loads the
+   * booking row alone via QueryBuilder; `items` is never read inside this
+   * method (the booking_item update below goes through bookingItemRepo
+   * directly), so not loading it here costs nothing.
+   *
+   * `extra` lets a caller (rejectBooking) set additional columns in the
+   * same locked read-modify-write instead of a separate, unlocked update.
    */
   async transition(
     bookingId: string,
     to: BookingStatus,
     manager?: EntityManager,
+    extra?: Partial<
+      Pick<
+        BookingEntity,
+        'rejectionReason' | 'rejectionNote' | 'rejectedAt' | 'rejectedByUserId'
+      >
+    >,
   ): Promise<BookingEntity> {
-    const bookingRepo = manager
-      ? manager.getRepository(BookingEntity)
-      : this.bookingRepo;
-    const bookingItemRepo = manager
-      ? manager.getRepository(BookingItemEntity)
-      : this.bookingItemRepo;
+    // pessimistic_write requires an open transaction (Postgres: SELECT ...
+    // FOR UPDATE is only valid inside one). A caller that already has one
+    // (PaymentsService's webhook handler) passes its own manager and this
+    // transition becomes part of THAT transaction; a caller with no
+    // transaction of its own (acceptBooking, rejectBooking, the hold-expiry
+    // cron) gets one opened here, scoped to just this transition.
+    if (manager) {
+      return this.transitionWithManager(manager, bookingId, to, extra);
+    }
+    return this.dataSource.transaction((txManager) =>
+      this.transitionWithManager(txManager, bookingId, to, extra),
+    );
+  }
 
-    const booking = await bookingRepo.findOne({
-      where: { id: bookingId },
-      relations: ['items'],
-    });
+  private async transitionWithManager(
+    manager: EntityManager,
+    bookingId: string,
+    to: BookingStatus,
+    extra?: Partial<
+      Pick<
+        BookingEntity,
+        'rejectionReason' | 'rejectionNote' | 'rejectedAt' | 'rejectedByUserId'
+      >
+    >,
+  ): Promise<BookingEntity> {
+    const bookingRepo = manager.getRepository(BookingEntity);
+    const bookingItemRepo = manager.getRepository(BookingItemEntity);
+
+    const booking = await bookingRepo
+      .createQueryBuilder('b')
+      .setLock('pessimistic_write')
+      .where('b.id = :id', { id: bookingId })
+      .getOne();
     if (!booking || booking.deletedAt)
       throw new ResourceNotFoundException('Booking');
 
@@ -287,6 +361,7 @@ export class BookingsService {
     )
       booking.cancelledAt = new Date();
     if (to === BookingStatus.COMPLETED) booking.completedAt = new Date();
+    if (extra) Object.assign(booking, extra);
 
     await bookingItemRepo.update({ bookingId }, { status: to });
     return bookingRepo.save(booking);
@@ -304,8 +379,23 @@ export class BookingsService {
     let expired = 0;
     for (const booking of stale) {
       if (booking.holdExpiresAt && booking.holdExpiresAt < now) {
-        await this.transition(booking.id, BookingStatus.EXPIRED);
-        expired += 1;
+        // T4 — a booking a provider just accepted/rejected in the same
+        // instant this sweep reads it (now stale, PENDING no longer) throws
+        // InvalidBookingStateTransitionException from transition()'s lock-
+        // then-recheck above. That one lost race must never abort the sweep
+        // for every OTHER genuinely-stale booking in this batch.
+        try {
+          await this.transition(booking.id, BookingStatus.EXPIRED);
+          expired += 1;
+        } catch (err) {
+          if (err instanceof InvalidBookingStateTransitionException) {
+            this.logger.log(
+              `Hold-expiry sweep: booking ${booking.id} already left its stale status (provider action won the race) — skipping.`,
+            );
+          } else {
+            throw err;
+          }
+        }
       }
     }
     if (expired > 0)
@@ -313,5 +403,212 @@ export class BookingsService {
         `Hold-expiry sweep: expired ${expired} stale booking(s).`,
       );
     return expired;
+  }
+
+  /**
+   * T4 — resolves the provider that owns a booking, via its (first)
+   * booking_item -> room -> location -> provider chain. Raw SQL, matching
+   * this codebase's established idiom for cross-entity joins the TypeORM
+   * relation graph doesn't model directly (PaymentsService.listForCustomer,
+   * the webhook handler's room/location lookup).
+   */
+  private async resolveOwningProviderId(
+    bookingId: string,
+  ): Promise<string | null> {
+    const [row] = await this.dataSource.query(
+      `SELECT l.provider_id AS "providerId"
+       FROM booking_item bi
+       JOIN room r ON r.id = bi.room_id
+       JOIN location l ON l.id = r.location_id
+       WHERE bi.booking_id = $1
+       LIMIT 1`,
+      [bookingId],
+    );
+    return row?.providerId ?? null;
+  }
+
+  /**
+   * T4 — the shared authorization + precondition gate for both
+   * acceptBooking and rejectBooking: the caller's provider must actually
+   * own the room the booking is for (never trust a caller-supplied
+   * providerId), must be VERIFIED (not PENDING/REJECTED/SUSPENDED — a
+   * suspended provider must not be able to act on bookings while under
+   * review), and the booking must be a PENDING REQUEST_BASED booking (an
+   * accept/reject on a PAYMENT_BASED booking is a mode error, not an
+   * authorization error, so it gets its own distinct exception).
+   */
+  private async assertProviderCanActOnBooking(
+    callerProviderId: string,
+    booking: BookingEntity,
+    action: 'accept' | 'reject',
+  ): Promise<void> {
+    const owningProviderId = await this.resolveOwningProviderId(booking.id);
+    if (!owningProviderId || owningProviderId !== callerProviderId) {
+      throw new ResourceNotFoundException('Booking');
+    }
+
+    const provider = await this.providersService.findById(callerProviderId);
+    if (provider.verificationStatus !== ProviderVerificationStatus.VERIFIED) {
+      throw new ProviderSuspendedException();
+    }
+
+    if (booking.mode !== BookingMode.REQUEST_BASED) {
+      throw new BookingModeNotSupportedException(action);
+    }
+  }
+
+  /**
+   * T4 — provider-facing bookings list (PATCH provider/bookings/:id/accept
+   * and .../reject act on rows surfaced here). Raw SQL join (see
+   * resolveOwningProviderId's doc comment for why), then hydrate full
+   * BookingEntity rows via the repo so the response shape matches every
+   * other booking-list endpoint. Order from the raw query is preserved
+   * through the hydration step since `bookingRepo.find({ where: { id: In(ids) } })`
+   * does not itself guarantee row order.
+   */
+  async listForProvider(
+    providerId: string,
+    filters: { status?: BookingStatus; roomId?: string; locationId?: string },
+  ): Promise<BookingEntity[]> {
+    const conditions: string[] = ['l.provider_id = $1'];
+    const params: unknown[] = [providerId];
+
+    if (filters.roomId) {
+      params.push(filters.roomId);
+      conditions.push(`r.id = $${params.length}`);
+    }
+    if (filters.locationId) {
+      params.push(filters.locationId);
+      conditions.push(`l.id = $${params.length}`);
+    }
+    if (filters.status) {
+      params.push(filters.status);
+      conditions.push(`b.status = $${params.length}`);
+    }
+
+    const rows = await this.dataSource.query(
+      `SELECT DISTINCT b.id, b.created_at AS "createdAt"
+       FROM booking b
+       JOIN booking_item bi ON bi.booking_id = b.id
+       JOIN room r ON r.id = bi.room_id
+       JOIN location l ON l.id = r.location_id
+       WHERE b.deleted_at IS NULL AND ${conditions.join(' AND ')}
+       ORDER BY b.created_at DESC`,
+      params,
+    );
+    if (rows.length === 0) return [];
+
+    const ids: string[] = rows.map((r: { id: string }) => r.id);
+    const bookings = await this.bookingRepo.find({
+      where: ids.map((id) => ({ id })),
+      relations: ['items'],
+    });
+    const byId = new Map(bookings.map((b) => [b.id, b]));
+    return ids.map((id) => byId.get(id)).filter((b): b is BookingEntity => !!b);
+  }
+
+  /**
+   * T4 — fire-and-forget customer notification for an accept/reject
+   * decision (17_NOTIFICATION_ARCHITECTURE.md §17.5: never allowed to fail
+   * the business operation that triggered it — NotificationsService.send()
+   * itself already never throws, this is just the call-site wiring). Sent
+   * AFTER the transition's own DB write has already committed.
+   */
+  private async notifyCustomer(
+    booking: BookingEntity,
+    kind: 'accepted' | 'rejected',
+    extra?: { rejectionReason?: BookingRejectionReason; providerNote?: string },
+  ): Promise<void> {
+    const customer = await this.appUserRepo.findOne({
+      where: { id: booking.customerUserId },
+    });
+    if (!customer) return;
+    const identifier = customer.email || customer.phone;
+    if (!identifier) return;
+
+    const isEmail = NotificationsService.isEmail(identifier);
+    const subject =
+      kind === 'accepted'
+        ? 'FlexSpace — Rezervasiya təsdiqləndi'
+        : 'FlexSpace — Rezervasiya rədd edildi';
+    const noteHtml = extra?.providerNote ? `<p>${extra.providerNote}</p>` : '';
+    const reasonHtml = extra?.rejectionReason
+      ? `<p>Səbəb: ${extra.rejectionReason}</p>`
+      : '';
+    const body =
+      kind === 'accepted'
+        ? `<p>Rezervasiyanız (${booking.id}) provider tərəfindən təsdiqləndi.</p>${noteHtml}`
+        : `<p>Rezervasiyanız (${booking.id}) provider tərəfindən rədd edildi.</p>${reasonHtml}`;
+
+    await this.notificationsService.send({
+      userId: customer.id,
+      channel: isEmail ? 'EMAIL' : 'SMS',
+      templateKey:
+        kind === 'accepted' ? 'booking.accepted' : 'booking.rejected',
+      locale: customer.locale || 'az',
+      recipient: identifier,
+      subject: isEmail ? subject : null,
+      body,
+      payload: { bookingId: booking.id },
+    });
+  }
+
+  /**
+   * T4 — PATCH provider/bookings/:bookingId/accept. PENDING -> CONFIRMED,
+   * REQUEST_BASED only (assertProviderCanActOnBooking / transition()'s own
+   * transition-table check both enforce this).
+   */
+  async acceptBooking(
+    callerProviderId: string,
+    bookingId: string,
+    providerNote?: string,
+  ): Promise<BookingEntity> {
+    const booking = await this.findById(bookingId);
+    await this.assertProviderCanActOnBooking(
+      callerProviderId,
+      booking,
+      'accept',
+    );
+
+    const confirmed = await this.transition(bookingId, BookingStatus.CONFIRMED);
+    await this.notifyCustomer(confirmed, 'accepted', { providerNote });
+    return confirmed;
+  }
+
+  /**
+   * T4 — PATCH provider/bookings/:bookingId/reject. PENDING -> REJECTED,
+   * REQUEST_BASED only, recording who rejected it and why (rejection_reason/
+   * rejection_note/rejected_at/rejected_by_user_id — transition()'s `extra`
+   * param sets these atomically with the status change, under the same lock).
+   */
+  async rejectBooking(
+    callerProviderId: string,
+    callerUserId: string,
+    bookingId: string,
+    reason: BookingRejectionReason,
+    note?: string,
+  ): Promise<BookingEntity> {
+    const booking = await this.findById(bookingId);
+    await this.assertProviderCanActOnBooking(
+      callerProviderId,
+      booking,
+      'reject',
+    );
+
+    const rejected = await this.transition(
+      bookingId,
+      BookingStatus.REJECTED,
+      undefined,
+      {
+        rejectionReason: reason,
+        rejectionNote: note ?? null,
+        rejectedAt: new Date(),
+        rejectedByUserId: callerUserId,
+      },
+    );
+    await this.notifyCustomer(rejected, 'rejected', {
+      rejectionReason: reason,
+    });
+    return rejected;
   }
 }

@@ -100,7 +100,33 @@ export interface AppConfig {
       region: string;
     };
   };
-  booking: { holdMinutes: number; serviceFeePercentage: number };
+  booking: {
+    holdMinutes: number;
+    serviceFeePercentage: number;
+    // T4 (Phase 1A — Request-Based Booking, provider accept/reject) —
+    // decides which mode a NEWLY created booking gets when create() doesn't
+    // set one explicitly. Defaults to true (PAYMENT_BASED), preserving the
+    // existing checkout-everywhere behavior for any deployment that hasn't
+    // opted into the no-payment flow. This NEVER reinterprets an
+    // already-created booking's mode — only booking.mode column's own value
+    // (read at transition() time) governs an existing row.
+    //
+    // NOTE: T1's migration (1700000000017-BookingMode.ts) set the
+    // `mode` column's DB-level default to REQUEST_BASED, intending
+    // create() to be updated to set it explicitly — which hadn't happened
+    // yet when this config flag was added. Confirmed by a full e2e run:
+    // leaving create() on the bare DB default broke the existing
+    // PAYMENT_BASED checkout flow (PENDING -> PAYMENT_PENDING is not a
+    // legal REQUEST_BASED_TRANSITIONS edge), failing payments/partners/
+    // payouts/reviews/bookings-concurrency e2e suites. create() below now
+    // always sets `mode` explicitly from this flag, so the DB column
+    // default is no longer read for any booking the app itself creates.
+    paymentsEnabled: boolean;
+    // Hold window for a PENDING REQUEST_BASED booking, giving the provider
+    // real time to accept/reject (vs. holdMinutes' short PAYMENT_BASED
+    // checkout window, above).
+    requestBasedHoldMinutes: number;
+  };
   commission: { platformDefaultPercentage: number };
   partner: {
     // 31_PARTNER_REFERRAL_ARCHITECTURE.md — the marketplace's public name/
@@ -240,6 +266,14 @@ export default (): AppConfig => ({
   },
   booking: {
     holdMinutes: parseInt(process.env.BOOKING_HOLD_MINUTES || '15', 10),
+    // Default true so an unset value preserves the pre-T1 checkout-everywhere
+    // behavior; a Phase 1A go-to-market deployment sets this to false to
+    // make REQUEST_BASED the default for every NEW booking.
+    paymentsEnabled: process.env.PAYMENTS_ENABLED !== 'false',
+    requestBasedHoldMinutes: parseInt(
+      process.env.REQUEST_BASED_HOLD_MINUTES || '120',
+      10,
+    ),
     // 05_USER_FLOWS.md §5.2 shows a customer-facing "service fee" line item,
     // but no approved document fixes a rate (09_DOMAIN_MODEL.md §9.2 and
     // 10_DATABASE_SCHEMA.md §10.6 only fix the FIELD, not its value).

@@ -4,6 +4,7 @@ import {
   Get,
   HttpStatus,
   Param,
+  Patch,
   Post,
   Query,
   Req,
@@ -14,11 +15,14 @@ import type { Request } from 'express';
 import { BookingsService } from './bookings.service';
 import { AvailabilityService } from './availability.service';
 import { CreateBookingDto } from './dto/create-booking.dto';
+import { AcceptBookingDto } from './dto/accept-booking.dto';
+import { RejectBookingDto } from './dto/reject-booking.dto';
 import { Public } from '../../common/decorators/public.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { AuthenticatedUser } from '../../common/guards/jwt-auth.guard';
 import { RoleName } from '../../common/constants/roles.enum';
+import { BookingStatus } from '../../common/constants/booking.enum';
 import { REFERRAL_ATTRIBUTION_COOKIE_NAME } from '../../common/constants/partner.enum';
 import { currentProviderId } from '../../common/utils/current-provider.util';
 import { DomainException } from '../../common/exceptions/domain.exception';
@@ -136,7 +140,12 @@ export class BookingsController {
   @Get('provider/bookings')
   @Roles(RoleName.PROVIDER_OWNER, RoleName.PROVIDER_STAFF)
   @ApiOperation({ summary: 'Bookings across my rooms' })
-  async providerBookings(@CurrentUser() user: AuthenticatedUser) {
+  async providerBookings(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query('status') status?: BookingStatus,
+    @Query('roomId') roomId?: string,
+    @Query('locationId') locationId?: string,
+  ) {
     const providerId = currentProviderId(user);
     if (!providerId) {
       throw new DomainException(
@@ -145,11 +154,69 @@ export class BookingsController {
         HttpStatus.FORBIDDEN,
       );
     }
-    // NOTE: full implementation (join through room->location->provider,
-    // with locationId/roomId/status/date filters per 29_API_OPENAPI.yaml)
-    // is a KNOWN LIMITATION pending the Search/reporting layer's query
-    // helpers — see PHASE4_REPORT.md. Returns an empty, correctly-shaped
-    // list rather than an error so the endpoint is safe to call today.
-    return [];
+    if (status && !Object.values(BookingStatus).includes(status)) {
+      throw new DomainException(
+        'INVALID_STATUS',
+        `Unknown booking status "${status}".`,
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+    return this.bookingsService.listForProvider(providerId, {
+      status,
+      roomId,
+      locationId,
+    });
+  }
+
+  /**
+   * T4 — REQUEST_BASED only (BookingsService.acceptBooking enforces this,
+   * along with ownership and provider-verification checks).
+   */
+  @Patch('provider/bookings/:bookingId/accept')
+  @Roles(RoleName.PROVIDER_OWNER, RoleName.PROVIDER_STAFF)
+  @ApiOperation({ summary: 'Accept a PENDING request-based booking' })
+  async accept(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('bookingId') bookingId: string,
+    @Body() dto: AcceptBookingDto,
+  ) {
+    const providerId = currentProviderId(user);
+    if (!providerId) {
+      throw new DomainException(
+        'NOT_A_PROVIDER',
+        'You do not have a provider account.',
+        HttpStatus.FORBIDDEN,
+      );
+    }
+    return this.bookingsService.acceptBooking(
+      providerId,
+      bookingId,
+      dto.providerNote,
+    );
+  }
+
+  @Patch('provider/bookings/:bookingId/reject')
+  @Roles(RoleName.PROVIDER_OWNER, RoleName.PROVIDER_STAFF)
+  @ApiOperation({ summary: 'Reject a PENDING request-based booking' })
+  async reject(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('bookingId') bookingId: string,
+    @Body() dto: RejectBookingDto,
+  ) {
+    const providerId = currentProviderId(user);
+    if (!providerId) {
+      throw new DomainException(
+        'NOT_A_PROVIDER',
+        'You do not have a provider account.',
+        HttpStatus.FORBIDDEN,
+      );
+    }
+    return this.bookingsService.rejectBooking(
+      providerId,
+      user.userId,
+      bookingId,
+      dto.reason,
+      dto.note,
+    );
   }
 }

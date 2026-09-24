@@ -3,6 +3,7 @@ import {
   BookingMode,
   BookingStatus,
 } from '../../../common/constants/booking.enum';
+import { BookingRejectionReason } from '../../../common/constants/booking-rejection-reason.enum';
 import { BookingItemEntity } from './booking-item.entity';
 
 /** Maps to `booking` (28_DATABASE_DDL.sql §5). */
@@ -63,6 +64,29 @@ export class BookingEntity {
 
   @Column({ name: 'deleted_at', type: 'timestamptz', nullable: true })
   deletedAt: Date | null;
+
+  /** T4 — set only when status becomes REJECTED (REQUEST_BASED flow only). */
+  @Column({
+    name: 'rejection_reason',
+    type: 'varchar',
+    length: 30,
+    nullable: true,
+  })
+  rejectionReason: BookingRejectionReason | null;
+
+  @Column({
+    name: 'rejection_note',
+    type: 'varchar',
+    length: 500,
+    nullable: true,
+  })
+  rejectionNote: string | null;
+
+  @Column({ name: 'rejected_at', type: 'timestamptz', nullable: true })
+  rejectedAt: Date | null;
+
+  @Column({ name: 'rejected_by_user_id', type: 'uuid', nullable: true })
+  rejectedByUserId: string | null;
 
   @OneToMany(() => BookingItemEntity, (item) => item.booking, { cascade: true })
   items: BookingItemEntity[];

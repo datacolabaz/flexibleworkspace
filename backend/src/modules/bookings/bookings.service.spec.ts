@@ -5,9 +5,12 @@ import { BookingsService } from './bookings.service';
 import { BookingEntity } from './entities/booking.entity';
 import { BookingItemEntity } from './entities/booking-item.entity';
 import { RoomEntity } from '../rooms/entities/room.entity';
+import { AppUserEntity } from '../auth/entities/app-user.entity';
 import { AvailabilityService } from './availability.service';
 import { AuthService } from '../auth/auth.service';
 import { ReferralTrackingService } from '../partners/referral-tracking.service';
+import { NotificationsService } from '../notifications/notifications.service';
+import { ProvidersService } from '../providers/providers.service';
 import { ConfigService } from '@nestjs/config';
 import {
   BookingMode,
@@ -22,6 +25,16 @@ import { InvalidBookingStateTransitionException } from '../../common/exceptions/
  * codebase's existing convention (see auth.service.spec.ts). create() and
  * expireStaleHolds() are exercised elsewhere (bookings-concurrency e2e,
  * bookings.controller.spec.ts) and are out of scope here.
+ *
+ * T4 — transition() now opens its own transaction (`dataSource.transaction`)
+ * when called with no external manager, and locks the row via
+ * `createQueryBuilder().setLock('pessimistic_write')` rather than a plain
+ * `findOne` (a real Postgres requirement — pessimistic_write needs an open
+ * transaction — caught by the T4 e2e suite, not this unit suite, since a
+ * mocked DataSource can't fail that way). The in-memory repo/DataSource
+ * doubles below are extended just enough to satisfy that new call shape;
+ * they stay behaviorally identical to the plain findOne/save doubles T2
+ * originally wrote.
  */
 describe('BookingsService.transition', () => {
   let service: BookingsService;
@@ -42,6 +55,22 @@ describe('BookingsService.transition', () => {
     findOne: jest.fn(async ({ where }: any) => {
       const found = bookings.find((b) => b.id === where.id);
       return found ?? null;
+    }),
+    // T4 — transitionWithManager locks via createQueryBuilder(...).setLock(
+    // 'pessimistic_write')...getOne() instead of findOne (a real
+    // transaction is required for a real pessimistic lock; this in-memory
+    // double has no such constraint, so it just mirrors findOne's lookup).
+    createQueryBuilder: jest.fn(() => {
+      let whereId: string | undefined;
+      const builder = {
+        setLock: jest.fn(() => builder),
+        where: jest.fn((_sql: string, params: { id: string }) => {
+          whereId = params.id;
+          return builder;
+        }),
+        getOne: jest.fn(async () => bookings.find((b) => b.id === whereId) ?? null),
+      };
+      return builder;
     }),
   });
 
@@ -100,23 +129,43 @@ describe('BookingsService.transition', () => {
     bookingItems = [];
     idCounter = 0;
 
+    const bookingRepo = makeBookingRepo();
+    const bookingItemRepo = makeBookingItemRepo();
+    // T4 — transition()'s no-manager path calls
+    // `this.dataSource.transaction(cb)`; the fake manager it hands to `cb`
+    // only ever needs `getRepository(...)` to return these same in-memory
+    // doubles, since transitionWithManager routes every read/write through
+    // `manager.getRepository(...)`.
+    const fakeManager = {
+      getRepository: jest.fn((entity: unknown) =>
+        entity === BookingItemEntity ? bookingItemRepo : bookingRepo,
+      ),
+    };
+
     const module = await Test.createTestingModule({
       providers: [
         BookingsService,
-        { provide: getDataSourceToken(), useValue: {} },
         {
-          provide: getRepositoryToken(BookingEntity),
-          useFactory: makeBookingRepo,
+          provide: getDataSourceToken(),
+          useValue: {
+            transaction: jest.fn(async (cb: (m: unknown) => unknown) =>
+              cb(fakeManager),
+            ),
+          },
         },
+        { provide: getRepositoryToken(BookingEntity), useValue: bookingRepo },
         {
           provide: getRepositoryToken(BookingItemEntity),
-          useFactory: makeBookingItemRepo,
+          useValue: bookingItemRepo,
         },
         { provide: getRepositoryToken(RoomEntity), useValue: {} },
+        { provide: getRepositoryToken(AppUserEntity), useValue: {} },
         { provide: AvailabilityService, useValue: {} },
         { provide: AuthService, useValue: {} },
         { provide: ConfigService, useValue: { get: jest.fn() } },
         { provide: ReferralTrackingService, useValue: {} },
+        { provide: NotificationsService, useValue: { send: jest.fn() } },
+        { provide: ProvidersService, useValue: {} },
       ],
     }).compile();
 

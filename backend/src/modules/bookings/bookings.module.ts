@@ -11,10 +11,13 @@ import { BookingItemEntity } from './entities/booking-item.entity';
 import { RoomsModule } from '../rooms/rooms.module';
 import { AuthModule } from '../auth/auth.module';
 import { PartnersModule } from '../partners/partners.module';
+import { NotificationsModule } from '../notifications/notifications.module';
+import { ProvidersModule } from '../providers/providers.module';
 import { RoomEntity } from '../rooms/entities/room.entity';
 import { AvailabilityRuleEntity } from '../rooms/entities/availability-rule.entity';
 import { BlockedPeriodEntity } from '../rooms/entities/blocked-period.entity';
 import { HolidayEntity } from '../rooms/entities/holiday.entity';
+import { AppUserEntity } from '../auth/entities/app-user.entity';
 
 @Module({
   imports: [
@@ -25,11 +28,14 @@ import { HolidayEntity } from '../rooms/entities/holiday.entity';
       AvailabilityRuleEntity,
       BlockedPeriodEntity,
       HolidayEntity,
+      AppUserEntity,
     ]),
     ScheduleModule.forRoot(),
     RoomsModule,
     AuthModule,
     PartnersModule, // ReferralTrackingService.attributeBooking (31_PARTNER_REFERRAL_ARCHITECTURE.md §31.4 step 4)
+    NotificationsModule, // T4 — accept/reject customer notifications
+    ProvidersModule, // T4 — provider ownership + verification-status checks
   ],
   controllers: [BookingsController],
   providers: [BookingsService, AvailabilityService, BookingsTasks],
