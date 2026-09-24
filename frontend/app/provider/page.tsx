@@ -31,9 +31,24 @@ export const metadata: Metadata = {
 function Shell({ children }: { children: React.ReactNode }) {
   return (
     <main className="mx-auto flex min-h-screen max-w-2xl flex-col gap-6 px-4 py-10">
-      <Link href="/az" aria-label="Spotva ana səhifə" title="Spotva ana səhifə" className="self-start">
-        <Logo variant="auto" height={32} />
-      </Link>
+      <div className="flex items-center justify-between gap-4">
+        <Link href="/az" aria-label="Spotva ana səhifə" title="Spotva ana səhifə" className="self-start">
+          <Logo variant="auto" height={32} />
+        </Link>
+        {/*
+          Provider feedback: after saving something in this dashboard
+          (e.g. working hours) it was unclear whether finishing a step
+          would jump back to the customer homepage on its own, or
+          whether there should be an explicit way back up here instead.
+          It's the latter - nothing in this dashboard auto-redirects,
+          the provider stays exactly where they are after a save - so
+          make the always-available way back explicit rather than
+          relying on the logo alone being read as a home link.
+        */}
+        <Link href="/az" className="text-label font-semibold text-primary hover:text-text-primary">
+          ← Ana səhifəyə qayıt
+        </Link>
+      </div>
       {children}
     </main>
   );
