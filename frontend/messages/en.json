@@ -618,7 +618,11 @@
         "verified": "verified",
         "available": "Available today",
         "noPhoto": "No photo",
-        "disclaimer": "Hand-picked, live spaces — curated by our team."
+        "disclaimer": "Hand-picked, live spaces — curated by our team.",
+        "emptyEyebrow": "Space previews",
+        "emptyTitle": "The first featured spaces are coming soon",
+        "emptyBody": "List your space and be one of our first featured providers.",
+        "emptyCta": "List your space"
       },
       "upcoming": {
         "title": "Workshop and event formats",

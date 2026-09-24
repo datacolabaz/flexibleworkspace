@@ -618,7 +618,11 @@
         "verified": "təsdiqli",
         "available": "Bu gün boşdur",
         "noPhoto": "Şəkil yoxdur",
-        "disclaimer": "Admin tərəfindən seçilmiş, canlı məkanlar."
+        "disclaimer": "Admin tərəfindən seçilmiş, canlı məkanlar.",
+        "emptyEyebrow": "Məkan nümunələri",
+        "emptyTitle": "İlk seçilmiş məkanlar tezliklə burada",
+        "emptyBody": "Məkanınızı əlavə edin və ilk seçilmiş provayderlərdən biri olun.",
+        "emptyCta": "Məkanını əlavə et"
       },
       "upcoming": {
         "title": "Workshop və tədbir formatları",

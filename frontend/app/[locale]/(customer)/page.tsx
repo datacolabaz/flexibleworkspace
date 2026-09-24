@@ -93,19 +93,27 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
             </div>
           </section>
 
-          {featuredRooms.length > 0 && (
-            <section aria-labelledby="featured-venues-title">
-              <div className="flex items-end justify-between gap-4">
-                <div>
-                  <p className="text-caption font-semibold uppercase tracking-[0.16em] text-primary">{t('dashboard.venues.eyebrow')}</p>
-                  <h2 id="featured-venues-title" className="mt-1 font-display text-h2 text-text-primary">{t('dashboard.venues.title')}</h2>
+          <section aria-labelledby="featured-venues-title">
+            <div className="flex items-end justify-between gap-4">
+              <div>
+                <p className="text-caption font-semibold uppercase tracking-[0.16em] text-primary">
+                  {featuredRooms.length > 0 ? t('dashboard.venues.eyebrow') : t('dashboard.venues.emptyEyebrow')}
+                </p>
+                <h2 id="featured-venues-title" className="mt-1 font-display text-h2 text-text-primary">
+                  {featuredRooms.length > 0 ? t('dashboard.venues.title') : t('dashboard.venues.emptyTitle')}
+                </h2>
+                {featuredRooms.length > 0 && (
                   <p className="mt-2 max-w-2xl text-caption text-text-muted">{t('dashboard.venues.disclaimer')}</p>
-                </div>
+                )}
+              </div>
+              {featuredRooms.length > 0 && (
                 <Link href="/search" className="shrink-0 text-label font-semibold text-primary hover:text-text-primary">
                   {t('dashboard.viewAll')} →
                 </Link>
-              </div>
+              )}
+            </div>
 
+            {featuredRooms.length > 0 ? (
               <div className="mt-6 grid gap-5 md:grid-cols-3">
                 {featuredRooms.map((room) => {
                   const roomTypeKey = roomTypeKeyFromTranslationKey(room.roomType);
@@ -140,8 +148,23 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
                   );
                 })}
               </div>
-            </section>
-          )}
+            ) : (
+              // No admin-curated room is featured yet (Sprint 4's `is_featured`
+              // flag replaced the earlier static 3-mock-card block, which is
+              // what the calendar/community/map/sponsor rail's height was
+              // originally balanced against — see docs/qa/UNIFIED_MARKETPLACE_VISUAL_QA.md).
+              // Keeping this slot occupied with a real, on-brand placeholder
+              // restores that balance instead of leaving the section blank.
+              <div className="mt-6 flex flex-col items-start gap-4 rounded-lg border border-dashed border-border bg-surface-elevated p-8 sm:flex-row sm:items-center sm:justify-between sm:p-10">
+                <div className="max-w-md">
+                  <p className="text-body text-text-secondary">{t('dashboard.venues.emptyBody')}</p>
+                </div>
+                <LinkButton href="/for-businesses" variant="secondary" className="shrink-0">
+                  {t('dashboard.venues.emptyCta')} →
+                </LinkButton>
+              </div>
+            )}
+          </section>
 
           <section aria-labelledby="upcoming-formats-title">
             <div className="flex items-end justify-between gap-4">
