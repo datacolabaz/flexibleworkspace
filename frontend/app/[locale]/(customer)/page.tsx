@@ -61,8 +61,23 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
 
   return (
     <main id="main-content" className="pb-8">
-      <div className="mx-auto grid max-w-[1480px] gap-6 px-4 py-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_310px] lg:items-start">
-        <div className="min-w-0 space-y-10">
+      {/*
+        Not a CSS grid: with two grid columns, the row (and therefore
+        everything below it, e.g. the "loop" section) is always as tall as
+        the TALLER column, regardless of items-start. Since the Featured
+        Venues section only renders when an admin has featured a room
+        (often empty), the left column is frequently much shorter than the
+        4-card right sidebar, which left a large visible gap below the
+        left column's last card before the next section started.
+        Fix: take the sidebar out of the height calculation entirely by
+        absolutely positioning it (desktop only) inside a `relative`
+        wrapper whose height then comes from the main column alone; the
+        sidebar still scrolls with `sticky` inside its own box, and simply
+        stops sticking once it runs past the main column's height instead
+        of forcing blank space below short main-column content.
+      */}
+      <div className="relative mx-auto max-w-[1480px] px-4 py-6 sm:px-6">
+        <div className="min-w-0 space-y-10 lg:pr-[334px]">
           <section className="relative min-h-[360px] overflow-hidden rounded-lg border border-border bg-surface shadow-sm sm:min-h-[390px]">
             <Image src="/home/baku-skyline.webp" alt="" fill priority sizes="(max-width: 1024px) 100vw, 1100px" className="object-cover" />
             <div className="absolute inset-0 bg-gradient-to-r from-bg via-bg to-transparent opacity-95" aria-hidden="true" />
@@ -151,7 +166,8 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
           </section>
         </div>
 
-        <aside className="space-y-5 lg:sticky lg:top-20 lg:self-start" aria-label={t('dashboard.sidebarLabel')}>
+        <div className="mt-8 lg:absolute lg:inset-y-0 lg:right-0 lg:mt-0 lg:w-[310px]">
+        <aside className="space-y-5 lg:sticky lg:top-20" aria-label={t('dashboard.sidebarLabel')}>
           <section className="rounded-lg border border-border bg-surface p-5 shadow-sm">
             <div className="flex items-center justify-between gap-3">
               <h2 className="font-display text-h4 text-text-primary">{t('dashboard.calendar.title')}</h2>
@@ -213,6 +229,7 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
             <Link href="/advertise" className="mt-4 inline-block text-label font-semibold text-primary">{t('sponsor.cta')} →</Link>
           </section>
         </aside>
+        </div>
       </div>
 
       <section className="mt-10 border-y border-border bg-surface">
