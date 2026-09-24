@@ -12,7 +12,9 @@ import { AuthService } from '../auth/auth.service';
 import { ReferralTrackingService } from '../partners/referral-tracking.service';
 import {
   BOOKING_TRANSITIONS,
+  BookingMode,
   BookingStatus,
+  REQUEST_BASED_TRANSITIONS,
 } from '../../common/constants/booking.enum';
 import { RoomStatus } from '../../common/constants/provider.enum';
 import {
@@ -227,9 +229,18 @@ export class BookingsService {
 
   /**
    * Explicit state-machine transition (12_RESERVATION_ENGINE.md §12.3) — an
-   * edge not in BOOKING_TRANSITIONS throws rather than silently applying.
-   * Keeps booking_item.status in lockstep, since that denormalized copy is
-   * what the exclusion constraint's WHERE clause actually reads.
+   * edge not in the booking's own transition table throws rather than
+   * silently applying. Keeps booking_item.status in lockstep, since that
+   * denormalized copy is what the exclusion constraint's WHERE clause
+   * actually reads.
+   *
+   * Which table governs is `booking.mode`-driven (T2): PAYMENT_BASED
+   * bookings — the existing flow, untouched — validate against
+   * BOOKING_TRANSITIONS exactly as before; REQUEST_BASED bookings validate
+   * against the separate REQUEST_BASED_TRANSITIONS state machine. The two
+   * tables never merge, so a PAYMENT_BASED booking can never reach a
+   * REQUEST_BASED-only status (REJECTED, CANCELLED_BY_USER,
+   * CANCELLED_BY_PROVIDER) or vice versa.
    *
    * Accepts an optional `manager` so a caller that needs this transition to
    * be atomic with other writes — PaymentsService confirming a booking in
@@ -257,7 +268,11 @@ export class BookingsService {
     if (!booking || booking.deletedAt)
       throw new ResourceNotFoundException('Booking');
 
-    const allowed = BOOKING_TRANSITIONS[booking.status] ?? [];
+    const transitions =
+      booking.mode === BookingMode.REQUEST_BASED
+        ? REQUEST_BASED_TRANSITIONS
+        : BOOKING_TRANSITIONS;
+    const allowed = transitions[booking.status] ?? [];
     if (!allowed.includes(to)) {
       throw new InvalidBookingStateTransitionException(booking.status, to);
     }
@@ -265,7 +280,12 @@ export class BookingsService {
     booking.status = to;
     booking.updatedAt = new Date();
     if (to === BookingStatus.CONFIRMED) booking.confirmedAt = new Date();
-    if (to === BookingStatus.CANCELLED) booking.cancelledAt = new Date();
+    if (
+      to === BookingStatus.CANCELLED ||
+      to === BookingStatus.CANCELLED_BY_USER ||
+      to === BookingStatus.CANCELLED_BY_PROVIDER
+    )
+      booking.cancelledAt = new Date();
     if (to === BookingStatus.COMPLETED) booking.completedAt = new Date();
 
     await bookingItemRepo.update({ bookingId }, { status: to });

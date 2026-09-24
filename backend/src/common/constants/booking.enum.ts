@@ -64,6 +64,51 @@ export const BOOKING_TRANSITIONS: Record<BookingStatus, BookingStatus[]> = {
   [BookingStatus.CANCELLED_BY_PROVIDER]: [],
 };
 
+/**
+ * The REQUEST_BASED state machine (Phase 1A / T2 planning doc, "Phase 1A —
+ * Tapşırıq Bölgüsü", Qrup B). Governs `booking.mode === BookingMode.REQUEST_BASED`
+ * only; BOOKING_TRANSITIONS above is untouched and keeps governing
+ * PAYMENT_BASED exactly as before.
+ *
+ * DRAFT -> PENDING is listed for schema completeness (BookingEntity's
+ * column default is DRAFT) but is never actually reached in application
+ * code today: BookingsService.create() inserts a new booking row directly
+ * as PENDING (no DRAFT row is ever persisted). No DRAFT -> CANCELLED_BY_USER
+ * edge exists — an abandoned, never-submitted request has no row to cancel.
+ *
+ * CONFIRMED -> CANCELLED_BY_PROVIDER has no cancellation-reason/actor
+ * column to record yet (BookingEntity has none, and neither does the
+ * existing PAYMENT_BASED cancellation path in refunds.service.ts /
+ * payments.service.ts) — tracked as a follow-up gap for the task that
+ * builds the actual confirm/reject/cancel endpoints, not solved here.
+ */
+export const REQUEST_BASED_TRANSITIONS: Record<BookingStatus, BookingStatus[]> =
+  {
+    [BookingStatus.DRAFT]: [BookingStatus.PENDING],
+    [BookingStatus.PENDING]: [
+      BookingStatus.CONFIRMED,
+      BookingStatus.REJECTED,
+      BookingStatus.EXPIRED,
+      BookingStatus.CANCELLED_BY_USER,
+    ],
+    [BookingStatus.PAYMENT_PENDING]: [],
+    [BookingStatus.CONFIRMED]: [
+      BookingStatus.COMPLETED,
+      BookingStatus.NO_SHOW,
+      BookingStatus.CANCELLED_BY_USER,
+      BookingStatus.CANCELLED_BY_PROVIDER,
+    ],
+    [BookingStatus.COMPLETED]: [],
+    [BookingStatus.CANCELLED]: [],
+    [BookingStatus.EXPIRED]: [],
+    [BookingStatus.NO_SHOW]: [],
+    [BookingStatus.REFUND_PENDING]: [],
+    [BookingStatus.REFUNDED]: [],
+    [BookingStatus.REJECTED]: [],
+    [BookingStatus.CANCELLED_BY_USER]: [],
+    [BookingStatus.CANCELLED_BY_PROVIDER]: [],
+  };
+
 /** Non-terminal statuses that hold a slot / count toward the exclusion constraint. */
 export const ACTIVE_BOOKING_STATUSES = [
   BookingStatus.PENDING,
