@@ -643,11 +643,13 @@ function EditRoomForm({
   roomTypes,
   onSaved,
   onCancel,
+  onDelete,
 }: {
   room: MyRoom;
   roomTypes: RoomTypeOption[];
   onSaved: (room: MyRoom) => void;
   onCancel: () => void;
+  onDelete: () => void;
 }) {
   const [roomTypeId, setRoomTypeId] = useState(room.roomTypeId);
   const [name, setName] = useState(room.name);
@@ -761,12 +763,15 @@ function EditRoomForm({
           className="w-full min-h-24 rounded-sm border border-border-strong bg-surface px-4 py-2.5 text-body text-text-primary placeholder:text-text-muted focus:border-primary focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
         />
       </FormField>
-      <div className="flex gap-3">
+      <div className="flex flex-wrap gap-3">
         <Button type="submit" isLoading={saving}>
           {saving ? 'Yadda saxlanılır…' : 'Yadda saxla'}
         </Button>
         <Button type="button" variant="secondary" onClick={onCancel} disabled={saving}>
           Ləğv et
+        </Button>
+        <Button type="button" variant="secondary" onClick={onDelete} disabled={saving}>
+          Elanı sil
         </Button>
       </div>
     </form>
@@ -865,6 +870,7 @@ function RoomRow({
             setEditing(false);
           }}
           onCancel={() => setEditing(false)}
+          onDelete={deleteRoom}
         />
       </li>
     );
