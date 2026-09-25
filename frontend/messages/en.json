@@ -46,7 +46,7 @@
   "auth": {
     "login": {
       "title": "Log in to Spotva",
-      "subtitle": "Continue securely and quickly with your Google account.",
+      "subtitle": "Sign in to Spotva with the code sent to your email.",
       "noMethodsAvailable": "Sign-in isn't available right now. Please try again shortly.",
       "continueWithFacebook": "Continue with Facebook",
       "errors": {
@@ -56,7 +56,11 @@
         "oauthFailed": "We couldn't sign you in. Please try again.",
         "popupBlocked": "Your browser blocked the sign-in window. Please allow pop-ups for this site and try again.",
         "loginTimedOut": "This sign-in didn't finish. If a window opened, please close it, then try again.",
-        "generic": "Something went wrong. Please try again."
+        "generic": "Something went wrong. Please try again.",
+        "invalidCode": "That code is invalid or has expired. Request a new one.",
+        "expiredCode": "That code has expired. Request a new one.",
+        "rateLimited": "Too many attempts. Please wait and try again.",
+        "requestFailed": "We could not send a code. Please try again."
       },
       "secureBadge": "Secure sign-in",
       "oneStep": "one-step access",
@@ -80,6 +84,18 @@
             "body": "Be ready for event and audience capabilities."
           }
         }
+      },
+      "otp": {
+        "emailLabel": "Email",
+        "sendCode": "Send code",
+        "sending": "Sending…",
+        "codeLabel": "Sign-in code",
+        "verifyCode": "Confirm code",
+        "verifying": "Checking…",
+        "sentTo": "A code was sent to {email}.",
+        "resend": "Resend code",
+        "resendIn": "Resend in {seconds}s",
+        "changeEmail": "Change email"
       }
     }
   },

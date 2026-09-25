@@ -46,7 +46,7 @@
   "auth": {
     "login": {
       "title": "Spotva-ya daxil olun",
-      "subtitle": "Google hesabınızla təhlükəsiz və sürətli davam edin.",
+      "subtitle": "E-poçt ünvanınıza göndərilən kodla Spotva-ya daxil olun.",
       "noMethodsAvailable": "Giriş hazırda mümkün deyil. Bir az sonra yenidən cəhd edin.",
       "continueWithFacebook": "Facebook ilə davam et",
       "errors": {
@@ -56,7 +56,11 @@
         "oauthFailed": "Daxil olmaq mümkün olmadı. Yenidən cəhd edin.",
         "popupBlocked": "Brauzeriniz giriş pəncərəsini blokladı. Zəhmət olmasa bu sayt üçün pop-up pəncərələrə icazə verib yenidən cəhd edin.",
         "loginTimedOut": "Giriş tamamlanmadı. Əgər bir pəncərə açılıbsa, onu bağlayıb yenidən cəhd edin.",
-        "generic": "Nəsə səhv getdi. Zəhmət olmasa yenidən cəhd edin."
+        "generic": "Nəsə səhv getdi. Zəhmət olmasa yenidən cəhd edin.",
+        "invalidCode": "Kod yanlışdır və ya vaxtı bitib. Yeni kod göndərin.",
+        "expiredCode": "Kodun vaxtı bitib. Yeni kod göndərin.",
+        "rateLimited": "Çox cəhd etdiniz. Bir az sonra yenidən cəhd edin.",
+        "requestFailed": "Kod göndərilmədi. Zəhmət olmasa yenidən cəhd edin."
       },
       "secureBadge": "Təhlükəsiz giriş",
       "oneStep": "bir addımlıq giriş",
@@ -80,6 +84,18 @@
             "body": "Tədbir və auditoriya imkanlarına hazır olun."
           }
         }
+      },
+      "otp": {
+        "emailLabel": "E-poçt",
+        "sendCode": "Kod göndər",
+        "sending": "Göndərilir…",
+        "codeLabel": "Giriş kodu",
+        "verifyCode": "Kodu təsdiqlə",
+        "verifying": "Yoxlanılır…",
+        "sentTo": "Kod {email} ünvanına göndərildi.",
+        "resend": "Kodu yenidən göndər",
+        "resendIn": "Yenidən göndər ({seconds}s)",
+        "changeEmail": "Emaili dəyiş"
       }
     }
   },
