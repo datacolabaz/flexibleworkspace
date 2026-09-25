@@ -48,10 +48,10 @@ export class NotificationsService {
     locale = 'az',
   ): Promise<void> {
     const isEmail = NotificationsService.isEmail(identifier);
-    const subject = isEmail ? 'FlexSpace — Giriş kodunuz' : null;
+    const subject = isEmail ? 'Spotva — Giriş kodunuz' : null;
     const body = isEmail
-      ? `<p>FlexSpace giriş kodunuz: <b style="font-size:20px;letter-spacing:2px">${code}</b></p><p>Bu kod 5 dəqiqə ərzində etibarlıdır.</p>`
-      : `FlexSpace giris kodunuz: ${code}. 5 deqiqe etibarlidir.`;
+      ? `<p>Spotva giriş kodunuz: <b style="font-size:20px;letter-spacing:2px">${code}</b></p><p>Bu kod 5 dəqiqə ərzində etibarlıdır.</p>`
+      : `Spotva giris kodunuz: ${code}. 5 deqiqe etibarlidir.`;
 
     await this.dispatch(
       userId,
