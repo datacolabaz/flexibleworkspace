@@ -111,13 +111,18 @@ export default async function ProviderHome() {
 
   try {
     const provider = await getMyProvider(accessToken);
-    const [leads, locations, rooms, roomTypes, amenityOptions] = await Promise.all([
+    const [leadsResult, locationsResult, roomsResult, roomTypesResult, amenitiesResult] = await Promise.allSettled([
       listMyLeads(accessToken),
       listMyLocations(accessToken),
       listMyRooms(accessToken),
       listRoomTypes(accessToken),
       listAmenities(accessToken),
     ]);
+    const leads = leadsResult.status === 'fulfilled' ? leadsResult.value : [];
+    const locations = locationsResult.status === 'fulfilled' ? locationsResult.value : [];
+    const rooms = roomsResult.status === 'fulfilled' ? roomsResult.value : [];
+    const roomTypes = roomTypesResult.status === 'fulfilled' ? roomTypesResult.value : [];
+    const amenityOptions = amenitiesResult.status === 'fulfilled' ? amenitiesResult.value : [];
 
     // Best-effort — analytics is a secondary panel, not a core part of the
     // dashboard, so a hiccup here (same soft-fail convention as
