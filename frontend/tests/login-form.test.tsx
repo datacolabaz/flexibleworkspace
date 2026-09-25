@@ -1,19 +1,21 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { NextIntlClientProvider } from 'next-intl';
 import messages from '../messages/en.json';
 import { LoginForm } from '@/components/features/auth/LoginForm';
 
-// LoginForm only decides *whether* to show the Google button (env-var
-// gated) and surfaces its onError callback as a banner — the actual
-// sign-in flow (script loading, the BFF POST, the redirect) belongs to
-// GoogleSignInButton itself, so it's mocked here rather than re-exercised
-// through LoginForm.
-// The mock mirrors the real component's own "render nothing without my
-// env var" gate (GoogleSignInButton checks this itself) — LoginForm
-// renders it unconditionally once Google is configured and relies on
-// that self-gating, so a mock that ignored it would test a behavior
-// LoginForm doesn't actually have.
+const mockPush = vi.fn();
+const mockRefresh = vi.fn();
+
+vi.mock('@/lib/i18n/navigation', () => ({
+  Link: ({ href, children, ...props }: React.AnchorHTMLAttributes<HTMLAnchorElement>) => (
+    <a href={href as string} {...props}>
+      {children}
+    </a>
+  ),
+  useRouter: () => ({ push: mockPush, refresh: mockRefresh }),
+}));
+
 vi.mock('@/components/features/auth/GoogleSignInButton', () => ({
   GoogleSignInButton: ({ onError }: { redirectTo?: string; onError: (message: string) => void }) => {
     if (!process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID) return null;
@@ -25,40 +27,151 @@ vi.mock('@/components/features/auth/GoogleSignInButton', () => ({
   },
 }));
 
-function renderLoginForm(redirectTo?: string) {
+vi.mock('@/components/features/auth/AdminPasswordForm', () => ({
+  AdminPasswordForm: () => <div>Admin password form</div>,
+}));
+
+function renderLoginForm(redirectTo?: string, adminMode = false) {
   return render(
     <NextIntlClientProvider locale="en" messages={messages}>
-      <LoginForm redirectTo={redirectTo} />
+      <LoginForm redirectTo={redirectTo} adminMode={adminMode} />
     </NextIntlClientProvider>,
   );
 }
 
+async function requestOtp(identifier = 'dana@example.com') {
+  fireEvent.change(screen.getByLabelText('Email'), { target: { value: identifier } });
+  fireEvent.click(screen.getByRole('button', { name: 'Send code' }));
+  await screen.findByLabelText('Sign-in code');
+}
+
 describe('LoginForm', () => {
-  afterEach(() => {
-    vi.unstubAllEnvs();
+  beforeEach(() => {
+    mockPush.mockClear();
+    mockRefresh.mockClear();
+    vi.stubGlobal('fetch', vi.fn());
   });
 
-  it('renders Google sign-in when configured', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
+  });
+
+  it('renders Google sign-in when configured without hiding OTP entry', () => {
     vi.stubEnv('NEXT_PUBLIC_GOOGLE_CLIENT_ID', 'test-google-client-id');
     renderLoginForm();
 
+    expect(screen.getByRole('button', { name: 'Send code' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Mock Google button' })).toBeInTheDocument();
     expect(screen.queryByText(/isn't available right now/i)).not.toBeInTheDocument();
   });
 
-  it('shows a fallback message instead of a blank card when Google is not configured', () => {
+  it('still shows OTP login when Google is not configured', () => {
     renderLoginForm();
 
-    expect(screen.getByText(/sign-in isn't available right now/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Send code' })).toBeInTheDocument();
+    expect(screen.queryByText(/isn't available right now/i)).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Mock Google button' })).not.toBeInTheDocument();
   });
 
-  it('shows the error the sign-in button reports as a banner', () => {
+  it('does not render OTP UI in admin mode', () => {
+    renderLoginForm('/admin', true);
+    expect(screen.getByText('Admin password form')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Send code' })).not.toBeInTheDocument();
+  });
+
+  it('shows the error the Google button reports as a banner', () => {
     vi.stubEnv('NEXT_PUBLIC_GOOGLE_CLIENT_ID', 'test-google-client-id');
     renderLoginForm();
-
     fireEvent.click(screen.getByRole('button', { name: 'Mock Google button' }));
-
     expect(screen.getByRole('alert')).toHaveTextContent('google failed');
+  });
+
+  it('requests an OTP and then shows a masked identifier', async () => {
+    const fetchMock = fetch as unknown as ReturnType<typeof vi.fn>;
+    fetchMock.mockResolvedValueOnce(new Response(null, { status: 204 }));
+    renderLoginForm();
+    await requestOtp('dana@example.com');
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/auth/otp/request', expect.objectContaining({
+      method: 'POST',
+      body: JSON.stringify({ identifier: 'dana@example.com' }),
+    }));
+    expect(screen.getByText(/d\*{3,}@example\.com/)).toBeInTheDocument();
+    expect(screen.queryByDisplayValue('dana@example.com')).not.toBeInTheDocument();
+  });
+
+  it('maps a request rate-limit to a user-facing error', async () => {
+    const fetchMock = fetch as unknown as ReturnType<typeof vi.fn>;
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify({ error: { code: 'RATE_LIMITED' } }), {
+        status: 429,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+    renderLoginForm();
+    fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'dana@example.com' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Send code' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(/too many attempts/i);
+    expect(screen.queryByLabelText('Sign-in code')).not.toBeInTheDocument();
+  });
+
+  it('verifies a 6-digit code and refreshes the session without storing tokens', async () => {
+    const fetchMock = fetch as unknown as ReturnType<typeof vi.fn>;
+    fetchMock
+      .mockResolvedValueOnce(new Response(null, { status: 204 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ success: true }), { status: 200 }));
+    renderLoginForm('/account/bookings');
+    await requestOtp();
+    fireEvent.change(screen.getByLabelText('Sign-in code'), { target: { value: '135790' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm code' }));
+
+    await waitFor(() => expect(mockPush).toHaveBeenCalledWith('/account/bookings'));
+    expect(mockRefresh).toHaveBeenCalled();
+    expect(fetchMock).toHaveBeenNthCalledWith(2, '/api/auth/otp/verify', expect.objectContaining({
+      method: 'POST',
+      body: JSON.stringify({ identifier: 'dana@example.com', code: '135790' }),
+    }));
+    expect(JSON.stringify(fetchMock.mock.calls)).not.toContain('accessToken');
+  });
+
+  it('maps an invalid or expired code without setting a session', async () => {
+    const fetchMock = fetch as unknown as ReturnType<typeof vi.fn>;
+    fetchMock
+      .mockResolvedValueOnce(new Response(null, { status: 204 }))
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ error: { code: 'OTP_INVALID_OR_EXPIRED' } }), {
+          status: 401,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      );
+    renderLoginForm();
+    await requestOtp();
+    fireEvent.change(screen.getByLabelText('Sign-in code'), { target: { value: '000000' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm code' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(/invalid or has expired/i);
+    expect(mockPush).not.toHaveBeenCalled();
+    expect(mockRefresh).not.toHaveBeenCalled();
+  });
+
+  it('lets the user change email and return to the request step', async () => {
+    const fetchMock = fetch as unknown as ReturnType<typeof vi.fn>;
+    fetchMock.mockResolvedValueOnce(new Response(null, { status: 204 }));
+    renderLoginForm();
+    await requestOtp();
+    fireEvent.click(screen.getByRole('button', { name: 'Change email' }));
+    expect(screen.getByRole('button', { name: 'Send code' })).toBeInTheDocument();
+    expect(screen.queryByLabelText('Sign-in code')).not.toBeInTheDocument();
+  });
+
+  it('disables resend during the client cooldown window', async () => {
+    const fetchMock = fetch as unknown as ReturnType<typeof vi.fn>;
+    fetchMock.mockResolvedValueOnce(new Response(null, { status: 204 }));
+    renderLoginForm();
+    await requestOtp();
+    expect(screen.getByRole('button', { name: /resend in 30s/i })).toBeDisabled();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 });

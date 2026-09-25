@@ -79,12 +79,9 @@ function formatTime(iso: string, locale: string): string {
  *
  * The price shown is explicitly an *estimate* (07_UX_ARCHITECTURE.md
  * §7.5 labels this exact appearance "room detail (estimate)", distinct
- * from the booking panel's later "live" breakdown) — the service-fee
- * percentage is a server-side config value
- * (`booking.serviceFeePercentage`, `BookingsService.create`) with no
- * public endpoint exposing it, so this shows the subtotal plus a note
- * that a service fee is added at checkout, rather than fabricating a
- * fee number the backend never confirmed.
+ * from the booking panel's later "live" breakdown). Phase 1 customer booking
+ * fees are 0%; Spotva's commission is charged to providers, not added to the
+ * customer's displayed total.
  */
 export function BookingWidget({ roomId, pricePerHour, minBookingMinutes, maxBookingMinutes }: BookingWidgetProps) {
   const t = useTranslations('room');
@@ -281,7 +278,6 @@ export function BookingWidget({ roomId, pricePerHour, minBookingMinutes, maxBook
             <span>{t('estimatedTotal')}</span>
             <span className="font-semibold text-text-primary">{formatMoney(subtotal, price.currency, locale)}</span>
           </div>
-          <p className="text-caption text-text-muted">{t('serviceFeeNote')}</p>
         </div>
       )}
 

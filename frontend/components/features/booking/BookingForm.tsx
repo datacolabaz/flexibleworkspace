@@ -23,6 +23,8 @@ export interface BookingFormProps {
 interface BffErrorBody {
   error?: { code?: string };
 }
+type BookingMode = 'REQUEST_BASED' | 'PAYMENT_BASED';
+type CreatedBooking = { id: string; mode?: BookingMode };
 
 /**
  * Only the machine-readable `code` is read off the error envelope — the
@@ -40,9 +42,10 @@ async function readErrorCode(response: Response): Promise<string | undefined> {
 }
 
 /**
- * `POST /bookings` -> `POST /payments` -> redirect to hosted checkout, as
- * one submit (12_RESERVATION_ENGINE.md §12.3 + 13_PAYMENT_ARCHITECTURE.md
- * §13.3). No payment-provider picker: EPOINT is the documented V1 primary
+ * `POST /bookings` chooses the flow from the backend response: REQUEST_BASED
+ * ends after creating a PENDING request, while PAYMENT_BASED continues with
+ * `POST /payments` and a hosted checkout redirect. No payment-provider picker:
+ * EPOINT is the documented V1 primary
  * provider (13_PAYMENT_ARCHITECTURE.md §13.4) and which gateway processes
  * a card isn't a decision a customer needs to make — PAYRIFF exists only
  * as the backend's own secondary/backup adapter.
@@ -75,6 +78,7 @@ export function BookingForm({
   const [banner, setBanner] = useState<{ variant: 'error'; message: string } | undefined>();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [createdBookingId, setCreatedBookingId] = useState<string | null>(null);
+  const [requestSubmitted, setRequestSubmitted] = useState(false);
 
   const durationMinutes = Math.round((new Date(endAt).getTime() - new Date(startAt).getTime()) / 60_000);
   const subtotal =
@@ -169,8 +173,12 @@ export function BookingForm({
         return;
       }
 
-      const booking = (await res.json()) as { id: string };
+      const booking = (await res.json()) as CreatedBooking;
       setCreatedBookingId(booking.id);
+      if (booking.mode === 'REQUEST_BASED') {
+        setRequestSubmitted(true);
+        return;
+      }
       await submitPayment(booking.id);
     } catch {
       setBanner({ variant: 'error', message: t('errors.generic') });
@@ -193,6 +201,7 @@ export function BookingForm({
           )}
         </Alert>
       )}
+      {requestSubmitted && <Alert variant="success">{t('requestSubmitted')}</Alert>}
 
       {!isAuthenticated && !createdBookingId && (
         <div className="flex flex-col gap-4">
@@ -298,18 +307,17 @@ export function BookingForm({
               {formatMoney(subtotal, pricePerHour.currency, locale)}
             </span>
           </div>
-          <p className="text-caption text-text-muted">{t('priceServiceFeeNote')}</p>
         </div>
       )}
 
-      <div>
+      {!requestSubmitted && <div>
         <Label className="sr-only" htmlFor="booking-submit">
           {t('submitCta')}
         </Label>
         <Button id="booking-submit" type="submit" variant="primary" fullWidth isLoading={isSubmitting}>
           {isSubmitting ? t('submittingCta') : createdBookingId ? t('retryPaymentCta') : t('submitCta')}
         </Button>
-      </div>
+      </div>}
     </form>
   );
 }

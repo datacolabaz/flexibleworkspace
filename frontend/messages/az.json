@@ -46,7 +46,7 @@
   "auth": {
     "login": {
       "title": "Spotva-ya daxil olun",
-      "subtitle": "Google hesabınızla təhlükəsiz və sürətli davam edin.",
+      "subtitle": "E-poçt ünvanınıza göndərilən kodla Spotva-ya daxil olun.",
       "noMethodsAvailable": "Giriş hazırda mümkün deyil. Bir az sonra yenidən cəhd edin.",
       "continueWithFacebook": "Facebook ilə davam et",
       "errors": {
@@ -56,7 +56,11 @@
         "oauthFailed": "Daxil olmaq mümkün olmadı. Yenidən cəhd edin.",
         "popupBlocked": "Brauzeriniz giriş pəncərəsini blokladı. Zəhmət olmasa bu sayt üçün pop-up pəncərələrə icazə verib yenidən cəhd edin.",
         "loginTimedOut": "Giriş tamamlanmadı. Əgər bir pəncərə açılıbsa, onu bağlayıb yenidən cəhd edin.",
-        "generic": "Nəsə səhv getdi. Zəhmət olmasa yenidən cəhd edin."
+        "generic": "Nəsə səhv getdi. Zəhmət olmasa yenidən cəhd edin.",
+        "invalidCode": "Kod yanlışdır və ya vaxtı bitib. Yeni kod göndərin.",
+        "expiredCode": "Kodun vaxtı bitib. Yeni kod göndərin.",
+        "rateLimited": "Çox cəhd etdiniz. Bir az sonra yenidən cəhd edin.",
+        "requestFailed": "Kod göndərilmədi. Zəhmət olmasa yenidən cəhd edin."
       },
       "secureBadge": "Təhlükəsiz giriş",
       "oneStep": "bir addımlıq giriş",
@@ -80,6 +84,18 @@
             "body": "Tədbir və auditoriya imkanlarına hazır olun."
           }
         }
+      },
+      "otp": {
+        "emailLabel": "E-poçt",
+        "sendCode": "Kod göndər",
+        "sending": "Göndərilir…",
+        "codeLabel": "Giriş kodu",
+        "verifyCode": "Kodu təsdiqlə",
+        "verifying": "Yoxlanılır…",
+        "sentTo": "Kod {email} ünvanına göndərildi.",
+        "resend": "Kodu yenidən göndər",
+        "resendIn": "Yenidən göndər ({seconds}s)",
+        "changeEmail": "Emaili dəyiş"
       }
     }
   },
@@ -194,7 +210,6 @@
     "durationPlaceholder": "Müddəti seçin",
     "durationHours": "{hours} saat",
     "estimatedTotal": "Təxmini məbləğ",
-    "serviceFeeNote": "Ödəniş zamanı xidmət haqqı əlavə olunur.",
     "bookCta": "Rezervasiyaya davam et",
     "addToFavorites": "Sevimlilərə əlavə et",
     "removeFromFavorites": "Sevimlilərdən sil",
@@ -258,10 +273,10 @@
     "purposeLabel": "Məqsəd (istəyə bağlı)",
     "purposePlaceholder": "məs. Komanda seminarı",
     "priceSubtotal": "Ara cəm",
-    "priceServiceFeeNote": "Ödəniş zamanı xidmət haqqı hesablanır.",
     "submitCta": "Ödənişə keç",
     "submittingCta": "Rezervasiya edilir…",
     "retryPaymentCta": "Ödənişi yenidən cəhd edin",
+    "requestSubmitted": "Rezervasiya sorğunuz göndərildi. Məkan sahibinin təsdiqi gözlənilir.",
     "backToRoom": "Otağa qayıt",
     "errors": {
       "slotUnavailable": "Təəssüf ki, bu vaxt aralığını artıq başqası rezerv etdi. Zəhmət olmasa başqa vaxt seçin.",
@@ -795,27 +810,27 @@
     "example": {
       "eyebrow": "100 AZN-lik bron nümunəsi",
       "title": "Hər məbləğ checkout-da ayrı görünür",
-      "body": "Bu nümunədə 10% host komissiyası, 5% qonaq xidmət haqqı və 3% ödəniş emalı fərz edilir. Vergi və faktura təsiri daxil deyil.",
+      "body": "Phase 1-də müştəri əlavə xidmət haqqı ödəmir. Spotva provider-dən 15% komissiya alır.",
       "rows": {
         "base": {
           "label": "Məkanın baza qiyməti",
           "value": "100.00 AZN"
         },
         "guestFee": {
-          "label": "Qonaq xidmət haqqı (5%)",
-          "value": "+5.00 AZN"
+          "label": "Müştəri xidməti haqqı (0%)",
+          "value": "0.00 AZN"
         },
         "customerTotal": {
           "label": "Müştərinin ödədiyi",
-          "value": "105.00 AZN"
+          "value": "100.00 AZN"
         },
         "hostFee": {
-          "label": "Host komissiyası (10%)",
-          "value": "−10.00 AZN"
+          "label": "Provider komissiyası (15%)",
+          "value": "−15.00 AZN"
         },
         "hostNet": {
           "label": "Məkan sahibinin alacağı",
-          "value": "90.00 AZN"
+          "value": "85.00 AZN"
         },
         "spotvaGross": {
           "label": "Spotva ümumi platforma gəliri",

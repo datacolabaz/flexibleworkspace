@@ -46,7 +46,7 @@
   "auth": {
     "login": {
       "title": "Log in to Spotva",
-      "subtitle": "Continue securely and quickly with your Google account.",
+      "subtitle": "Sign in to Spotva with the code sent to your email.",
       "noMethodsAvailable": "Sign-in isn't available right now. Please try again shortly.",
       "continueWithFacebook": "Continue with Facebook",
       "errors": {
@@ -56,7 +56,11 @@
         "oauthFailed": "We couldn't sign you in. Please try again.",
         "popupBlocked": "Your browser blocked the sign-in window. Please allow pop-ups for this site and try again.",
         "loginTimedOut": "This sign-in didn't finish. If a window opened, please close it, then try again.",
-        "generic": "Something went wrong. Please try again."
+        "generic": "Something went wrong. Please try again.",
+        "invalidCode": "That code is invalid or has expired. Request a new one.",
+        "expiredCode": "That code has expired. Request a new one.",
+        "rateLimited": "Too many attempts. Please wait and try again.",
+        "requestFailed": "We could not send a code. Please try again."
       },
       "secureBadge": "Secure sign-in",
       "oneStep": "one-step access",
@@ -80,6 +84,18 @@
             "body": "Be ready for event and audience capabilities."
           }
         }
+      },
+      "otp": {
+        "emailLabel": "Email",
+        "sendCode": "Send code",
+        "sending": "Sending…",
+        "codeLabel": "Sign-in code",
+        "verifyCode": "Confirm code",
+        "verifying": "Checking…",
+        "sentTo": "A code was sent to {email}.",
+        "resend": "Resend code",
+        "resendIn": "Resend in {seconds}s",
+        "changeEmail": "Change email"
       }
     }
   },
@@ -194,7 +210,6 @@
     "durationPlaceholder": "Select a duration",
     "durationHours": "{hours} h",
     "estimatedTotal": "Estimated total",
-    "serviceFeeNote": "A service fee is added at checkout.",
     "bookCta": "Continue to book",
     "addToFavorites": "Add to favorites",
     "removeFromFavorites": "Remove from favorites",
@@ -258,10 +273,10 @@
     "purposeLabel": "What's this for? (optional)",
     "purposePlaceholder": "e.g. Team workshop",
     "priceSubtotal": "Subtotal",
-    "priceServiceFeeNote": "A service fee is calculated at checkout.",
     "submitCta": "Continue to payment",
     "submittingCta": "Booking…",
     "retryPaymentCta": "Try payment again",
+    "requestSubmitted": "Your booking request was sent. It is waiting for the provider's confirmation.",
     "backToRoom": "Back to room",
     "errors": {
       "slotUnavailable": "Sorry, this time slot was just booked by someone else. Please choose another time.",
@@ -795,27 +810,27 @@
     "example": {
       "eyebrow": "100 AZN booking example",
       "title": "Every amount is visible at checkout",
-      "body": "This example assumes a 10% host fee, 5% guest service fee and 3% payment processing. Tax and invoicing effects are excluded.",
+      "body": "In Phase 1, customers pay no additional booking fee. Spotva charges providers a 15% commission.",
       "rows": {
         "base": {
           "label": "Venue base price",
           "value": "100.00 AZN"
         },
         "guestFee": {
-          "label": "Guest service fee (5%)",
-          "value": "+5.00 AZN"
+          "label": "Customer booking fee (0%)",
+          "value": "0.00 AZN"
         },
         "customerTotal": {
           "label": "Customer pays",
-          "value": "105.00 AZN"
+          "value": "100.00 AZN"
         },
         "hostFee": {
-          "label": "Host commission (10%)",
-          "value": "−10.00 AZN"
+          "label": "Provider commission (15%)",
+          "value": "−15.00 AZN"
         },
         "hostNet": {
           "label": "Venue receives",
-          "value": "90.00 AZN"
+          "value": "85.00 AZN"
         },
         "spotvaGross": {
           "label": "Spotva gross platform revenue",
