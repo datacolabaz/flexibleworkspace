@@ -104,7 +104,7 @@ export class RoomsService {
     const provider = await this.providersService.findById(providerId);
     const limit = PLAN_ROOM_LIMITS[provider.planTier as ProviderPlanTier];
     const activeCount = await this.roomRepo.count({
-      where: { location: { providerId } } as any,
+      where: { location: { providerId }, deletedAt: null } as any,
       relations: ['location'],
     });
     if (activeCount >= limit) {
@@ -233,6 +233,16 @@ export class RoomsService {
     return this.roomRepo.save(room);
   }
 
+  /** Soft-delete a provider listing while preserving booking history and references. */
+  async remove(id: string, providerId: string): Promise<void> {
+    const room = await this.findById(id);
+    if (room.location.providerId !== providerId)
+      throw new ResourceNotFoundException('Room');
+    room.deletedAt = new Date();
+    room.updatedAt = new Date();
+    await this.roomRepo.save(room);
+  }
+
   /** Full-replace semantics for just the amenities relation — see
    * UpdateRoomAmenitiesDto's own comment for why this exists alongside
    * the full-object update() above. */
@@ -296,7 +306,7 @@ export class RoomsService {
 
   async listByProvider(providerId: string): Promise<RoomEntity[]> {
     return this.roomRepo.find({
-      where: { location: { providerId } } as any,
+      where: { location: { providerId }, deletedAt: null } as any,
       relations: ['location', 'roomType', 'amenities'],
       order: { createdAt: 'DESC' },
     });
