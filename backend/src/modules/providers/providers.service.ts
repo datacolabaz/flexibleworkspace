@@ -278,6 +278,27 @@ export class ProvidersService {
     return saved;
   }
 
+  async remove(providerId: string, adminUserId: string, reason: string): Promise<{ deleted: true }> {
+    if (!reason?.trim() || reason.trim().length < 3) {
+      throw new DomainException('DELETE_REASON_REQUIRED', 'A deletion reason of at least 3 characters is required.', HttpStatus.BAD_REQUEST);
+    }
+    const provider = await this.findById(providerId);
+    const before = { verificationStatus: provider.verificationStatus, deletedAt: null };
+    provider.deletedAt = new Date();
+    provider.updatedAt = new Date();
+    await this.providerRepo.save(provider);
+    await this.auditLogService.recordChange({
+      actorUserId: adminUserId,
+      action: 'provider.archive',
+      entityType: 'Provider',
+      entityId: providerId,
+      beforeState: before,
+      afterState: { verificationStatus: provider.verificationStatus, deletedAt: provider.deletedAt.toISOString() },
+      reason: reason.trim(),
+    });
+    return { deleted: true };
+  }
+
   /**
    * Admin sets a provider's plan tier directly — standalone (a downgrade,
    * or granting a plan the provider never formally requested) and also

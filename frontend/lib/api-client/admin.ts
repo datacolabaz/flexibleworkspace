@@ -300,7 +300,12 @@ export function setAdminProviderSuspended(accessToken: string, providerId: strin
     body: JSON.stringify({ suspended, notes }),
   });
 }
-
+export function removeAdminProvider(accessToken: string, providerId: string, reason: string) {
+  return adminFetch<{ deleted: true }>(accessToken, `admin/providers/${encodeURIComponent(providerId)}`, {
+    method: 'DELETE',
+    body: JSON.stringify({ reason }),
+  });
+}
 export function setAdminProviderPlanTier(accessToken: string, providerId: string, planTier: AdminProviderPlanTier) {
   return adminFetch<AdminProvider>(accessToken, `admin/providers/${encodeURIComponent(providerId)}/plan`, {
     method: 'PATCH',

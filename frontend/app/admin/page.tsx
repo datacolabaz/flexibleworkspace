@@ -212,6 +212,7 @@ export default function AdminHome() {
               statusFilter={providerStatusFilter}
               onFilterChange={setProviderStatusFilter}
               onUpdated={(updated) => setProviders((current) => current.map((item) => item.id === updated.id ? updated : item))}
+              onDeleted={(providerId) => setProviders((current) => current.filter((item) => item.id !== providerId))}
               planUpgradeRequests={planUpgradeRequests}
               onRequestResolved={(resolved) => setPlanUpgradeRequests((current) => current.filter((item) => item.id !== resolved.id))}
             />
@@ -390,7 +391,7 @@ function CancellationPolicyCard({ cancellationPolicy, onSaved }: { cancellationP
   </Card>;
 }
 
-function ProvidersSection({ providers, statusFilter, onFilterChange, onUpdated, planUpgradeRequests, onRequestResolved }: { providers: AdminProvider[]; statusFilter: string; onFilterChange: (value: string) => void; onUpdated: (provider: AdminProvider) => void; planUpgradeRequests: AdminPlanUpgradeRequest[]; onRequestResolved: (request: AdminPlanUpgradeRequest) => void }) {
+function ProvidersSection({ providers, statusFilter, onFilterChange, onUpdated, onDeleted, planUpgradeRequests, onRequestResolved }: { providers: AdminProvider[]; statusFilter: string; onFilterChange: (value: string) => void; onUpdated: (provider: AdminProvider) => void; onDeleted: (providerId: string) => void; planUpgradeRequests: AdminPlanUpgradeRequest[]; onRequestResolved: (request: AdminPlanUpgradeRequest) => void }) {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [busyRequestId, setBusyRequestId] = useState<string | null>(null);
   const [error, setError] = useState('');
@@ -438,6 +439,18 @@ function ProvidersSection({ providers, statusFilter, onFilterChange, onUpdated, 
       const updated = await requestJson<AdminProvider>(`/api/admin/providers/${provider.id}/suspend`, { method: 'PATCH', body: JSON.stringify({ suspended: suspending, notes: notes?.trim() || undefined }) });
       onUpdated(updated);
     } catch (caught) { setError(caught instanceof Error ? caught.message : 'Əməliyyat uğursuz oldu.'); }
+    finally { setBusyId(null); }
+  }
+
+  async function removeProvider(provider: AdminProvider) {
+    const reason = window.prompt(`“${provider.displayName}” provider hesabının silinmə səbəbi:`);
+    if (!reason || reason.trim().length < 3) return;
+    if (!window.confirm('Provider və onun public məkanları arxivlənəcək. Davam edilsin?')) return;
+    setBusyId(provider.id); setError('');
+    try {
+      await requestJson<{ deleted: true }>(`/api/admin/providers/${provider.id}`, { method: 'DELETE', body: JSON.stringify({ reason: reason.trim() }) });
+      onDeleted(provider.id);
+    } catch (caught) { setError(caught instanceof Error ? caught.message : 'Provider silinmədi.'); }
     finally { setBusyId(null); }
   }
 
@@ -551,6 +564,7 @@ function ProvidersSection({ providers, statusFilter, onFilterChange, onUpdated, 
                         {provider.verificationStatus === 'VERIFIED' ? 'Suspend et' : 'Bərpa et'}
                       </Button>
                     )}
+                    <Button type="button" variant="secondary" size="sm" disabled={busyId === provider.id} onClick={() => removeProvider(provider)}>Provideri sil</Button>
                   </div>
                 </td>
               </tr>

@@ -14,6 +14,7 @@ import {
   listAdminUsers,
   listAdminProviders,
   removeAdminRoom,
+  removeAdminProvider,
   verifyAdminProvider,
   setAdminProviderSuspended,
   setAdminProviderPlanTier,
@@ -185,6 +186,10 @@ export async function DELETE(
     if (path.length === 2 && path[0] === 'rooms') {
       const body = (await request.json()) as { reason: string };
       return NextResponse.json(await removeAdminRoom(accessToken, path[1], body.reason));
+    }
+    if (path.length === 2 && path[0] === 'providers') {
+      const body = (await request.json()) as { reason: string };
+      return NextResponse.json(await removeAdminProvider(accessToken, path[1], body.reason));
     }
     return NextResponse.json({ error: { code: 'NOT_FOUND', message: 'Admin endpoint not found.' } }, { status: 404 });
   } catch (error) {
