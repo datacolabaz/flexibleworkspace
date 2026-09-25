@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   Patch,
@@ -59,6 +60,17 @@ export class AdminListingsController {
     @Body() dto: SetRoomFeaturedDto,
   ) {
     return this.adminListingsService.setFeatured(id, user.userId, dto);
+  }
+
+  @Delete(':id')
+  @RequirePermission(AdminPermission.LISTING_ARCHIVE)
+  @ApiOperation({ summary: 'Soft-delete a listing from the admin catalog with an audit reason' })
+  async remove(
+    @Param('id') id: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Body('reason') reason: string,
+  ) {
+    return this.adminListingsService.removeRoom(id, user.userId, reason);
   }
 
   @Post(':id/revert/:auditLogId')

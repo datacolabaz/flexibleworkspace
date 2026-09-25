@@ -13,6 +13,7 @@ import {
   listAdminRooms,
   listAdminUsers,
   listAdminProviders,
+  removeAdminRoom,
   verifyAdminProvider,
   setAdminProviderSuspended,
   setAdminProviderPlanTier,
@@ -161,6 +162,29 @@ export async function PATCH(
     if (path.length === 3 && path[0] === 'providers' && path[2] === 'plan') {
       const body = (await request.json()) as { planTier: AdminProviderPlanTier };
       return NextResponse.json(await setAdminProviderPlanTier(accessToken, path[1], body.planTier));
+    }
+    return NextResponse.json({ error: { code: 'NOT_FOUND', message: 'Admin endpoint not found.' } }, { status: 404 });
+  } catch (error) {
+    return errorResponse(error);
+  }
+}
+
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ path: string[] }> },
+) {
+  const accessToken = await tokenOrUnauthorized(request);
+  if (!accessToken) {
+    return NextResponse.json(
+      { error: { code: 'UNAUTHENTICATED', message: 'Admin sign-in required.' } },
+      { status: 401 },
+    );
+  }
+  try {
+    const { path } = await params;
+    if (path.length === 2 && path[0] === 'rooms') {
+      const body = (await request.json()) as { reason: string };
+      return NextResponse.json(await removeAdminRoom(accessToken, path[1], body.reason));
     }
     return NextResponse.json({ error: { code: 'NOT_FOUND', message: 'Admin endpoint not found.' } }, { status: 404 });
   } catch (error) {

@@ -226,6 +226,13 @@ export function setAdminRoomFeatured(accessToken: string, roomId: string, isFeat
   });
 }
 
+export function removeAdminRoom(accessToken: string, roomId: string, reason: string) {
+  return adminFetch<{ deleted: true }>(accessToken, `admin/rooms/${encodeURIComponent(roomId)}`, {
+    method: 'DELETE',
+    body: JSON.stringify({ reason }),
+  });
+}
+
 export function listAdminAudit(accessToken: string) {
   return adminFetch<AdminAuditEntry[]>(accessToken, 'admin/audit-log');
 }
@@ -354,4 +361,3 @@ export async function downloadAdminProviderVerificationDocument(
     contentDisposition: response.headers.get('content-disposition'),
   };
 }
-
