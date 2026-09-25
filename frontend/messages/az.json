@@ -278,6 +278,7 @@
     "submitCta": "Ödənişə keç",
     "submittingCta": "Rezervasiya edilir…",
     "retryPaymentCta": "Ödənişi yenidən cəhd edin",
+    "requestSubmitted": "Rezervasiya sorğunuz göndərildi. Məkan sahibinin təsdiqi gözlənilir.",
     "backToRoom": "Otağa qayıt",
     "errors": {
       "slotUnavailable": "Təəssüf ki, bu vaxt aralığını artıq başqası rezerv etdi. Zəhmət olmasa başqa vaxt seçin.",

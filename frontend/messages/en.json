@@ -278,6 +278,7 @@
     "submitCta": "Continue to payment",
     "submittingCta": "Booking…",
     "retryPaymentCta": "Try payment again",
+    "requestSubmitted": "Your booking request was sent. It is waiting for the provider's confirmation.",
     "backToRoom": "Back to room",
     "errors": {
       "slotUnavailable": "Sorry, this time slot was just booked by someone else. Please choose another time.",
