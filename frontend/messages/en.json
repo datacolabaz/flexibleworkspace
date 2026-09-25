@@ -210,7 +210,6 @@
     "durationPlaceholder": "Select a duration",
     "durationHours": "{hours} h",
     "estimatedTotal": "Estimated total",
-    "serviceFeeNote": "A service fee is added at checkout.",
     "bookCta": "Continue to book",
     "addToFavorites": "Add to favorites",
     "removeFromFavorites": "Remove from favorites",
@@ -274,7 +273,6 @@
     "purposeLabel": "What's this for? (optional)",
     "purposePlaceholder": "e.g. Team workshop",
     "priceSubtotal": "Subtotal",
-    "priceServiceFeeNote": "A service fee is calculated at checkout.",
     "submitCta": "Continue to payment",
     "submittingCta": "Booking…",
     "retryPaymentCta": "Try payment again",
@@ -812,27 +810,27 @@
     "example": {
       "eyebrow": "100 AZN booking example",
       "title": "Every amount is visible at checkout",
-      "body": "This example assumes a 10% host fee, 5% guest service fee and 3% payment processing. Tax and invoicing effects are excluded.",
+      "body": "In Phase 1, customers pay no additional booking fee. Spotva charges providers a 15% commission.",
       "rows": {
         "base": {
           "label": "Venue base price",
           "value": "100.00 AZN"
         },
         "guestFee": {
-          "label": "Guest service fee (5%)",
-          "value": "+5.00 AZN"
+          "label": "Customer booking fee (0%)",
+          "value": "0.00 AZN"
         },
         "customerTotal": {
           "label": "Customer pays",
-          "value": "105.00 AZN"
+          "value": "100.00 AZN"
         },
         "hostFee": {
-          "label": "Host commission (10%)",
-          "value": "−10.00 AZN"
+          "label": "Provider commission (15%)",
+          "value": "−15.00 AZN"
         },
         "hostNet": {
           "label": "Venue receives",
-          "value": "90.00 AZN"
+          "value": "85.00 AZN"
         },
         "spotvaGross": {
           "label": "Spotva gross platform revenue",

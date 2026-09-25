@@ -307,7 +307,6 @@ export function BookingForm({
               {formatMoney(subtotal, pricePerHour.currency, locale)}
             </span>
           </div>
-          <p className="text-caption text-text-muted">{t('priceServiceFeeNote')}</p>
         </div>
       )}
 
