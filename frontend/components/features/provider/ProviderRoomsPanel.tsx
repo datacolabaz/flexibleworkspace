@@ -206,6 +206,7 @@ export function ProviderRoomsPanel({
         mediaCapabilities={mediaCapabilities}
         onCreated={(room) => setRooms((prev) => [room, ...prev])}
         onUpdated={(room) => setRooms((prev) => prev.map((item) => (item.id === room.id ? room : item)))}
+        onDeleted={(roomId) => setRooms((prev) => prev.filter((item) => item.id !== roomId))}
       />
     </div>
   );
@@ -429,6 +430,7 @@ function RoomsCard({
   mediaCapabilities,
   onCreated,
   onUpdated,
+  onDeleted,
 }: {
   locationId: string;
   rooms: MyRoom[];
@@ -437,6 +439,7 @@ function RoomsCard({
   mediaCapabilities: MediaCapabilities;
   onCreated: (room: MyRoom) => void;
   onUpdated: (room: MyRoom) => void;
+  onDeleted: (roomId: string) => void;
 }) {
   const [showForm, setShowForm] = useState(rooms.length === 0);
 
@@ -479,6 +482,7 @@ function RoomsCard({
               amenityOptions={amenityOptions}
               mediaCapabilities={mediaCapabilities}
               onUpdated={onUpdated}
+              onDeleted={onDeleted}
             />
           ))}
         </ul>
@@ -639,11 +643,13 @@ function EditRoomForm({
   roomTypes,
   onSaved,
   onCancel,
+  onDelete,
 }: {
   room: MyRoom;
   roomTypes: RoomTypeOption[];
   onSaved: (room: MyRoom) => void;
   onCancel: () => void;
+  onDelete: () => void;
 }) {
   const [roomTypeId, setRoomTypeId] = useState(room.roomTypeId);
   const [name, setName] = useState(room.name);
@@ -757,12 +763,15 @@ function EditRoomForm({
           className="w-full min-h-24 rounded-sm border border-border-strong bg-surface px-4 py-2.5 text-body text-text-primary placeholder:text-text-muted focus:border-primary focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
         />
       </FormField>
-      <div className="flex gap-3">
+      <div className="flex flex-wrap gap-3">
         <Button type="submit" isLoading={saving}>
           {saving ? 'Yadda saxlanılır…' : 'Yadda saxla'}
         </Button>
         <Button type="button" variant="secondary" onClick={onCancel} disabled={saving}>
           Ləğv et
+        </Button>
+        <Button type="button" variant="secondary" onClick={onDelete} disabled={saving}>
+          Elanı sil
         </Button>
       </div>
     </form>
@@ -775,16 +784,19 @@ function RoomRow({
   amenityOptions,
   mediaCapabilities,
   onUpdated,
+  onDeleted,
 }: {
   room: MyRoom;
   roomTypes: RoomTypeOption[];
   amenityOptions: RoomTypeOption[];
   mediaCapabilities: MediaCapabilities;
   onUpdated: (room: MyRoom) => void;
+  onDeleted: (roomId: string) => void;
 }) {
   const [statusBusy, setStatusBusy] = useState(false);
   const [statusError, setStatusError] = useState<string | undefined>();
   const [editing, setEditing] = useState(false);
+  const [deleteBusy, setDeleteBusy] = useState(false);
 
   // Auto-opens the edit form when arriving via the room detail page's
   // "Bu sizin elanınızdır" banner (`/provider#room-{id}`) — landing here
@@ -828,6 +840,25 @@ function RoomRow({
     }
   }
 
+  async function deleteRoom() {
+    if (!window.confirm(`“${room.name}” elanını silmək istədiyinizə əminsiniz?`)) return;
+    setDeleteBusy(true);
+    setStatusError(undefined);
+    try {
+      const response = await fetch(`/api/provider/rooms/${room.id}`, { method: 'DELETE' });
+      if (!response.ok) {
+        const body = (await response.json().catch(() => undefined)) as BffErrorBody | undefined;
+        setStatusError(body?.error?.message ?? 'Elan silinmədi. Yenidən cəhd edin.');
+        return;
+      }
+      onDeleted(room.id);
+    } catch {
+      setStatusError('Elan silinmədi. Yenidən cəhd edin.');
+    } finally {
+      setDeleteBusy(false);
+    }
+  }
+
   if (editing) {
     return (
       <li id={`room-${room.id}`} className="scroll-mt-6 flex flex-col gap-3 rounded-md border border-border p-4">
@@ -839,6 +870,7 @@ function RoomRow({
             setEditing(false);
           }}
           onCancel={() => setEditing(false)}
+          onDelete={deleteRoom}
         />
       </li>
     );
@@ -857,6 +889,9 @@ function RoomRow({
           <span className={`rounded-full px-2.5 py-1 text-caption ${STATUS_TONE[room.status]}`}>{STATUS_LABEL[room.status]}</span>
           <Button type="button" variant="secondary" size="sm" onClick={() => setEditing(true)}>
             Redaktə et
+          </Button>
+          <Button type="button" variant="secondary" size="sm" disabled={deleteBusy} onClick={deleteRoom}>
+            {deleteBusy ? 'Silinir…' : 'Elanı sil'}
           </Button>
         </div>
       </div>

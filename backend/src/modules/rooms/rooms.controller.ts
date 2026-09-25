@@ -105,6 +105,16 @@ export class RoomsController {
     return this.roomsService.update(roomId, this.requireProviderId(user), dto);
   }
 
+  @Delete(':roomId')
+  @ApiOperation({ summary: 'Soft-delete a provider room listing' })
+  async remove(
+    @Param('roomId') roomId: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    await this.roomsService.remove(roomId, this.requireProviderId(user));
+    return { deleted: true };
+  }
+
   @Patch(':roomId/amenities')
   @ApiOperation({
     summary:

@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpStatus,
   Param,
@@ -184,6 +185,18 @@ export class ProvidersController {
       body.suspended,
       body.notes,
     );
+  }
+
+  @Delete('admin/providers/:id')
+  @Roles(...ADMIN_ROLES)
+  @RequirePermission(AdminPermission.PROVIDER_SUSPEND)
+  @ApiOperation({ summary: 'Archive a provider account with an audit reason' })
+  async remove(
+    @Param('id') id: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Body('reason') reason: string,
+  ) {
+    return this.providersService.remove(id, user.userId, reason);
   }
 
   @Patch('admin/providers/:id/plan')

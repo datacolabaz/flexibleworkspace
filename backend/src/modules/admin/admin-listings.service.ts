@@ -186,6 +186,32 @@ export class AdminListingsService {
     return saved;
   }
 
+  async removeRoom(roomId: string, adminUserId: string, reason: string): Promise<{ deleted: true }> {
+    if (!reason?.trim() || reason.trim().length < 3) {
+      throw new DomainException(
+        'DELETE_REASON_REQUIRED',
+        'A deletion reason of at least 3 characters is required.',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+    const room = await this.roomRepo.findOne({ where: { id: roomId } });
+    if (!room || room.deletedAt) throw new ResourceNotFoundException('Room');
+    const deletedAt = new Date();
+    room.deletedAt = deletedAt;
+    room.updatedAt = deletedAt;
+    await this.roomRepo.save(room);
+    await this.auditLogService.recordChange({
+      actorUserId: adminUserId,
+      entityType: 'Room',
+      entityId: roomId,
+      action: 'ADMIN_ARCHIVE',
+      beforeState: { name: room.name, status: room.status, deletedAt: null },
+      afterState: { name: room.name, status: room.status, deletedAt: deletedAt.toISOString() },
+      reason: reason.trim(),
+    });
+    return { deleted: true };
+  }
+
   /** Re-applies one prior correction's `beforeState` as a brand-new, audited correction (§33.7). */
   async revertRoomCorrection(
     roomId: string,

@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import NextLink from 'next/link';
 import { useTranslations } from 'next-intl';
 import { Link, useRouter } from '@/lib/i18n/navigation';
 import { IconButton } from '@/components/ui/IconButton';
@@ -24,11 +25,13 @@ export function MobileMenu({
   loginHref,
   loginLabel,
   isAuthenticated,
+  isProvider,
 }: {
   navItems: NavItem[];
   loginHref: string;
   loginLabel: string;
   isAuthenticated: boolean;
+  isProvider?: boolean;
 }) {
   const t = useTranslations('nav');
   const tAccount = useTranslations('account');
@@ -105,6 +108,7 @@ export function MobileMenu({
                 {item.label}
               </Link>
             ))}
+            {isProvider === true && <NextLink href="/provider" onClick={() => setOpen(false)} className="min-h-11 rounded-sm px-3 py-2.5 text-label font-semibold text-accent hover:bg-surface-elevated">Məkan əlavə et / idarə et</NextLink>}
             <Link
               href={loginHref}
               onClick={() => setOpen(false)}

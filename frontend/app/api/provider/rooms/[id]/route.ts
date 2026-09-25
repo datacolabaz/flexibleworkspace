@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { updateMyRoom, ProviderRoomsApiError, type CreateRoomInput } from '@/lib/api-client/provider-rooms';
+import { removeMyRoom, updateMyRoom, ProviderRoomsApiError, type CreateRoomInput } from '@/lib/api-client/provider-rooms';
 import { readSession } from '@/lib/auth/session';
 
 function errorResponse(error: unknown) {
@@ -22,6 +22,19 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   try {
     const body = (await request.json()) as CreateRoomInput;
     return NextResponse.json(await updateMyRoom(accessToken, id, body));
+  } catch (error) {
+    return errorResponse(error);
+  }
+}
+
+export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const { accessToken } = readSession(request.cookies);
+  if (!accessToken) {
+    return NextResponse.json({ error: { code: 'UNAUTHENTICATED', message: 'Sign in required.' } }, { status: 401 });
+  }
+  try {
+    return NextResponse.json(await removeMyRoom(accessToken, id));
   } catch (error) {
     return errorResponse(error);
   }

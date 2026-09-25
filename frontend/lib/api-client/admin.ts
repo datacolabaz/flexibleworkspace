@@ -226,6 +226,13 @@ export function setAdminRoomFeatured(accessToken: string, roomId: string, isFeat
   });
 }
 
+export function removeAdminRoom(accessToken: string, roomId: string, reason: string) {
+  return adminFetch<{ deleted: true }>(accessToken, `admin/rooms/${encodeURIComponent(roomId)}`, {
+    method: 'DELETE',
+    body: JSON.stringify({ reason }),
+  });
+}
+
 export function listAdminAudit(accessToken: string) {
   return adminFetch<AdminAuditEntry[]>(accessToken, 'admin/audit-log');
 }
@@ -293,7 +300,12 @@ export function setAdminProviderSuspended(accessToken: string, providerId: strin
     body: JSON.stringify({ suspended, notes }),
   });
 }
-
+export function removeAdminProvider(accessToken: string, providerId: string, reason: string) {
+  return adminFetch<{ deleted: true }>(accessToken, `admin/providers/${encodeURIComponent(providerId)}`, {
+    method: 'DELETE',
+    body: JSON.stringify({ reason }),
+  });
+}
 export function setAdminProviderPlanTier(accessToken: string, providerId: string, planTier: AdminProviderPlanTier) {
   return adminFetch<AdminProvider>(accessToken, `admin/providers/${encodeURIComponent(providerId)}/plan`, {
     method: 'PATCH',
@@ -354,4 +366,3 @@ export async function downloadAdminProviderVerificationDocument(
     contentDisposition: response.headers.get('content-disposition'),
   };
 }
-

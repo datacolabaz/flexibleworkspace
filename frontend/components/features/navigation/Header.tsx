@@ -1,4 +1,5 @@
 import { cookies } from 'next/headers';
+import NextLink from 'next/link';
 import { getTranslations } from 'next-intl/server';
 import { Link } from '@/lib/i18n/navigation';
 import { Logo } from '@/components/ui/Logo';
@@ -104,6 +105,7 @@ export async function Header() {
                 {item.label}
               </Link>
             ))}
+            {isAuthenticated && <NextLink href="/provider" className="group relative inline-flex min-h-11 items-center rounded-md px-2 text-nav font-semibold text-accent hover:bg-surface-elevated">Məkan əlavə et / idarə et</NextLink>}
           </nav>
 
           <div className="flex min-w-0 items-center gap-1 sm:gap-2">
@@ -120,6 +122,7 @@ export async function Header() {
               loginHref={loginHref}
               loginLabel={loginLabel}
               isAuthenticated={isAuthenticated}
+              isProvider={isAuthenticated}
             />
           </div>
         </div>

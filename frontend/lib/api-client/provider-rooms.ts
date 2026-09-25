@@ -275,6 +275,15 @@ export async function updateMyRoom(accessToken: string, roomId: string, input: C
   return jsonOrThrow<MyRoom>(response);
 }
 
+export async function removeMyRoom(accessToken: string, roomId: string): Promise<{ deleted: true }> {
+  const response = await fetch(backendUrl(`provider/rooms/${encodeURIComponent(roomId)}`), {
+    method: 'DELETE',
+    headers: authHeaders(accessToken, false),
+    cache: 'no-store',
+  });
+  return jsonOrThrow<{ deleted: true }>(response);
+}
+
 /**
  * `PATCH provider/rooms/:roomId/status` — DRAFT->ACTIVE additionally
  * requires the provider account to be VERIFIED (backend gate); the BFF
