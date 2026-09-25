@@ -1,0 +1,92 @@
+From 55ca83d965ed4b3999c450770523022a098a2683 Mon Sep 17 00:00:00 2001
+From: telmanabdulla <telmanabdulla@users.noreply.github.com>
+Date: Fri, 25 Sep 2026 16:22:22 +0000
+Subject: [PATCH] fix(auth): refresh provider roles from database
+
+---
+ backend/src/common/guards/jwt-auth.guard.ts | 21 ++++++++++++++-------
+ 1 file changed, 14 insertions(+), 7 deletions(-)
+
+diff --git a/backend/src/common/guards/jwt-auth.guard.ts b/backend/src/common/guards/jwt-auth.guard.ts
+index 46cee61..e448248 100644
+--- a/backend/src/common/guards/jwt-auth.guard.ts
++++ b/backend/src/common/guards/jwt-auth.guard.ts
+@@ -7,9 +7,12 @@ import {
+ import { JwtService } from '@nestjs/jwt';
+ import { ConfigService } from '@nestjs/config';
+ import { Reflector } from '@nestjs/core';
++import { InjectRepository } from '@nestjs/typeorm';
++import { Repository } from 'typeorm';
+ import { Request } from 'express';
+ import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
+ import { RoleName } from '../constants/roles.enum';
++import { UserRoleEntity } from '../../modules/auth/entities/user-role.entity';
+ 
+ export interface AuthenticatedUser {
+   userId: string;
+@@ -48,9 +51,11 @@ export class JwtAuthGuard implements CanActivate {
+     private readonly jwtService: JwtService,
+     private readonly configService: ConfigService,
+     private readonly reflector: Reflector,
++    @InjectRepository(UserRoleEntity)
++    private readonly roleRepo: Repository<UserRoleEntity>,
+   ) {}
+ 
+-  canActivate(context: ExecutionContext): boolean {
++  async canActivate(context: ExecutionContext): Promise<boolean> {
+     const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
+       context.getHandler(),
+       context.getClass(),
+@@ -61,7 +66,7 @@ export class JwtAuthGuard implements CanActivate {
+       // Public routes still attach the user if a valid token happens to be
+       // present (e.g. a logged-in customer browsing search results, so
+       // "favorited" state can be resolved) but never require it.
+-      this.tryAttachUser(request);
++      await this.tryAttachUser(request);
+       return true;
+     }
+ 
+@@ -77,7 +82,7 @@ export class JwtAuthGuard implements CanActivate {
+       const payload = this.jwtService.verify(token, {
+         secret: this.configService.get('jwt.accessSecret'),
+       });
+-      request.user = this.toAuthenticatedUser(payload);
++      request.user = await this.toAuthenticatedUser(payload);
+       return true;
+     } catch {
+       throw new UnauthorizedException({
+@@ -87,25 +92,27 @@ export class JwtAuthGuard implements CanActivate {
+     }
+   }
+ 
+-  private tryAttachUser(request: Request): void {
++  private async tryAttachUser(request: Request): Promise<void> {
+     const token = this.extractToken(request);
+     if (!token) return;
+     try {
+       const payload = this.jwtService.verify(token, {
+         secret: this.configService.get('jwt.accessSecret'),
+       });
+-      request.user = this.toAuthenticatedUser(payload);
++      request.user = await this.toAuthenticatedUser(payload);
+     } catch {
+       // Invalid token on a public route: treat as anonymous, don't fail the request.
+     }
+   }
+ 
+-  private toAuthenticatedUser(payload: any): AuthenticatedUser {
++  private async toAuthenticatedUser(payload: any): Promise<AuthenticatedUser> {
++    const databaseRoles = await this.roleRepo.find({ where: { userId: payload.sub } });
++    const roles = databaseRoles.length > 0 ? databaseRoles : (payload.roles ?? []);
+     return {
+       userId: payload.sub,
+       email: payload.email ?? null,
+       phone: payload.phone ?? null,
+-      roles: (payload.roles ?? []).map((role: { role: string; providerId: string | null }) => ({
++      roles: roles.map((role: { role: string; providerId: string | null }) => ({
+         ...role,
+         role: normalizeRole(role.role),
+       })),
+-- 
+2.43.0
+
