@@ -5,7 +5,6 @@ import { Link } from '@/lib/i18n/navigation';
 import { Logo } from '@/components/ui/Logo';
 import { readSession } from '@/lib/auth/session';
 import { getMyProfile } from '@/lib/api-client/account';
-import { getMyProvider } from '@/lib/api-client/provider-dashboard';
 import { LanguageSwitcher } from './LanguageSwitcher';
 import { ThemeToggle } from './ThemeToggle';
 import { MobileMenu } from './MobileMenu';
@@ -50,19 +49,12 @@ export async function Header() {
   // actually redirects to /login), both fall back to the generic label
   // rather than breaking the header.
   let displayName: string | null = null;
-  let isProvider = false;
   if (accessToken) {
     try {
       const profile = await getMyProfile(accessToken);
       displayName = profile.displayName ?? null;
     } catch {
       displayName = null;
-    }
-    try {
-      await getMyProvider(accessToken);
-      isProvider = true;
-    } catch {
-      isProvider = false;
     }
   }
 
@@ -113,7 +105,7 @@ export async function Header() {
                 {item.label}
               </Link>
             ))}
-            {isProvider && <NextLink href="/provider" className="group relative inline-flex min-h-11 items-center rounded-md px-2 text-nav font-semibold text-accent hover:bg-surface-elevated">Mənim məkanlarım</NextLink>}
+            {isAuthenticated && <NextLink href="/provider" className="group relative inline-flex min-h-11 items-center rounded-md px-2 text-nav font-semibold text-accent hover:bg-surface-elevated">Məkan əlavə et / idarə et</NextLink>}
           </nav>
 
           <div className="flex min-w-0 items-center gap-1 sm:gap-2">
@@ -130,7 +122,7 @@ export async function Header() {
               loginHref={loginHref}
               loginLabel={loginLabel}
               isAuthenticated={isAuthenticated}
-              isProvider={isProvider}
+              isProvider={isAuthenticated}
             />
           </div>
         </div>

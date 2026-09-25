@@ -108,7 +108,7 @@ export function MobileMenu({
                 {item.label}
               </Link>
             ))}
-            {isProvider === true && <NextLink href="/provider" onClick={() => setOpen(false)} className="min-h-11 rounded-sm px-3 py-2.5 text-label font-semibold text-accent hover:bg-surface-elevated">Mənim məkanlarım</NextLink>}
+            {isProvider === true && <NextLink href="/provider" onClick={() => setOpen(false)} className="min-h-11 rounded-sm px-3 py-2.5 text-label font-semibold text-accent hover:bg-surface-elevated">Məkan əlavə et / idarə et</NextLink>}
             <Link
               href={loginHref}
               onClick={() => setOpen(false)}

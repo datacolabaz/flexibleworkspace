@@ -2,7 +2,9 @@ import type { Metadata } from 'next';
 import { cookies } from 'next/headers';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { redirect } from '@/lib/i18n/navigation';
+import { redirect as redirectOutsideLocale } from 'next/navigation';
 import { readSession } from '@/lib/auth/session';
+import { getMyProvider } from '@/lib/api-client/provider-dashboard';
 import { ListYourSpaceForm } from '@/components/features/business/ListYourSpaceForm';
 
 export async function generateMetadata({
@@ -42,6 +44,14 @@ export default async function ListYourSpacePage({
   const { accessToken } = readSession(await cookies());
   if (!accessToken) {
     redirect({ href: `/login?redirect=${encodeURIComponent('/list-your-space')}`, locale });
+  }
+  const sessionToken = accessToken;
+  if (!sessionToken) return null;
+  try {
+    await getMyProvider(sessionToken);
+    redirectOutsideLocale('/provider');
+  } catch {
+    // A signed-in customer without a provider account sees the registration form.
   }
 
   return (
