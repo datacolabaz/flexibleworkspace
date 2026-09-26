@@ -1,4 +1,18 @@
 import { Injectable } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { MetroStationEntity } from '../locations/entities/metro-station.entity';
+import { LocationCategoryEntity } from '../locations/entities/location-category.entity';
+
+export type VoiceFilters = {
+  metroStation?: string;
+  roomType?: string;
+  participants?: number;
+  maxHourlyPrice?: number;
+  date?: string;
+  startTime?: string;
+  durationMinutes?: number;
+};
 
 export type SearchIntent = {
   filters: {
@@ -55,6 +69,145 @@ const SEARCH_INTENT_SCHEMA = {
 
 @Injectable()
 export class AiSearchService {
+  constructor(
+    @InjectRepository(MetroStationEntity)
+    private readonly metroRepo: Repository<MetroStationEntity>,
+    @InjectRepository(LocationCategoryEntity)
+    private readonly categoryRepo: Repository<LocationCategoryEntity>,
+  ) {}
+
+  // ---------------------------------------------------------------------------
+  // Voice: parse Azerbaijani transcript → structured filters
+  // ---------------------------------------------------------------------------
+  async voiceParse(transcript: string): Promise<VoiceFilters> {
+    const apiKey = process.env.OPENAI_API_KEY;
+    const apiBase = (
+      process.env.OPENAI_API_BASE ?? 'https://api.openai.com/v1'
+    ).replace(/\/$/, '');
+    const model = process.env.AI_SEARCH_MODEL ?? 'gpt-5-mini';
+
+    if (!apiKey) return {};
+
+    // Fetch reference data from DB
+    const [stations, categories] = await Promise.all([
+      this.metroRepo.find({ where: { isActive: true }, select: ['nameAz'] }),
+      this.categoryRepo.find({ where: { isActive: true }, select: ['nameAz'] }),
+    ]);
+    const stationsList = stations.map((s) => s.nameAz).join(', ');
+    const categoriesList = categories.map((c) => c.nameAz).join(', ');
+
+    const systemPrompt = `Sən Spotva platforması üçün filter assistentisən. İstifadəçinin Azərbaycan dilindəki sorğusunu aşağıdakı filter strukturuna çevir.
+
+Mövcud metro stansiyaları: ${stationsList}
+Mövcud otaq/məkan kateqoriyaları: ${categoriesList}
+
+Yalnız aşağıdakı JSON formatında cavab ver, başqa heç nə yazma:
+{
+  "metroStation": "dəqiq stansiya adı siyahıdan" | null,
+  "roomType": "dəqiq kateqoriya adı siyahıdan" | null,
+  "participants": number | null,
+  "maxHourlyPrice": number | null,
+  "date": "YYYY-MM-DD" | null,
+  "startTime": "HH:mm" | null,
+  "durationMinutes": number | null
+}
+
+Qayda: Yalnız mövcud siyahıdakı dəqiq adları istifadə et. Əmin olmadığın sahəni null qoy.`;
+
+    try {
+      const res = await fetch(`${apiBase}/chat/completions`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model,
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: transcript.trim() },
+          ],
+          max_completion_tokens: 400,
+          temperature: 0,
+        }),
+        signal: AbortSignal.timeout(10000),
+      });
+
+      if (!res.ok) return {};
+
+      const payload = (await res.json()) as {
+        choices?: Array<{ message?: { content?: string } }>;
+      };
+      const content = payload.choices?.[0]?.message?.content?.trim();
+      if (!content) return {};
+
+      const jsonStr = content
+        .replace(/^```(?:json)?\s*/i, '')
+        .replace(/\s*```$/, '');
+      const parsed = JSON.parse(jsonStr) as Record<string, unknown>;
+
+      const result: VoiceFilters = {};
+      if (typeof parsed.metroStation === 'string' && parsed.metroStation)
+        result.metroStation = parsed.metroStation;
+      if (typeof parsed.roomType === 'string' && parsed.roomType)
+        result.roomType = parsed.roomType;
+      if (typeof parsed.participants === 'number' && parsed.participants > 0)
+        result.participants = parsed.participants;
+      if (typeof parsed.maxHourlyPrice === 'number' && parsed.maxHourlyPrice > 0)
+        result.maxHourlyPrice = parsed.maxHourlyPrice;
+      if (typeof parsed.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(parsed.date))
+        result.date = parsed.date;
+      if (typeof parsed.startTime === 'string' && /^\d{2}:\d{2}$/.test(parsed.startTime))
+        result.startTime = parsed.startTime;
+      if (typeof parsed.durationMinutes === 'number' && parsed.durationMinutes > 0)
+        result.durationMinutes = parsed.durationMinutes;
+
+      return result;
+    } catch {
+      return {};
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Voice: transcribe audio buffer via OpenAI Whisper
+  // ---------------------------------------------------------------------------
+  async voiceTranscribe(
+    audioBuffer: Buffer,
+    mimeType: string,
+    originalName: string,
+  ): Promise<string> {
+    const apiKey = process.env.OPENAI_API_KEY;
+    const apiBase = (
+      process.env.OPENAI_API_BASE ?? 'https://api.openai.com/v1'
+    ).replace(/\/$/, '');
+
+    if (!apiKey) return '';
+
+    const formData = new FormData();
+    const ext = mimeType.includes('mp4') ? 'mp4' : 'webm';
+    const filename = originalName || `voice.${ext}`;
+    const blob = new Blob([audioBuffer], { type: mimeType });
+    formData.append('file', blob, filename);
+    formData.append('model', 'whisper-1');
+    formData.append('language', 'az');
+    formData.append('response_format', 'text');
+
+    try {
+      const res = await fetch(`${apiBase}/audio/transcriptions`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${apiKey}` },
+        body: formData,
+        signal: AbortSignal.timeout(30000),
+      });
+
+      if (!res.ok) return '';
+      const text = await res.text();
+      return text.trim();
+    } catch {
+      return '';
+    }
+  }
+
   async interpret(
     query: string,
     locale: 'az' | 'ru' | 'en',

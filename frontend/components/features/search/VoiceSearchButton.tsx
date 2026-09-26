@@ -22,8 +22,18 @@ interface VoiceParsedFilters {
   durationMinutes?: number;
 }
 
-type VoiceState = 'idle' | 'listening' | 'processing' | 'error';
-type VoiceErrorKey = 'voicePermissionError' | 'voiceNoSpeech' | 'voiceNetworkError' | 'voiceError';
+type VoiceState =
+  | 'idle'
+  | 'recording'
+  | 'processing'
+  | 'done'
+  | 'error';
+
+type VoiceErrorKey =
+  | 'voicePermissionError'
+  | 'voiceNoSpeech'
+  | 'voiceNetworkError'
+  | 'voiceError';
 
 interface Props {
   metroStations: MetroStation[];
@@ -32,54 +42,107 @@ interface Props {
   onApply: (draft: FilterDraft) => void;
 }
 
-// Minimal type definitions for the Web Speech API (not fully typed in TS DOM lib).
-interface SpeechRecognitionInstance extends EventTarget {
-  lang: string;
-  continuous: boolean;
-  interimResults: boolean;
-  maxAlternatives: number;
-  onresult: ((this: SpeechRecognitionInstance, ev: SpeechRecognitionResultEvent) => void) | null;
-  onerror: ((this: SpeechRecognitionInstance, ev: SpeechRecognitionErrorEvent) => void) | null;
-  onend: ((this: SpeechRecognitionInstance, ev: Event) => void) | null;
-  start(): void;
-  stop(): void;
-}
-interface SpeechRecognitionResultEvent extends Event {
-  results: SpeechRecognitionResultList;
-}
-interface SpeechRecognitionErrorEvent extends Event {
-  error: string;
-}
-interface SpeechRecognitionConstructor {
-  new (): SpeechRecognitionInstance;
+const MAX_RECORDING_SECONDS = 8;
+
+/** Returns 'audio/webm' if supported, otherwise 'audio/mp4' (iOS Safari). */
+function getSupportedMimeType(): string {
+  if (
+    typeof MediaRecorder !== 'undefined' &&
+    MediaRecorder.isTypeSupported('audio/webm')
+  ) {
+    return 'audio/webm';
+  }
+  return 'audio/mp4';
 }
 
-// Vendor-prefix shim — webkitSpeechRecognition is not in the TS lib.
-function getSpeechRecognitionCtor(): SpeechRecognitionConstructor | undefined {
-  if (typeof window === 'undefined') return undefined;
-  return (
-    (window as unknown as { SpeechRecognition?: SpeechRecognitionConstructor }).SpeechRecognition ??
-    (window as unknown as { webkitSpeechRecognition?: SpeechRecognitionConstructor })
-      .webkitSpeechRecognition
-  );
-}
-
-export function VoiceSearchButton({ metroStations, roomTypes, currentDraft, onApply }: Props) {
+export function VoiceSearchButton({
+  metroStations,
+  roomTypes,
+  currentDraft,
+  onApply,
+}: Props) {
   const t = useTranslations('search');
   const [voiceState, setVoiceState] = useState<VoiceState>('idle');
   const [errorKey, setErrorKey] = useState<VoiceErrorKey>('voiceError');
+  const [countdown, setCountdown] = useState(MAX_RECORDING_SECONDS);
   const [supported, setSupported] = useState(false);
-  const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
+
+  const recorderRef = useRef<MediaRecorder | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
+  const countdownTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const autoStopTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    if (getSpeechRecognitionCtor()) setSupported(true);
+    if (
+      typeof window !== 'undefined' &&
+      typeof MediaRecorder !== 'undefined' &&
+      typeof navigator?.mediaDevices?.getUserMedia === 'function'
+    ) {
+      setSupported(true);
+    }
   }, []);
 
-  const handleTranscript = useCallback(
-    async (transcript: string) => {
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      stopTimers();
+      stopStream();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  function stopTimers() {
+    if (countdownTimerRef.current) {
+      clearInterval(countdownTimerRef.current);
+      countdownTimerRef.current = null;
+    }
+    if (autoStopTimerRef.current) {
+      clearTimeout(autoStopTimerRef.current);
+      autoStopTimerRef.current = null;
+    }
+  }
+
+  function stopStream() {
+    streamRef.current?.getTracks().forEach((t) => t.stop());
+    streamRef.current = null;
+  }
+
+  const handleRecordingDone = useCallback(
+    async (chunks: Blob[], mimeType: string) => {
+      if (chunks.length === 0) {
+        setErrorKey('voiceNoSpeech');
+        setVoiceState('error');
+        setTimeout(() => setVoiceState('idle'), 3000);
+        return;
+      }
+
       setVoiceState('processing');
+
       try {
-        const res = await fetch('/api/search/voice-parse', {
+        // Step 1: Transcribe via Whisper
+        const audioBlob = new Blob(chunks, { type: mimeType });
+        const formData = new FormData();
+        formData.append('audio', audioBlob, `voice.${mimeType.includes('mp4') ? 'mp4' : 'webm'}`);
+
+        const transcribeRes = await fetch('/api/search/voice-transcribe', {
+          method: 'POST',
+          body: formData,
+        });
+
+        if (!transcribeRes.ok) throw new Error('transcribe_failed');
+        const { transcript, error: transcribeError } =
+          (await transcribeRes.json()) as { transcript: string; error?: string };
+
+        if (transcribeError || !transcript) {
+          setErrorKey('voiceNoSpeech');
+          setVoiceState('error');
+          setTimeout(() => setVoiceState('idle'), 3000);
+          return;
+        }
+
+        // Step 2: Parse transcript → filters
+        const parseRes = await fetch('/api/search/voice-parse', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -88,29 +151,34 @@ export function VoiceSearchButton({ metroStations, roomTypes, currentDraft, onAp
             availableRoomTypes: roomTypes,
           }),
         });
-        if (!res.ok) throw new Error('Parse failed');
-        const parsed = (await res.json()) as VoiceParsedFilters;
 
-        // Merge parsed fields onto the current filter draft.
+        if (!parseRes.ok) throw new Error('parse_failed');
+        const parsed = (await parseRes.json()) as VoiceParsedFilters;
+
+        // Step 3: Merge parsed fields onto the current filter draft
         const next: FilterDraft = { ...currentDraft };
         if (parsed.city) next.city = parsed.city;
         if (parsed.roomType) next.roomType = parsed.roomType;
-        if (typeof parsed.participants === 'number') next.participants = String(parsed.participants);
-        if (typeof parsed.maxHourlyPrice === 'number') next.priceMax = String(parsed.maxHourlyPrice);
+        if (typeof parsed.participants === 'number')
+          next.participants = String(parsed.participants);
+        if (typeof parsed.maxHourlyPrice === 'number')
+          next.priceMax = String(parsed.maxHourlyPrice);
         if (parsed.date) next.date = parsed.date;
         if (parsed.startTime) next.startTime = parsed.startTime;
-        if (typeof parsed.durationMinutes === 'number') {
+        if (typeof parsed.durationMinutes === 'number')
           next.durationMinutes = String(parsed.durationMinutes);
-        }
-        // Map metro station name → id.
         if (parsed.metroStation) {
-          const station = metroStations.find((s) => s.nameAz === parsed.metroStation);
+          const station = metroStations.find(
+            (s) => s.nameAz === parsed.metroStation,
+          );
           if (station) next.metroStationId = station.id;
         }
 
         onApply(next);
-        setVoiceState('idle');
+        setVoiceState('done');
+        setTimeout(() => setVoiceState('idle'), 1500);
       } catch {
+        setErrorKey('voiceNetworkError');
         setVoiceState('error');
         setTimeout(() => setVoiceState('idle'), 3000);
       }
@@ -118,72 +186,96 @@ export function VoiceSearchButton({ metroStations, roomTypes, currentDraft, onAp
     [metroStations, roomTypes, currentDraft, onApply],
   );
 
-  function handleClick() {
-    if (voiceState === 'listening') {
-      recognitionRef.current?.stop();
+  function stopRecording() {
+    stopTimers();
+    if (
+      recorderRef.current &&
+      recorderRef.current.state !== 'inactive'
+    ) {
+      recorderRef.current.stop();
+    }
+    stopStream();
+  }
+
+  async function startRecording() {
+    let stream: MediaStream;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    } catch {
+      setErrorKey('voicePermissionError');
+      setVoiceState('error');
+      setTimeout(() => setVoiceState('idle'), 4000);
       return;
     }
 
-    const Ctor = getSpeechRecognitionCtor();
-    if (!Ctor) return;
+    streamRef.current = stream;
+    chunksRef.current = [];
 
-    const recognition = new Ctor();
-    recognitionRef.current = recognition;
+    const mimeType = getSupportedMimeType();
+    let recorder: MediaRecorder;
+    try {
+      recorder = new MediaRecorder(stream, { mimeType });
+    } catch {
+      // fallback without mimeType constraint
+      recorder = new MediaRecorder(stream);
+    }
+    recorderRef.current = recorder;
 
-    // Use the browser/device locale for best recognition accuracy on iOS/Safari.
-    // This keeps transcription working broadly while the server-side parser
-    // handles Azerbaijani keyword matching regardless of the recognition language.
-    recognition.lang =
-      (typeof navigator !== 'undefined' && navigator.language) || 'ru-RU';
-    recognition.continuous = false;
-    recognition.interimResults = false;
-    recognition.maxAlternatives = 1;
-
-    recognition.onresult = (event: SpeechRecognitionResultEvent) => {
-      const transcript = event.results[0]?.[0]?.transcript ?? '';
-      if (transcript) void handleTranscript(transcript);
+    recorder.ondataavailable = (e: BlobEvent) => {
+      if (e.data && e.data.size > 0) chunksRef.current.push(e.data);
     };
 
-    recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
-      const code = event.error ?? '';
-      let key: VoiceErrorKey = 'voiceError';
-      if (code === 'not-allowed' || code === 'permission-denied') {
-        key = 'voicePermissionError';
-      } else if (code === 'no-speech') {
-        key = 'voiceNoSpeech';
-      } else if (code === 'network') {
-        key = 'voiceNetworkError';
-      }
-      setErrorKey(key);
+    recorder.onstop = () => {
+      const effectiveMime =
+        recorder.mimeType || mimeType || 'audio/webm';
+      void handleRecordingDone(chunksRef.current, effectiveMime);
+      stopStream();
+    };
+
+    recorder.onerror = () => {
+      stopTimers();
+      stopStream();
+      setErrorKey('voiceError');
       setVoiceState('error');
       setTimeout(() => setVoiceState('idle'), 3000);
     };
 
-    recognition.onend = () => {
-      // If still 'listening' after end (no result / aborted), reset to idle.
-      setVoiceState((current) => (current === 'listening' ? 'idle' : current));
-    };
+    recorder.start(250); // collect data every 250ms
+    setCountdown(MAX_RECORDING_SECONDS);
+    setVoiceState('recording');
 
-    // recognition.start() can throw synchronously on HTTP (insecure context) or
-    // in unsupported environments. Catch it and hide the button cleanly.
-    try {
-      recognition.start();
-    } catch {
-      setSupported(false);
-      return;
-    }
-    setVoiceState('listening');
+    // Countdown timer
+    countdownTimerRef.current = setInterval(() => {
+      setCountdown((prev) => Math.max(0, prev - 1));
+    }, 1000);
+
+    // Auto-stop after MAX_RECORDING_SECONDS
+    autoStopTimerRef.current = setTimeout(() => {
+      stopRecording();
+    }, MAX_RECORDING_SECONDS * 1000);
   }
 
-  // Hide on desktop (md: and up) and also hide entirely if not supported.
+  function handleClick() {
+    if (voiceState === 'recording') {
+      stopRecording();
+      return;
+    }
+    if (voiceState === 'processing' || voiceState === 'done') return;
+
+    void startRecording();
+  }
+
+  // Hide on desktop (md: and up) or if MediaRecorder not supported.
   if (!supported) return null;
 
-  const isListening = voiceState === 'listening';
+  const isRecording = voiceState === 'recording';
   const isProcessing = voiceState === 'processing';
+  const isDone = voiceState === 'done';
   const isError = voiceState === 'error';
+  const isIdle = voiceState === 'idle';
 
-  const ariaLabel = isListening
-    ? t('voiceListening')
+  const ariaLabel = isRecording
+    ? t('voiceRecording')
     : isProcessing
       ? t('voiceProcessing')
       : t('voiceSearch');
@@ -193,17 +285,19 @@ export function VoiceSearchButton({ metroStations, roomTypes, currentDraft, onAp
       <button
         type="button"
         onClick={handleClick}
-        disabled={isProcessing}
+        disabled={isProcessing || isDone}
         aria-label={ariaLabel}
         className={[
           'flex items-center justify-center rounded-md border p-2.5 transition-colors',
           'focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary',
-          isListening
+          isRecording
             ? 'animate-pulse border-error bg-error/10 text-error'
             : isError
               ? 'border-error bg-error/10 text-error'
-              : 'border-border bg-surface text-text-secondary hover:border-primary hover:text-primary',
-          isProcessing ? 'opacity-60 cursor-not-allowed' : '',
+              : isDone
+                ? 'border-success bg-success/10 text-success'
+                : 'border-border bg-surface text-text-secondary hover:border-primary hover:text-primary',
+          isProcessing || isDone ? 'opacity-60 cursor-not-allowed' : '',
         ]
           .filter(Boolean)
           .join(' ')}
@@ -222,6 +316,19 @@ export function VoiceSearchButton({ metroStations, roomTypes, currentDraft, onAp
               d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
             />
           </svg>
+        ) : isDone ? (
+          /* Green check */
+          <svg
+            aria-hidden="true"
+            viewBox="0 0 24 24"
+            className="h-5 w-5 fill-none stroke-current stroke-2"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M5 13l4 4L19 7"
+            />
+          </svg>
         ) : (
           /* Microphone icon */
           <svg
@@ -229,7 +336,14 @@ export function VoiceSearchButton({ metroStations, roomTypes, currentDraft, onAp
             viewBox="0 0 24 24"
             className="h-5 w-5 fill-none stroke-current stroke-2"
           >
-            <rect x="9" y="2" width="6" height="12" rx="3" strokeLinejoin="round" />
+            <rect
+              x="9"
+              y="2"
+              width="6"
+              height="12"
+              rx="3"
+              strokeLinejoin="round"
+            />
             <path d="M5 10a7 7 0 0014 0" strokeLinecap="round" />
             <path d="M12 17v4" strokeLinecap="round" />
             <path d="M9 21h6" strokeLinecap="round" />
@@ -238,7 +352,7 @@ export function VoiceSearchButton({ metroStations, roomTypes, currentDraft, onAp
       </button>
 
       {/* Tooltip / status label */}
-      {(isListening || isError) && (
+      {(isRecording || isError || isIdle === false) && (
         <span
           aria-live="polite"
           className={[
@@ -249,7 +363,13 @@ export function VoiceSearchButton({ metroStations, roomTypes, currentDraft, onAp
               : 'bg-surface-elevated text-text-secondary',
           ].join(' ')}
         >
-          {isError ? t(errorKey) : t('voiceListening')}
+          {isError
+            ? t(errorKey)
+            : isRecording
+              ? `${t('voiceRecording')} — ${t('voiceCountdown', { seconds: countdown })}`
+              : isProcessing
+                ? t('voiceProcessing')
+                : null}
         </span>
       )}
     </div>

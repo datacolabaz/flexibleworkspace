@@ -1,5 +1,12 @@
-import { Body, Controller, Post } from '@nestjs/common';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import {
+  Body,
+  Controller,
+  Post,
+  UploadedFile,
+  UseInterceptors,
+} from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
 import {
   IsIn,
   IsOptional,
@@ -22,8 +29,14 @@ class InterpretSearchDto {
   locale?: 'az' | 'ru' | 'en';
 }
 
+class VoiceParseDto {
+  @IsString()
+  @MaxLength(500)
+  transcript!: string;
+}
+
 @ApiTags('AI Search')
-@Controller('ai/search')
+@Controller('ai')
 export class AiSearchController {
   constructor(
     private readonly aiSearchService: AiSearchService,
@@ -31,7 +44,7 @@ export class AiSearchController {
   ) {}
 
   @Public()
-  @Post('interpret')
+  @Post('search/interpret')
   @ApiOperation({
     summary: 'Convert a natural-language request into existing search filters',
   })
@@ -40,12 +53,46 @@ export class AiSearchController {
   }
 
   @Public()
-  @Post()
+  @Post('search')
   @ApiOperation({
     summary:
       'Convert a natural-language request and search real available spaces',
   })
   search(@Body() dto: InterpretSearchDto) {
     return this.aiSearchOrchestrator.search(dto.query, dto.locale ?? 'az');
+  }
+
+  @Public()
+  @Post('voice-parse')
+  @ApiOperation({
+    summary:
+      'Parse an Azerbaijani voice transcript into structured search filters using AI + DB reference data',
+  })
+  voiceParse(@Body() dto: VoiceParseDto) {
+    return this.aiSearchService.voiceParse(dto.transcript);
+  }
+
+  @Public()
+  @Post('voice-transcribe')
+  @UseInterceptors(FileInterceptor('audio'))
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({
+    summary: 'Transcribe an audio file via OpenAI Whisper (Azerbaijani)',
+  })
+  async voiceTranscribe(
+    @UploadedFile() file: Express.Multer.File | undefined,
+  ): Promise<{ transcript: string; error?: string }> {
+    if (!file?.buffer) {
+      return { transcript: '', error: 'no_audio_file' };
+    }
+    const transcript = await this.aiSearchService.voiceTranscribe(
+      file.buffer,
+      file.mimetype || 'audio/webm',
+      file.originalname || 'voice.webm',
+    );
+    if (!transcript) {
+      return { transcript: '', error: 'transcription_failed' };
+    }
+    return { transcript };
   }
 }

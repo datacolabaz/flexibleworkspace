@@ -170,6 +170,8 @@
     "activeFilterChips": "Aktiv filtrlər",
     "voiceSearch": "Səslə axtar",
     "voiceListening": "Dinləyirəm...",
+    "voiceRecording": "Danışın...",
+    "voiceCountdown": "{seconds} saniyə",
     "voiceProcessing": "Analiz edilir...",
     "voiceError": "Səsi başa düşmədim. Yenidən cəhd edin.",
     "voicePermissionError": "Mikrofon icazəsi lazımdır. Brauzer ayarlarından icazə verin.",
