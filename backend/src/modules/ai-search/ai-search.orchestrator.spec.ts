@@ -18,20 +18,34 @@ describe('AiSearchOrchestrator', () => {
       }),
     } as unknown as AiSearchService;
     const searchService = {
-      search: jest.fn().mockResolvedValue({ results: [], page: 1, pageSize: 20, totalCount: 0 }),
+      search: jest.fn().mockResolvedValue({
+        results: [],
+        page: 1,
+        pageSize: 20,
+        totalCount: 0,
+      }),
     } as unknown as SearchService;
-    const orchestrator = new AiSearchOrchestrator(aiSearchService, searchService, new TaxonomyMapper());
+    const orchestrator = new AiSearchOrchestrator(
+      aiSearchService,
+      searchService,
+      new TaxonomyMapper(),
+    );
 
-    const result = await orchestrator.search('Nərimanovda 14 nəfərlik görüş otağı', 'az');
+    const result = await orchestrator.search(
+      'Nərimanovda 14 nəfərlik görüş otağı',
+      'az',
+    );
 
-    expect(searchService.search).toHaveBeenCalledWith(expect.objectContaining({
-      district: 'Nərimanov',
-      roomType: 'room_type.meeting_room',
-      participants: 14,
-      amenities: ['amenity.projector', 'amenity.wifi'],
-      page: 1,
-      pageSize: 20,
-    }));
+    expect(searchService.search).toHaveBeenCalledWith(
+      expect.objectContaining({
+        district: 'Nərimanov',
+        roomType: 'room_type.meeting_room',
+        participants: 14,
+        amenities: ['amenity.projector', 'amenity.wifi'],
+        page: 1,
+        pageSize: 20,
+      }),
+    );
     expect(result.results.totalCount).toBe(0);
   });
 });

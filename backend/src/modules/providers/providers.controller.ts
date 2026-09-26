@@ -19,16 +19,14 @@ import type { Response } from 'express';
 import { ProvidersService } from './providers.service';
 import { CreateProviderDto } from './dto/create-provider.dto';
 import { VerifyProviderDto } from './dto/verify-provider.dto';
-import { UpdateProviderDto } from './dto/update-provider.dto';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { RequirePermission } from '../../common/decorators/require-permission.decorator';
 import { AuthenticatedUser } from '../../common/guards/jwt-auth.guard';
-import { RoleName, ADMIN_ROLES } from '../../common/constants/roles.enum';
+import { ADMIN_ROLES } from '../../common/constants/roles.enum';
 import { AdminPermission } from '../../common/constants/admin-permission.enum';
 import {
   ProviderPlanTier,
-  ProviderVerificationDocumentType,
   ProviderVerificationStatus,
 } from '../../common/constants/provider.enum';
 import { currentProviderId } from '../../common/utils/current-provider.util';
@@ -41,7 +39,7 @@ export class ProvidersController {
 
   @Post('providers')
   @ApiOperation({
-    summary: 'Register as a provider (self-service, starts PENDING)',
+    summary: 'Register as a provider (self-service, no document verification)',
   })
   async create(
     @CurrentUser() user: AuthenticatedUser,
@@ -75,7 +73,6 @@ export class ProvidersController {
   }
 
   @Get('providers/me')
-  @Roles(RoleName.PROVIDER_OWNER, RoleName.PROVIDER_STAFF)
   @ApiOperation({ summary: 'My provider profile' })
   async me(@CurrentUser() user: AuthenticatedUser) {
     const provider = await this.providersService.findMine(
@@ -92,53 +89,6 @@ export class ProvidersController {
       ...provider,
       logoUrl: this.providersService.publicLogoUrl(provider),
     };
-  }
-
-  @Patch('providers/me')
-  @Roles(RoleName.PROVIDER_OWNER, RoleName.PROVIDER_STAFF)
-  @ApiOperation({ summary: 'Edit my provider profile (e.g. tax ID)' })
-  async updateMe(
-    @CurrentUser() user: AuthenticatedUser,
-    @Body() dto: UpdateProviderDto,
-  ) {
-    return this.providersService.updateMine(currentProviderId(user), dto);
-  }
-
-  @Post('providers/me/verification-documents')
-  @Roles(RoleName.PROVIDER_OWNER, RoleName.PROVIDER_STAFF)
-  @ApiConsumes('multipart/form-data')
-  @ApiOperation({
-    summary:
-      'Upload a verification document (ID, business registration, address proof) for admin review',
-  })
-  @UseInterceptors(FileInterceptor('file'))
-  async uploadVerificationDocument(
-    @CurrentUser() user: AuthenticatedUser,
-    @UploadedFile() file: Express.Multer.File,
-    @Body('documentType') documentType?: ProviderVerificationDocumentType,
-  ) {
-    if (!file) {
-      throw new DomainException(
-        'FILE_REQUIRED',
-        'A document file is required.',
-        HttpStatus.BAD_REQUEST,
-      );
-    }
-    if (
-      !documentType ||
-      !Object.values(ProviderVerificationDocumentType).includes(documentType)
-    ) {
-      throw new DomainException(
-        'INVALID_DOCUMENT_TYPE',
-        'A valid documentType is required.',
-        HttpStatus.BAD_REQUEST,
-      );
-    }
-    return this.providersService.addVerificationDocument(
-      currentProviderId(user),
-      documentType,
-      file,
-    );
   }
 
   @Get('admin/providers')

@@ -4,14 +4,9 @@ import { ConfigService } from '@nestjs/config';
 import { ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import helmet from 'helmet';
-// `cookie-parser` is a plain old-style CommonJS export (`module.exports = fn`,
-// no `.default`) and the project intentionally does not set the global
-// `esModuleInterop` flag (flipping it repo-wide broke unrelated files —
-// see PHASE4_REPORT.md). `import ... = require(...)` is TypeScript's
-// CommonJS-specific import form: it compiles to a plain `require()` call
-// under the `commonjs` module target regardless of `esModuleInterop`, so
-// this one import is fixed without changing how any other file compiles.
-import cookieParser = require('cookie-parser');
+// `cookie-parser` is a plain CommonJS export. A namespace import compiles to
+// the callable CommonJS value without requiring repo-wide esModuleInterop.
+import * as cookieParser from 'cookie-parser';
 
 import { AppModule } from './app.module';
 

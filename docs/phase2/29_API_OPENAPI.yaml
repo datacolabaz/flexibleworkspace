@@ -659,7 +659,7 @@ paths:
   /providers:
     post:
       tags: [Provider]
-      summary: Register as a provider (self-service — starts PENDING, 09_DOMAIN_MODEL.md §9.2)
+      summary: Register as a provider (self-service — no document verification required)
       requestBody:
         required: true
         content:
@@ -1351,6 +1351,7 @@ components:
         id: { type: string, format: uuid }
         customerUserId: { type: string, format: uuid }
         status: { type: string, enum: [DRAFT, PENDING, PAYMENT_PENDING, CONFIRMED, COMPLETED, CANCELLED, EXPIRED, NO_SHOW, REFUND_PENDING, REFUNDED] }
+        mode: { type: string, enum: [REQUEST_BASED, PAYMENT_BASED], description: "Flow selected by backend configuration; REQUEST_BASED does not start payment checkout." }
         currency: { type: string, example: "AZN" }
         grossAmount: { type: integer, description: "minor units (qəpik)" }
         serviceFeeAmount: { type: integer, description: "minor units (qəpik)" }

@@ -102,6 +102,26 @@ describe('BookingForm', () => {
     await waitFor(() => expect(window.location.assign).toHaveBeenCalledWith('https://checkout.example/session'));
   });
 
+  it('creates a request-based booking without calling the payments endpoint', async () => {
+    const fetchMock = fetch as unknown as ReturnType<typeof vi.fn>;
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify({ id: 'booking-request-1', status: 'PENDING', mode: 'REQUEST_BASED' }), {
+        status: 201,
+      }),
+    );
+
+    renderForm();
+    fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'guest@example.com' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Continue to payment' }));
+
+    expect(
+      await screen.findByText("Your booking request was sent. It is waiting for the provider's confirmation."),
+    ).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0][0]).toBe('/api/bookings');
+    expect(window.location.assign).not.toHaveBeenCalled();
+  });
+
   it('shows a mapped error banner on SLOT_UNAVAILABLE and never calls the payments endpoint', async () => {
     const fetchMock = fetch as unknown as ReturnType<typeof vi.fn>;
     fetchMock.mockResolvedValueOnce(

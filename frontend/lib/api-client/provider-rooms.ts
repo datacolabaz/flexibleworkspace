@@ -12,9 +12,8 @@ import 'server-only';
  * A room requires a `locationId` (backend FK, `RoomInputDto`), and a
  * newly-registered provider has zero locations — `POST providers`
  * (self-registration) never creates one. So "add a room" is really two
- * steps: ensure a location exists (create one on first use, defaulting
- * lat/lng to central Baku since there's no geocoding in this codebase —
- * confirmed with the product owner), then create the room itself.
+ * steps: ensure a location exists (create one on first use after forward
+ * geocoding and provider pin confirmation), then create the room itself.
  */
 
 export type MyLocation = {
@@ -113,7 +112,7 @@ export type PresignedMediaUpload = {
   publicUrl: string;
 };
 
-/** Baku city-center coordinates — used as every new location's default lat/lng (no geocoding tool in this codebase; admin can correct later). */
+/** Baku city-center coordinates — map starting point only; never saved until the address geocodes or the provider confirms a pin. */
 export const DEFAULT_LOCATION_LAT = 40.3777;
 export const DEFAULT_LOCATION_LNG = 49.892;
 
@@ -301,11 +300,9 @@ export async function removeMyRoom(accessToken: string, roomId: string): Promise
 }
 
 /**
- * `PATCH provider/rooms/:roomId/status` — DRAFT->ACTIVE additionally
- * requires the provider account to be VERIFIED (backend gate); the BFF
- * route just passes the resulting `PROVIDER_NOT_VERIFIED` error through
- * so the form can show a friendly message pointing back at the
- * verification panel.
+ * `PATCH provider/rooms/:roomId/status` — the backend keeps administrative
+ * REJECTED/SUSPENDED account restrictions while normal self-registered
+ * providers can publish as soon as the room has a photo.
  */
 export async function setMyRoomStatus(accessToken: string, roomId: string, status: MyRoomStatus): Promise<MyRoom> {
   const response = await fetch(backendUrl(`provider/rooms/${encodeURIComponent(roomId)}/status`), {
@@ -317,7 +314,7 @@ export async function setMyRoomStatus(accessToken: string, roomId: string, statu
   return jsonOrThrow<MyRoom>(response);
 }
 
-/** Multipart passthrough, same pattern as `uploadMyVerificationDocument` — the local-dev fallback when direct upload isn't available (see `MediaCapabilities.directUploadSupported`). */
+/** Multipart passthrough — the local-dev fallback when direct upload isn't available (see `MediaCapabilities.directUploadSupported`). */
 export async function uploadMyRoomPhoto(accessToken: string, roomId: string, formData: FormData): Promise<MyRoomPhoto> {
   const response = await fetch(backendUrl(`provider/rooms/${encodeURIComponent(roomId)}/photos`), {
     method: 'POST',

@@ -21,7 +21,6 @@ import { PayoutsService } from '../src/modules/payouts/payouts.service';
 import { PayoutStatus } from '../src/common/constants/payout.enum';
 import { BookingsModule } from '../src/modules/bookings/bookings.module';
 import { BookingsService } from '../src/modules/bookings/bookings.service';
-import { BookingStatus } from '../src/common/constants/booking.enum';
 import {
   PartnerStatus,
   ReferralCampaignStatus,

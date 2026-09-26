@@ -21,7 +21,7 @@ export interface AuthenticatedUser {
   roles: { role: string; providerId: string | null }[];
 }
 
-declare module 'express' {
+declare module 'express-serve-static-core' {
   interface Request {
     user?: AuthenticatedUser;
   }
@@ -106,8 +106,11 @@ export class JwtAuthGuard implements CanActivate {
   }
 
   private async toAuthenticatedUser(payload: any): Promise<AuthenticatedUser> {
-    const databaseRoles = await this.roleRepo.find({ where: { userId: payload.sub } });
-    const roles = databaseRoles.length > 0 ? databaseRoles : (payload.roles ?? []);
+    const databaseRoles = await this.roleRepo.find({
+      where: { userId: payload.sub },
+    });
+    const roles =
+      databaseRoles.length > 0 ? databaseRoles : (payload.roles ?? []);
     return {
       userId: payload.sub,
       email: payload.email ?? null,

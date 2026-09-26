@@ -3,6 +3,7 @@ import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { NextIntlClientProvider } from 'next-intl';
+import { Card } from '@/components/ui/Card';
 import { Logo } from '@/components/ui/Logo';
 import { readSession } from '@/lib/auth/session';
 import { getMyProvider, ProviderApiError } from '@/lib/api-client/provider-dashboard';
@@ -27,7 +28,6 @@ import {
   type ProviderPayoutBalance,
   type ProviderPayout,
 } from '@/lib/api-client/provider-bookings';
-import { ProviderVerificationPanel } from '@/components/features/provider/ProviderVerificationPanel';
 import { ProviderLeadsPanel } from '@/components/features/provider/ProviderLeadsPanel';
 import { ProviderRoomsPanel } from '@/components/features/provider/ProviderRoomsPanel';
 import { ProviderAnalyticsPanel } from '@/components/features/provider/ProviderAnalyticsPanel';
@@ -66,12 +66,8 @@ function Shell({ children }: { children: React.ReactNode }) {
 }
 
 /**
- * Minimal provider-side verification dashboard (Sprint 1,
- * 25_PROVIDER_ARCHITECTURE.md) — deliberately narrow: verification status,
- * a way to set the tax ID (`UpdateProviderDto`), and document upload
- * (`POST providers/me/verification-documents`). Room management and the
- * rest of a full provider dashboard are out of this pass's scope; `/provider`
- * stays deliberately NOT locale-prefixed per the route's original comment
+ * Provider self-service dashboard. `/provider` stays deliberately NOT
+ * locale-prefixed per the route's original comment
  * (06_INFORMATION_ARCHITECTURE.md §6.2).
  *
  * Auth reuses the SAME session cookie as the regular customer site
@@ -79,8 +75,7 @@ function Shell({ children }: { children: React.ReactNode }) {
  * user accounts that self-registered via `POST /providers` and hold a
  * PROVIDER_OWNER/PROVIDER_STAFF role, not a separate login system.
  *
- * Sprint 3 (Lead Tracking) adds `ProviderLeadsPanel` alongside the
- * verification panel — a provider-only leads inbox (customers who
+ * Sprint 3 (Lead Tracking) adds `ProviderLeadsPanel` — a provider-only leads inbox (customers who
  * expressed interest via the room detail page's `LeadCaptureForm`,
  * without booking/paying). Scope confirmed with the user: leads are
  * visible to the provider here only, not surfaced in the admin panel.
@@ -166,7 +161,7 @@ export default async function ProviderHome({
     // Best-effort — analytics is a secondary panel, not a core part of the
     // dashboard, so a hiccup here (same soft-fail convention as
     // `getFeaturedRooms`/the room detail page's initial favorite check)
-    // must never break verification/rooms/leads for the whole page.
+    // must never break rooms/leads for the whole page.
     let analytics: ProviderAnalytics | null = null;
     try {
       analytics = await getMyProviderAnalytics(accessToken);
@@ -211,12 +206,12 @@ export default async function ProviderHome({
             <p className="mt-2 text-body text-text-secondary">{azMessages.provider.emptyLocationsMessage}</p>
           </div>
         )}
-        <ProviderVerificationPanel initialProvider={provider} />
+        <Card className="flex flex-col gap-1 p-5">
+          <p className="text-label text-text-secondary">{provider.legalName}</p>
+          <h1 className="font-display text-h3 text-text-primary">{provider.displayName}</h1>
+          <p className="text-small text-text-secondary">Məkanlarınızı, rezervasiyalarınızı və planınızı buradan idarə edin.</p>
+        </Card>
         {analytics && <ProviderAnalyticsPanel analytics={analytics} />}
-        {/* id targeted by ProviderVerificationPanel's post-verification
-            "Otaqlarım bölməsinə keçin" link — this page has no tabs, every
-            panel is just stacked on one scrollable route, so that link is
-            a same-page anchor jump rather than real navigation. */}
         <div id="provider-rooms">
           <ProviderRoomsPanel
             initialLocations={locations}
@@ -256,6 +251,26 @@ export default async function ProviderHome({
           <NextIntlClientProvider locale="az" messages={azMessages}>
             <ListYourSpaceForm />
           </NextIntlClientProvider>
+        </Shell>
+      );
+    }
+    if (error instanceof ProviderApiError && [401, 403].includes(error.status)) {
+      return (
+        <Shell>
+          <h1 className="font-display text-h2 text-text-primary">Provider paneli</h1>
+          <p className="text-body text-error">
+            {error.status === 401
+              ? 'Sessiyanız başa çatıb. Zəhmət olmasa yenidən daxil olun.'
+              : 'Bu bölməyə giriş icazəniz yoxdur.'}
+          </p>
+          {error.status === 401 && (
+            <Link
+              href={`/az/login?redirect=${encodeURIComponent('/provider')}`}
+              className="self-start rounded-md bg-accent px-5 py-3 text-label text-accent-on transition-colors hover:bg-accent-hover"
+            >
+              Yenidən daxil ol
+            </Link>
+          )}
         </Shell>
       );
     }

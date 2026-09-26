@@ -56,7 +56,7 @@ export class ProviderEntity {
     name: 'verification_status',
     type: 'enum',
     enum: ProviderVerificationStatus,
-    default: ProviderVerificationStatus.PENDING,
+    default: ProviderVerificationStatus.VERIFIED,
   })
   verificationStatus: ProviderVerificationStatus;
 

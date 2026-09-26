@@ -57,26 +57,26 @@ const roomTypeAliases: Record<string, RoomTypeKey> = {
   'iclas otagi': 'room_type.meeting_room',
   'meeting room': 'room_type.meeting_room',
   'room type meeting': 'room_type.meeting_room',
-  'coworking': 'room_type.coworking_desk',
+  coworking: 'room_type.coworking_desk',
   'coworking desk': 'room_type.coworking_desk',
   'coworking masasi': 'room_type.coworking_desk',
-  'ofis': 'room_type.private_office',
+  ofis: 'room_type.private_office',
   'private office': 'room_type.private_office',
   'telim otagi': 'room_type.training_room',
   'training room': 'room_type.training_room',
   'sinif otagi': 'room_type.classroom',
-  'classroom': 'room_type.classroom',
+  classroom: 'room_type.classroom',
   'emeliyyat sahesi': 'room_type.workshop_space',
-  'emalatxana': 'room_type.workshop_space',
-  'workshop': 'room_type.workshop_space',
+  emalatxana: 'room_type.workshop_space',
+  workshop: 'room_type.workshop_space',
   'seminar otagi': 'room_type.seminar_room',
   'seminar room': 'room_type.seminar_room',
   'konfrans otagi': 'room_type.conference_room',
   'conference room': 'room_type.conference_room',
   'podkast studiyasi': 'room_type.podcast_studio',
   'podcast studio': 'room_type.podcast_studio',
-  'studio': 'room_type.photo_video_studio',
-  'studia': 'room_type.photo_video_studio',
+  studio: 'room_type.photo_video_studio',
+  studia: 'room_type.photo_video_studio',
   'foto studiyasi': 'room_type.photo_video_studio',
   'foto ve video studiyasi': 'room_type.photo_video_studio',
   'photo video studio': 'room_type.photo_video_studio',
@@ -96,7 +96,7 @@ const amenityAliases: Record<string, AmenityKey> = {
   projector: 'amenity.projector',
   'amenity.whiteboard': 'amenity.whiteboard',
   'ag lovhe': 'amenity.whiteboard',
-  'whiteboard': 'amenity.whiteboard',
+  whiteboard: 'amenity.whiteboard',
   'white board': 'amenity.whiteboard',
   'amenity.tv_screen': 'amenity.tv_screen',
   tv: 'amenity.tv_screen',
@@ -137,11 +137,15 @@ export class TaxonomyMapper {
 
   mapAmenities(value: unknown): AmenityKey[] {
     if (!Array.isArray(value)) return [];
-    return [...new Set(value
-      .filter((item): item is string => typeof item === 'string')
-      .map(normalize)
-      .map((item) => amenityAliases[item])
-      .filter((item): item is AmenityKey => Boolean(item)))];
+    return [
+      ...new Set(
+        value
+          .filter((item): item is string => typeof item === 'string')
+          .map(normalize)
+          .map((item) => amenityAliases[item])
+          .filter((item): item is AmenityKey => Boolean(item)),
+      ),
+    ];
   }
 
   roomTypeKeys(): readonly RoomTypeKey[] {

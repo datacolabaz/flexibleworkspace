@@ -86,10 +86,9 @@ function isLikelyImageFile(file: File): boolean {
  * On success, redirects straight into `/provider` (owner's decision:
  * "doldur sonra ordan ora keç lazım deyil" — one continuous flow, not a
  * dead-end thank-you screen the person has to navigate away from
- * themselves). `verificationStatus` starts `PENDING` — the provider can
- * still add rooms/photos immediately; only *activating* a room needs
- * admin verification (`ROOM_NO_PHOTOS`/`PROVIDER_NOT_VERIFIED` gating in
- * `RoomsService.setStatus`), so there's nothing to wait for here.
+ * themselves). Provider registration does not require identity/business
+ * verification documents; listing activation is gated only by listing
+ * completeness such as the required room photo (`ROOM_NO_PHOTOS`).
  */
 export function ListYourSpaceForm() {
   const t = useTranslations('listYourSpace');

@@ -94,7 +94,9 @@ export class AuthController {
   @Public()
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @Post('admin-password')
-  @ApiOperation({ summary: 'Sign in to the admin surface with an admin email and password' })
+  @ApiOperation({
+    summary: 'Sign in to the admin surface with an admin email and password',
+  })
   async loginWithAdminPassword(@Body() dto: AdminLoginDto): Promise<TokenPair> {
     return this.authService.loginWithAdminPassword(dto.email, dto.password);
   }

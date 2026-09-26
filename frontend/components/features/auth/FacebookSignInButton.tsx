@@ -110,7 +110,7 @@ export function FacebookSignInButton({ redirectTo, onError }: OAuthSignInButtonP
                 // See the matching comment in GoogleSignInButton — push()
                 // alone can render a page Next.js had already cached
                 // from before this sign-in.
-                router.push(redirectTo ?? '/');
+                router.push(redirectTo ?? '/account/bookings');
                 router.refresh();
                 return;
               }

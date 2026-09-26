@@ -13,7 +13,7 @@ function errorResponse(error: unknown) {
   );
 }
 
-/** Multipart passthrough — same pattern as `provider/me/verification-documents`. */
+/** Multipart passthrough for the local-storage upload fallback. */
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const { accessToken } = readSession(request.cookies);

@@ -31,7 +31,9 @@ function makeRoomRepoDouble() {
     }),
     count: jest.fn(async ({ where }: any) => {
       const providerId = where?.location?.providerId;
-      return rows.filter((r) => r.__providerId === providerId && r.deletedAt == null).length;
+      return rows.filter(
+        (r) => r.__providerId === providerId && r.deletedAt == null,
+      ).length;
     }),
     findOne: jest.fn(
       async ({ where }: any) => rows.find((r) => r.id === where.id) ?? null,
@@ -324,7 +326,11 @@ describe('RoomsService', () => {
 
   describe('remove() — provider listing soft delete', () => {
     it('sets deletedAt without destroying the room or its booking references', async () => {
-      const room = { id: 'room-delete', location: { providerId }, deletedAt: null };
+      const room = {
+        id: 'room-delete',
+        location: { providerId },
+        deletedAt: null,
+      };
       roomRepo.rows.push(room);
 
       await service.remove('room-delete', providerId);
@@ -337,7 +343,9 @@ describe('RoomsService', () => {
     it("does not allow deleting another provider's room", async () => {
       roomRepo.rows.push({ id: 'room-owned', location: { providerId } });
 
-      await expect(service.remove('room-owned', otherProviderId)).rejects.toBeInstanceOf(ResourceNotFoundException);
+      await expect(
+        service.remove('room-owned', otherProviderId),
+      ).rejects.toBeInstanceOf(ResourceNotFoundException);
     });
   });
 

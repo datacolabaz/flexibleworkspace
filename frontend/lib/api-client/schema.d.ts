@@ -1125,7 +1125,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Register as a provider (self-service — starts PENDING, 09_DOMAIN_MODEL.md §9.2) */
+        /** Register as a provider (self-service — no document verification required) */
         post: {
             parameters: {
                 query?: never;
@@ -2501,6 +2501,8 @@ export interface components {
             customerUserId?: string;
             /** @enum {string} */
             status?: "DRAFT" | "PENDING" | "PAYMENT_PENDING" | "CONFIRMED" | "COMPLETED" | "CANCELLED" | "EXPIRED" | "NO_SHOW" | "REFUND_PENDING" | "REFUNDED";
+            /** @enum {string} */
+            mode?: "REQUEST_BASED" | "PAYMENT_BASED";
             /** @example AZN */
             currency?: string;
             /** @description minor units (qəpik) */

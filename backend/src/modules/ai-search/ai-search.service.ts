@@ -29,26 +29,50 @@ const SEARCH_INTENT_SCHEMA = {
     participants: { type: ['integer', 'null'], minimum: 1 },
     priceMaxAzn: { type: ['number', 'null'], minimum: 0 },
     amenities: { type: 'array', items: { type: 'string' }, maxItems: 12 },
-    sort: { type: ['string', 'null'], enum: ['relevance', 'price', 'distance', 'rating', null] },
+    sort: {
+      type: ['string', 'null'],
+      enum: ['relevance', 'price', 'distance', 'rating', null],
+    },
     clarifyingQuestion: { type: ['string', 'null'], maxLength: 240 },
     confidence: { type: 'number', minimum: 0, maximum: 1 },
   },
-  required: ['city', 'district', 'roomType', 'date', 'startTime', 'durationMinutes', 'participants', 'priceMaxAzn', 'amenities', 'sort', 'clarifyingQuestion', 'confidence'],
+  required: [
+    'city',
+    'district',
+    'roomType',
+    'date',
+    'startTime',
+    'durationMinutes',
+    'participants',
+    'priceMaxAzn',
+    'amenities',
+    'sort',
+    'clarifyingQuestion',
+    'confidence',
+  ],
   additionalProperties: false,
 };
 
 @Injectable()
 export class AiSearchService {
-  async interpret(query: string, locale: 'az' | 'ru' | 'en'): Promise<SearchIntent> {
+  async interpret(
+    query: string,
+    locale: 'az' | 'ru' | 'en',
+  ): Promise<SearchIntent> {
     const apiKey = process.env.OPENAI_API_KEY;
-    const apiBase = (process.env.OPENAI_API_BASE ?? 'https://api.openai.com/v1').replace(/\/$/, '');
+    const apiBase = (
+      process.env.OPENAI_API_BASE ?? 'https://api.openai.com/v1'
+    ).replace(/\/$/, '');
     if (!apiKey) {
       return this.fallbackIntent(query);
     }
 
     const response = await fetch(`${apiBase}/chat/completions`, {
       method: 'POST',
-      headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
       body: JSON.stringify({
         model: process.env.AI_SEARCH_MODEL ?? 'gpt-5-mini',
         messages: [
@@ -60,7 +84,11 @@ export class AiSearchService {
         ],
         response_format: {
           type: 'json_schema',
-          json_schema: { name: 'search_intent', strict: true, schema: SEARCH_INTENT_SCHEMA },
+          json_schema: {
+            name: 'search_intent',
+            strict: true,
+            schema: SEARCH_INTENT_SCHEMA,
+          },
         },
         max_completion_tokens: 700,
       }),
@@ -68,7 +96,9 @@ export class AiSearchService {
 
     if (!response?.ok) return this.fallbackIntent(query);
 
-    const payload = await response.json() as { choices?: Array<{ message?: { content?: string } }> };
+    const payload = (await response.json()) as {
+      choices?: Array<{ message?: { content?: string } }>;
+    };
     const content = payload.choices?.[0]?.message?.content;
     if (!content) return this.fallbackIntent(query);
 
@@ -80,27 +110,41 @@ export class AiSearchService {
     }
 
     const priceValue = parsed.priceMaxAzn;
-    const priceMaxAzn = typeof priceValue === 'number' && priceValue >= 0 ? priceValue : null;
+    const priceMaxAzn =
+      typeof priceValue === 'number' && priceValue >= 0 ? priceValue : null;
     const amenitiesValue = parsed.amenities;
     const clarifyingQuestionValue = parsed.clarifyingQuestion;
     const confidenceValue = parsed.confidence;
-    const filters = Object.fromEntries(Object.entries({
-      city: parsed.city,
-      district: parsed.district,
-      roomType: parsed.roomType,
-      date: parsed.date,
-      startTime: parsed.startTime,
-      durationMinutes: parsed.durationMinutes,
-      participants: parsed.participants,
-      priceMax: priceMaxAzn === null ? undefined : Math.round(priceMaxAzn * 100),
-      amenities: Array.isArray(amenitiesValue) ? amenitiesValue.slice(0, 12) : [],
-      sort: parsed.sort,
-    }).filter(([, value]) => value !== null && value !== undefined && value !== '')) as SearchIntent['filters'];
+    const filters = Object.fromEntries(
+      Object.entries({
+        city: parsed.city,
+        district: parsed.district,
+        roomType: parsed.roomType,
+        date: parsed.date,
+        startTime: parsed.startTime,
+        durationMinutes: parsed.durationMinutes,
+        participants: parsed.participants,
+        priceMax:
+          priceMaxAzn === null ? undefined : Math.round(priceMaxAzn * 100),
+        amenities: Array.isArray(amenitiesValue)
+          ? amenitiesValue.slice(0, 12)
+          : [],
+        sort: parsed.sort,
+      }).filter(
+        ([, value]) => value !== null && value !== undefined && value !== '',
+      ),
+    ) as SearchIntent['filters'];
 
     return {
       filters,
-      clarifyingQuestion: typeof clarifyingQuestionValue === 'string' ? clarifyingQuestionValue : null,
-      confidence: typeof confidenceValue === 'number' ? Math.max(0, Math.min(1, confidenceValue)) : 0,
+      clarifyingQuestion:
+        typeof clarifyingQuestionValue === 'string'
+          ? clarifyingQuestionValue
+          : null,
+      confidence:
+        typeof confidenceValue === 'number'
+          ? Math.max(0, Math.min(1, confidenceValue))
+          : 0,
     };
   }
 
@@ -110,9 +154,23 @@ export class AiSearchService {
       const match = text.match(pattern);
       return match ? Number(match[1]) : undefined;
     };
-    const district = ['nərimanov', 'yasamal', 'xətai', 'nəsimi', 'səbail', 'binəqədi'].find((value) => text.includes(value));
-    const city = text.includes('baku') || text.includes('bakı') ? 'Baku' : undefined;
-    const roomType = text.includes('studio') ? 'room_type.photo_video_studio' : text.includes('tədbir') ? 'room_type.event_space' : text.includes('görüş') || text.includes('iclas') ? 'room_type.meeting_room' : undefined;
+    const district = [
+      'nərimanov',
+      'yasamal',
+      'xətai',
+      'nəsimi',
+      'səbail',
+      'binəqədi',
+    ].find((value) => text.includes(value));
+    const city =
+      text.includes('baku') || text.includes('bakı') ? 'Baku' : undefined;
+    const roomType = text.includes('studio')
+      ? 'room_type.photo_video_studio'
+      : text.includes('tədbir')
+        ? 'room_type.event_space'
+        : text.includes('görüş') || text.includes('iclas')
+          ? 'room_type.meeting_room'
+          : undefined;
     const amenityMap: Array<[RegExp, string]> = [
       [/proyektor|projector/, 'amenity.projector'],
       [/wifi|wi-fi/, 'amenity.wifi'],
@@ -120,7 +178,9 @@ export class AiSearchService {
       [/parkinq|avtodayanacaq|parking/, 'amenity.parking'],
       [/metro/, 'amenity.near_metro'],
     ];
-    const amenities = amenityMap.filter(([pattern]) => pattern.test(text)).map(([, key]) => key);
+    const amenities = amenityMap
+      .filter(([pattern]) => pattern.test(text))
+      .map(([, key]) => key);
     const participants = number(/(\d+)\s*(?:nəfər|people|persons|чел)/);
     const priceAzn = number(/(\d+)\s*(?:azn|manat|₼)/);
     const hours = number(/(\d+)\s*(?:saat|hour|ч)/);
@@ -134,7 +194,15 @@ export class AiSearchService {
         ...(hours ? { durationMinutes: hours * 60 } : {}),
         amenities,
       },
-      clarifyingQuestion: amenities.length || city || district || roomType || participants || priceAzn ? null : 'Şəhər, iştirakçı sayı və ya büdcə əlavə edin.',
+      clarifyingQuestion:
+        amenities.length ||
+        city ||
+        district ||
+        roomType ||
+        participants ||
+        priceAzn
+          ? null
+          : 'Şəhər, iştirakçı sayı və ya büdcə əlavə edin.',
       confidence: 0.35,
     };
   }

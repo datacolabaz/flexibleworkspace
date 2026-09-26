@@ -1,7 +1,7 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
 /**
- * Backs the fraud check in ProvidersService.addVerificationDocument() — the
+ * Historical table that backed the former provider-document fraud check — the
  * owner's explicit ask (2026-09-23): stop the same person reusing the same
  * ID/business-registration document to spin up a second account and dodge
  * the FREE-plan one-room limit. `file_hash` is a SHA-256 of the uploaded

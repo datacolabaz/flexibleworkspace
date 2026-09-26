@@ -26,21 +26,17 @@ export interface LocationPickerMapHandle {
 /**
  * Draggable-pin map for a provider to set their business location's
  * actual point — click anywhere on the map to move the pin, or drag it
- * directly. There is no geocoding anywhere in this codebase to derive
- * coordinates from a typed address (see the long-standing comment this
- * replaces on `DEFAULT_LOCATION_LAT`/`LNG`), so before this component
- * existed a location's pin silently stayed at the hardcoded Baku-center
- * default forever — every provider's listing showed at the exact same
- * point on the customer-facing search/room maps, which is what a
- * provider flagged: "otherwise the map has no value there".
+ * directly. `LocationForm` forward-geocodes typed addresses and reverse-
+ * geocodes manual marker moves; this component keeps the visible marker and
+ * viewport synchronized with the resulting coordinates.
  *
  * Same Mapbox GL loading/degradation pattern as `RoomLocationMap` (lazy
  * `loadMapboxGl`, plain "unavailable" message without a browser token).
  *
- * The map instance is created once on mount and only re-synced from the
- * `lat`/`lng` props at that point — after that, the pin's position is
- * driven purely by the user's own click/drag, not by prop changes, so a
- * parent re-render mid-drag can't fight the gesture in progress.
+ * The map instance is created once, while later `lat`/`lng` changes move
+ * both the marker and viewport. This is required for an address geocode that
+ * resolves before or after Mapbox finishes loading. User clicks and drags
+ * still flow back through `onChange` and become the next prop position.
  */
 export const LocationPickerMap = forwardRef<LocationPickerMapHandle, LocationPickerMapProps>(function LocationPickerMap(
   { lat, lng, onChange, className },
@@ -49,7 +45,8 @@ export const LocationPickerMap = forwardRef<LocationPickerMapHandle, LocationPic
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const markerRef = useRef<mapboxgl.Marker | null>(null);
-  const initialPosition = useRef<[number, number]>([lng, lat]);
+  const latestPositionRef = useRef<[number, number]>([lng, lat]);
+  latestPositionRef.current = [lng, lat];
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
   const accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
@@ -58,6 +55,7 @@ export const LocationPickerMap = forwardRef<LocationPickerMapHandle, LocationPic
     ref,
     () => ({
       recenter: (nextLat: number, nextLng: number) => {
+        latestPositionRef.current = [nextLng, nextLat];
         const map = mapRef.current;
         const marker = markerRef.current;
         if (!map || !marker) return;
@@ -78,14 +76,14 @@ export const LocationPickerMap = forwardRef<LocationPickerMapHandle, LocationPic
         const map = new mapboxgl.Map({
           container: containerRef.current,
           style: 'mapbox://styles/mapbox/streets-v12',
-          center: initialPosition.current,
+          center: latestPositionRef.current,
           zoom: 14,
           cooperativeGestures: true,
         });
         map.addControl(new mapboxgl.NavigationControl({ showCompass: false }), 'top-right');
 
         const marker = new mapboxgl.Marker({ color: '#E7A550', draggable: true })
-          .setLngLat(initialPosition.current)
+          .setLngLat(latestPositionRef.current)
           .addTo(map);
 
         marker.on('dragend', () => {
@@ -111,6 +109,15 @@ export const LocationPickerMap = forwardRef<LocationPickerMapHandle, LocationPic
       markerRef.current = null;
     };
   }, [accessToken]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    const marker = markerRef.current;
+    if (!map || !marker) return;
+
+    marker.setLngLat([lng, lat]);
+    map.flyTo({ center: [lng, lat], zoom: Math.max(map.getZoom(), 15), essential: true });
+  }, [lat, lng]);
 
   if (!accessToken) {
     return (
