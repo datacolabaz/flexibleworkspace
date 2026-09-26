@@ -10,6 +10,7 @@ import { Label } from '@/components/ui/Label';
 import { Select } from '@/components/ui/Select';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import { ROOM_TYPES, AMENITIES, AMENITY_CATEGORIES } from '@/lib/constants/taxonomy';
+import { VoiceSearchButton } from './VoiceSearchButton';
 
 // ---------------------------------------------------------------------------
 // Metro station name normalisation — strips line-2 suffixes so transfer
@@ -622,17 +623,26 @@ export function SearchFilters({ metroStations = [] }: { metroStations?: MetroSta
 
       {/* Mobile: a Filters button opening the shared bottom sheet. */}
       <div className="lg:hidden">
-        <Button variant="secondary" onClick={() => setMobileOpen(true)} className="relative">
-          {t('search.filterButton')}
-          {/* The literal space keeps the accessible name "Filters 3"
-           * rather than a concatenated "Filters3" for screen readers. */}
-          {activeCount > 0 && ' '}
-          {activeCount > 0 && (
-            <span className="ml-1 inline-flex min-w-5 items-center justify-center rounded-full bg-accent px-1.5 text-caption font-semibold text-accent-on">
-              {activeCount}
-            </span>
-          )}
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="secondary" onClick={() => setMobileOpen(true)} className="relative">
+            {t('search.filterButton')}
+            {/* The literal space keeps the accessible name "Filters 3"
+             * rather than a concatenated "Filters3" for screen readers. */}
+            {activeCount > 0 && ' '}
+            {activeCount > 0 && (
+              <span className="ml-1 inline-flex min-w-5 items-center justify-center rounded-full bg-accent px-1.5 text-caption font-semibold text-accent-on">
+                {activeCount}
+              </span>
+            )}
+          </Button>
+
+          <VoiceSearchButton
+            metroStations={metroStations}
+            roomTypes={ROOM_TYPES.map((rt) => rt.translationKey)}
+            currentDraft={mobileDraft}
+            onApply={apply}
+          />
+        </div>
 
         <BottomSheet open={mobileOpen} onClose={() => setMobileOpen(false)} title={t('search.filtersTitle')} closeLabel={t('nav.closeMenu')}>
           <FilterFields draft={mobileDraft} onChange={setMobileDraft} metroStations={metroStations} />

@@ -11,7 +11,6 @@ import { RoomListingCard, type RoomSummary } from '@/components/features/rooms/R
 import { RoomListingCardSkeleton } from '@/components/features/rooms/RoomListingCardSkeleton';
 import { SearchFilters, draftFromSearchParams } from './SearchFilters';
 import { SearchResultsMap } from './SearchResultsMap';
-import { AiSearchBox } from './AiSearchBox';
 import type { SearchRoomsResult } from '@/lib/api-client/rooms';
 
 const SORT_OPTIONS = ['relevance', 'price', 'distance', 'rating'] as const;
@@ -167,9 +166,6 @@ export function SearchResultsView() {
 
   return (
     <>
-      <div className="mx-auto max-w-7xl px-4 pt-6 sm:px-6">
-        <AiSearchBox />
-      </div>
       {/* flex-col below `lg`, flex-row at `lg`+: below `lg` the sidebar is
      // hidden but <SearchFilters>'s mobile trigger button is still a
      // sibling here — in a nowrap row it squeezed the results column down

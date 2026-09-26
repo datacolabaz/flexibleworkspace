@@ -167,7 +167,12 @@
     "hideMap": "Hide map",
     "sortPrefix": "Sort:",
     "clearAllFilters": "Clear all",
-    "activeFilterChips": "Active filters"
+    "activeFilterChips": "Active filters",
+    "voiceSearch": "Voice search",
+    "voiceListening": "Listening...",
+    "voiceProcessing": "Processing...",
+    "voiceError": "Could not understand. Please try again.",
+    "voiceApplied": "Filters applied"
   },
   "room": {
     "priceLabel": "Price",
