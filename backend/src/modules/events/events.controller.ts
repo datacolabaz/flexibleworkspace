@@ -2,12 +2,16 @@ import {
   Body,
   Controller,
   Get,
+  HttpStatus,
   Param,
   Patch,
   Post,
   Query,
+  UploadedFile,
+  UseInterceptors,
 } from '@nestjs/common';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
 
 import { EventsService } from './events.service';
 import { CreateEventDto } from './dto/create-event.dto';
@@ -17,6 +21,7 @@ import { LinkVenueDto } from './dto/link-venue.dto';
 import { Public } from '../../common/decorators/public.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { AuthenticatedUser } from '../../common/guards/jwt-auth.guard';
+import { DomainException } from '../../common/exceptions/domain.exception';
 
 @ApiTags('Events')
 @Controller('events')
@@ -67,6 +72,25 @@ export class EventsController {
     @Body() dto: LinkVenueDto,
   ) {
     return this.eventsService.linkVenueToEvent(user.userId, id, dto);
+  }
+
+  @Post(':id/cover')
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({ summary: 'Upload a cover image for an event (organizer only)' })
+  @UseInterceptors(FileInterceptor('cover'))
+  async uploadCover(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id') id: string,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    if (!file) {
+      throw new DomainException(
+        'FILE_REQUIRED',
+        'A cover image file is required.',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+    return this.eventsService.uploadEventCover(user.userId, id, file);
   }
 
   // ── Public endpoints ─────────────────────────────────────────────────────

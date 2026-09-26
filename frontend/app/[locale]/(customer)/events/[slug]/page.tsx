@@ -102,6 +102,19 @@ export default function EventDetailPage() {
   const remaining =
     event.capacity !== null ? event.capacity - (event.rsvpCount ?? 0) : null;
 
+  // Feature 5: Attribution — store event context when user heads to venue search
+  function handleFindVenue() {
+    try {
+      sessionStorage.setItem(
+        'spotva_attribution',
+        JSON.stringify({ source: 'spotva_event', eventId: event!.id }),
+      );
+    } catch {
+      // sessionStorage unavailable — continue silently
+    }
+    window.open('/search?roomType=room_type.event_space', '_blank', 'noopener,noreferrer');
+  }
+
   return (
     <>
       {showRsvp && (
@@ -214,6 +227,15 @@ export default function EventDetailPage() {
                   className="mt-3 w-full rounded-md border border-border px-4 py-2.5 text-label font-semibold text-text-secondary transition-colors hover:bg-surface-elevated"
                 >
                   {linkCopied ? t('linkCopied') : t('shareButton')}
+                </button>
+
+                {/* Find venue CTA — Feature 5 attribution */}
+                <button
+                  type="button"
+                  onClick={handleFindVenue}
+                  className="mt-2 w-full rounded-md border border-border px-4 py-2.5 text-label font-semibold text-text-secondary transition-colors hover:bg-surface-elevated"
+                >
+                  {'Məkan tap →'}
                 </button>
 
                 {/* Organizer */}

@@ -88,6 +88,14 @@ export class BookingEntity {
   @Column({ name: 'rejected_by_user_id', type: 'uuid', nullable: true })
   rejectedByUserId: string | null;
 
+  /** Feature 5 — event-page attribution (MVP). e.g. 'spotva_event'. */
+  @Column({ name: 'attribution_source', type: 'varchar', length: 100, nullable: true })
+  attributionSource: string | null;
+
+  /** Feature 5 — the event page this booking was sourced from. */
+  @Column({ name: 'attribution_event_id', type: 'uuid', nullable: true })
+  attributionEventId: string | null;
+
   @OneToMany(() => BookingItemEntity, (item) => item.booking, { cascade: true })
   items: BookingItemEntity[];
 }

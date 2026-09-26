@@ -154,6 +154,23 @@ export class BookingsService {
           120)
         : (this.configService.get<number>('booking.holdMinutes') ?? 15);
 
+    // Feature 5 — validate attribution event ID before opening the transaction.
+    // We accept referralSource='spotva_event' as attributionSource.
+    // Invalid event UUIDs are silently dropped (never fail the booking itself).
+    let resolvedAttributionSource: string | null = dto.referralSource ?? null;
+    let resolvedAttributionEventId: string | null = null;
+    if (dto.attributionEventId) {
+      const eventCount = await this.dataSource.query<{ count: string }[]>(
+        `SELECT count(*)::int AS count FROM events WHERE id = $1 AND deleted_at IS NULL`,
+        [dto.attributionEventId],
+      );
+      if (Number(eventCount[0]?.count) > 0) {
+        resolvedAttributionEventId = dto.attributionEventId;
+        // Default attribution source when coming from an event page
+        if (!resolvedAttributionSource) resolvedAttributionSource = 'spotva_event';
+      }
+    }
+
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
     await queryRunner.startTransaction();
@@ -170,6 +187,8 @@ export class BookingsService {
         purpose: dto.purpose ?? null,
         participantsCount: dto.participants ?? null,
         holdExpiresAt: new Date(now.getTime() + holdMinutes * 60_000),
+        attributionSource: resolvedAttributionSource,
+        attributionEventId: resolvedAttributionEventId,
         createdAt: now,
         updatedAt: now,
       });

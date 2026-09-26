@@ -162,6 +162,23 @@ export function BookingForm({
                   phone: phone.trim() || undefined,
                 },
               }),
+          // Feature 5 — read attribution from sessionStorage (set by event detail page)
+          ...(() => {
+            try {
+              const raw = sessionStorage.getItem('spotva_attribution');
+              if (raw) {
+                const parsed = JSON.parse(raw) as { source?: string; eventId?: string };
+                sessionStorage.removeItem('spotva_attribution'); // consume once
+                return {
+                  referralSource: parsed.source ?? undefined,
+                  attributionEventId: parsed.eventId ?? undefined,
+                };
+              }
+            } catch {
+              // sessionStorage unavailable or malformed JSON — ignore
+            }
+            return {};
+          })(),
         }),
       });
 

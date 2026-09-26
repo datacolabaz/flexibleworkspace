@@ -1,4 +1,4 @@
-import { HttpStatus, Injectable } from '@nestjs/common';
+import { HttpStatus, Inject, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, IsNull } from 'typeorm';
 import { randomBytes } from 'crypto';
@@ -11,6 +11,8 @@ import { UpdateEventDto } from './dto/update-event.dto';
 import { CreateRsvpDto } from './dto/create-rsvp.dto';
 import { LinkVenueDto } from './dto/link-venue.dto';
 import { DomainException, ResourceNotFoundException } from '../../common/exceptions/domain.exception';
+import { StorageProvider } from '../storage/storage-provider.interface';
+import { STORAGE_PROVIDER } from '../storage/storage.module';
 
 @Injectable()
 export class EventsService {
@@ -21,6 +23,8 @@ export class EventsService {
     private readonly eventLocationsRepo: Repository<EventLocationEntity>,
     @InjectRepository(EventRsvpEntity)
     private readonly rsvpsRepo: Repository<EventRsvpEntity>,
+    @Inject(STORAGE_PROVIDER)
+    private readonly storageProvider: StorageProvider,
   ) {}
 
   // ── Helpers ──────────────────────────────────────────────────────────────
@@ -135,6 +139,11 @@ export class EventsService {
       relations: ['eventLocations'],
     });
     if (!event) throw new ResourceNotFoundException('Event');
+
+    // Draft events are not publicly accessible (Feature 4).
+    if (event.status === EventStatus.DRAFT) {
+      throw new ResourceNotFoundException('Event');
+    }
 
     const rsvpCount = await this.rsvpsRepo.count({
       where: { eventId: event.id, status: EventRsvpStatus.CONFIRMED },
@@ -256,6 +265,51 @@ export class EventsService {
     }
 
     return saved;
+  }
+
+  // ── Cover image upload ─────────────────────────────────────────────────
+
+  /**
+   * Uploads a cover image file for an event and updates coverImage.
+   * File bytes come through this server (no presigned upload for events —
+   * files are small and the pattern matches the existing provider logo flow).
+   * Allowed MIME types: image/jpeg, image/png, image/webp.  Max size: 5 MiB.
+   */
+  async uploadEventCover(
+    userId: string,
+    eventId: string,
+    file: { buffer: Buffer; originalname: string; mimetype: string; size: number },
+  ): Promise<EventEntity> {
+    const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+    const MAX_BYTES = 5 * 1024 * 1024; // 5 MiB
+
+    if (!ALLOWED_TYPES.includes(file.mimetype)) {
+      throw new DomainException(
+        'INVALID_FILE_TYPE',
+        'Only JPEG, PNG, and WebP images are allowed.',
+        HttpStatus.UNPROCESSABLE_ENTITY,
+      );
+    }
+    if (file.size > MAX_BYTES) {
+      throw new DomainException(
+        'FILE_TOO_LARGE',
+        'Cover image must be 5 MB or smaller.',
+        HttpStatus.UNPROCESSABLE_ENTITY,
+      );
+    }
+
+    const event = await this.findById(eventId);
+    this.assertOrganizer(event, userId);
+
+    const stored = await this.storageProvider.put(
+      file.buffer,
+      file.originalname,
+      file.mimetype,
+    );
+
+    event.coverImage = this.storageProvider.publicUrlFor(stored.storageKey);
+    event.updatedAt = new Date();
+    return this.eventsRepo.save(event);
   }
 
   // ── Venue linking ─────────────────────────────────────────────────────────

@@ -1,11 +1,12 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { useRouter } from '@/lib/i18n/navigation';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { track, AnalyticsEvent } from '@/lib/analytics/track';
+import { CoverImageUpload } from '@/components/features/events/CoverImageUpload';
 import type { EventRecord, EventFormat, EventVisibility } from '@/lib/api-client/events';
 
 // ── Types ─────────────────────────────────────────────────────────────────
@@ -42,11 +43,14 @@ export function EventCreateWizard() {
 
   const [step, setStep] = useState(1);
   const [draftId, setDraftId] = useState<string | null>(null);
-  const [draftSlug, setDraftSlug] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [publishedSlug, setPublishedSlug] = useState<string | null>(null);
+  const [autosaveToast, setAutosaveToast] = useState(false);
+  const [resumePrompt, setResumePrompt] = useState<EventRecord | null>(null);
+
+  const autosaveTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     track(AnalyticsEvent.EventCreationStarted);
@@ -69,9 +73,86 @@ export function EventCreateWizard() {
     externalVenue: '',
   });
 
+  // ── Draft resume on mount ──────────────────────────────────────────────
+
+  useEffect(() => {
+    async function checkForDraft() {
+      try {
+        const res = await fetch('/api/events/me', { cache: 'no-store' });
+        if (!res.ok) return;
+        const events = await res.json() as EventRecord[];
+        const existingDraft = events.find((e) => e.status === 'draft');
+        if (existingDraft) {
+          setResumePrompt(existingDraft);
+        }
+      } catch {
+        // Non-critical — ignore silently
+      }
+    }
+    checkForDraft();
+  }, []);
+
+  // ── Unsaved changes warning ────────────────────────────────────────────
+
+  const hasData = state.title.trim().length > 0 || state.shortDescription.trim().length > 0;
+
+  useEffect(() => {
+    function handleBeforeUnload(e: BeforeUnloadEvent) {
+      if (hasData && step <= TOTAL_STEPS) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    }
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [hasData, step]);
+
+  // ── Autosave every 30 seconds ──────────────────────────────────────────
+
+  useEffect(() => {
+    if (autosaveTimerRef.current) clearInterval(autosaveTimerRef.current);
+
+    autosaveTimerRef.current = setInterval(async () => {
+      if (!hasData || step > TOTAL_STEPS) return;
+      const saved = await saveDraft(true);
+      if (saved) {
+        setAutosaveToast(true);
+        setTimeout(() => setAutosaveToast(false), 3000);
+      }
+      }, 30_000);
+
+    return () => {
+      if (autosaveTimerRef.current) clearInterval(autosaveTimerRef.current);
+    };
+  }, [hasData, step, state, draftId]);
+
   function update(field: keyof WizardState, value: string) {
     setState((prev) => ({ ...prev, [field]: value }));
     setError(null);
+  }
+
+  // ── Resume draft ───────────────────────────────────────────────────────
+
+  function handleResumeDraft(draft: EventRecord) {
+    setDraftId(draft.id);
+    setDraftSlug(draft.slug);
+    setState({
+      title: draft.title ?? '',
+      format: (draft.format as EventFormat) ?? '',
+      shortDescription: draft.shortDescription ?? '',
+      description: draft.description ?? '',
+      coverImage: draft.coverImage ?? '',
+      language: draft.language ?? 'az',
+      capacity: draft.capacity != null ? String(draft.capacity) : '',
+      visibility: (draft.visibility as EventVisibility) ?? 'public',
+      startAt: draft.startAt ? draft.startAt.slice(0, 16) : '',
+      endAt: draft.endAt ? draft.endAt.slice(0, 16) : '',
+      rsvpDeadline: draft.rsvpDeadline ? draft.rsvpDeadline.slice(0, 16) : '',
+      doorsOpenAt: draft.doorsOpenAt ? draft.doorsOpenAt.slice(0, 16) : '',
+      venueOption: 'c',
+      externalVenue: '',
+    });
+    setResumePrompt(null);
   }
 
   // ── Validation per step ────────────────────────────────────────────────
@@ -94,8 +175,8 @@ export function EventCreateWizard() {
 
   // ── Save draft ─────────────────────────────────────────────────────────
 
-  async function saveDraft(): Promise<EventRecord | null> {
-    setIsSaving(true);
+  async function saveDraft(silent = false): Promise<EventRecord | null> {
+    if (!silent) setIsSaving(true);
     setError(null);
     try {
       const body = {
@@ -123,7 +204,6 @@ export function EventCreateWizard() {
         const data = (await res.json()) as EventRecord;
         track(AnalyticsEvent.EventCreated, { event_id: data.id });
         setDraftId(data.id);
-        setDraftSlug(data.slug);
         return data;
       } else {
         const res = await fetch(`/api/events/${draftId}`, {
@@ -135,10 +215,10 @@ export function EventCreateWizard() {
         return (await res.json()) as EventRecord;
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('saveError'));
+      if (!silent) setError(err instanceof Error ? err.message : t('saveError'));
       return null;
     } finally {
-      setIsSaving(false);
+      if (!silent) setIsSaving(false);
     }
   }
 
@@ -161,6 +241,22 @@ export function EventCreateWizard() {
   function handleBack() {
     setError(null);
     setStep((prev) => Math.max(prev - 1, 1));
+  }
+
+  function handleStepClick(clickedStep: number) {
+    // Allow navigating to already-completed steps only
+    if (clickedStep < step) {
+      setError(null);
+      setStep(clickedStep);
+    }
+  }
+
+  async function handleSaveDraft() {
+    const saved = await saveDraft();
+    if (saved) {
+      setAutosaveToast(true);
+      setTimeout(() => setAutosaveToast(false), 3000);
+    }
   }
 
   // ── Publish ────────────────────────────────────────────────────────────
@@ -206,6 +302,29 @@ export function EventCreateWizard() {
     );
   }
 
+  // ── Resume draft prompt ────────────────────────────────────────────────
+
+  if (resumePrompt) {
+    return (
+      <div className="mx-auto max-w-lg rounded-xl border border-border bg-surface p-8 text-center">
+        <div className="mb-3 text-3xl">📝</div>
+        <h2 className="font-display text-h2 text-text-primary">{t('resumeDraftTitle')}</h2>
+        <p className="mt-2 text-body text-text-secondary">
+          {t('resumeDraftPrompt')}
+        </p>
+        <p className="mt-1 text-label font-semibold text-text-primary">{resumePrompt.title}</p>
+        <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-center">
+          <Button onClick={() => handleResumeDraft(resumePrompt)}>
+            {t('resumeDraftYes')}
+          </Button>
+          <Button variant="secondary" onClick={() => setResumePrompt(null)}>
+            {t('resumeDraftNo')}
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   // ── Progress indicator ─────────────────────────────────────────────────
 
   const stepTitles = [
@@ -214,6 +333,13 @@ export function EventCreateWizard() {
 
   return (
     <div className="mx-auto max-w-2xl">
+      {/* Autosave toast */}
+      {autosaveToast && (
+        <div className="mb-4 rounded-md bg-success-bg p-3 text-small text-success">
+          {t('autosaved')}
+        </div>
+      )}
+
       {/* Progress */}
       <div className="mb-8">
         <div className="flex items-center justify-between text-small text-text-muted">
@@ -222,11 +348,15 @@ export function EventCreateWizard() {
         </div>
         <div className="mt-2 flex gap-1">
           {Array.from({ length: TOTAL_STEPS }).map((_, i) => (
-            <div
+            <button
               key={i}
+              type="button"
+              onClick={() => handleStepClick(i + 1)}
+              aria-label={stepTitles[i]}
               className={[
                 'h-1 flex-1 rounded-full transition-colors',
                 i < step ? 'bg-primary' : 'bg-border',
+                i < step - 1 ? 'cursor-pointer hover:opacity-70' : 'cursor-default',
               ].join(' ')}
             />
           ))}
@@ -297,17 +427,12 @@ export function EventCreateWizard() {
             />
           </div>
 
-          <div>
-            <label className="mb-1 block text-label font-semibold text-text-primary">
-              {t('coverLabel')}
-            </label>
-            <Input
-              value={state.coverImage}
-              onChange={(e) => update('coverImage', e.target.value)}
-              placeholder={t('coverPlaceholder')}
-              type="url"
-            />
-          </div>
+          {/* Feature 2: Cover image upload replaces URL-only input */}
+          <CoverImageUpload
+            eventId={draftId}
+            value={state.coverImage}
+            onChange={(url) => update('coverImage', url)}
+          />
 
           <div className="grid grid-cols-2 gap-4">
             <div>
@@ -528,21 +653,31 @@ export function EventCreateWizard() {
             fullWidth
             size="md"
           >
-            {t('publishButton')}
+            {t('publishButtonFinal')}
           </Button>
         </div>
       )}
 
       {/* ── Navigation buttons ─────────────────────────────────────────── */}
-      <div className="mt-8 flex justify-between gap-4">
-        {step > 1 && step <= TOTAL_STEPS && (
-          <Button variant="secondary" onClick={handleBack}>
-            {t('backButton')}
-          </Button>
-        )}
+      <div className="mt-8 flex flex-wrap items-center justify-between gap-3">
+        {/* Left: Back + Draft save */}
+        <div className="flex gap-3">
+          {step > 1 && step <= TOTAL_STEPS && (
+            <Button variant="secondary" onClick={handleBack}>
+              {t('backButton')}
+            </Button>
+          )}
+          {hasData && step <= TOTAL_STEPS && (
+            <Button variant="secondary" onClick={handleSaveDraft} isLoading={isSaving}>
+              {t('draftSaveButton')}
+            </Button>
+          )}
+        </div>
+
+        {/* Right: Continue */}
         {step < TOTAL_STEPS && (
           <Button onClick={handleNext} isLoading={isSaving} className="ml-auto">
-            {t('nextButton')}
+            {t('continueButton')}
           </Button>
         )}
       </div>

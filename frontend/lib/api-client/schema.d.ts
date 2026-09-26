@@ -499,6 +499,10 @@ export interface paths {
                             email?: string;
                             phone?: string;
                         };
+                        /** @description UTM/attribution source tag, e.g. "instagram_story" or "spotva_event". */
+                        referralSource?: string;
+                        /** @description UUID of the Spotva event page that sourced this booking (Feature 5 — event attribution). Backend validates that the event exists; invalid UUIDs are silently dropped. */
+                        attributionEventId?: string;
                     };
                 };
             };

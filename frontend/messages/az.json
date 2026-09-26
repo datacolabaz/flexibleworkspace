@@ -908,7 +908,7 @@
         "body": "Tezliklə: waitlist, xatırlatma, QR check-in və analitika."
       }
     },
-    "betaNote": "Hazırda yalnız tədbir məkanının bronu mümkündür (aşağıdakı axtarışla). Tədbir dərci, bilet satışı və QR check-in tezliklə əlavə olunacaq.",
+    "betaNote": "Tədbir yaradın, uyğun məkan tapın və iştirakçı qeydiyyatını idarə edin. Bilet satışı və QR check-in funksiyaları yaxın zamanda əlavə olunacaq.",
     "createEventCta": "Tədbir yarat",
     "listTitle": "Yaxınlaşan tədbirlər",
     "listEmpty": "Hələ heç bir tədbir yoxdur.",
@@ -986,7 +986,25 @@
     "validationNotSelected": "{field} seçilməyib.",
     "loginRequired": "Tədbir yaratmaq üçün hesabınıza daxil olun.",
     "saveError": "Yadda saxlamaq alınmadı. Yenidən cəhd edin.",
-    "publishError": "Dərc etmək alınmadı. Məlumatları yoxlayın."
+    "publishError": "Dərc etmək alınmadı. Məlumatları yoxlayın.",
+    "autosaved": "Dəyişikliklər draft kimi saxlanıldı.",
+    "continueButton": "Davam et",
+    "draftSaveButton": "Draft kimi saxla",
+    "publishButtonFinal": "Tədbiri yayımla",
+    "resumeDraftTitle": "Saxlanılmış qaralama var",
+    "resumeDraftPrompt": "Bu adlı tədbir qaralamasi mövcuddur. Davam etmək istəyirsiniz?",
+    "resumeDraftYes": "Bəli, davam et",
+    "resumeDraftNo": "Xeyr, yenidən başla",
+    "coverUploadLabel": "Tədbir şəkli — istəyə bağlı",
+    "coverUploadButton": "Şəkil yüklə",
+    "coverUploadHint": "JPG, PNG, WebP • maks. 5MB",
+    "coverUploadOptional": "Şəkil əlavə etmək məcburi deyil.",
+    "coverChangeButton": "Dəyişdir",
+    "coverRemoveButton": "Sil",
+    "coverUploadUrlLabel": "Tədbir şəkli URL-i — istəyə bağlı",
+    "coverUploadError": "Şəkil yükləmək alınmadı.",
+    "coverTypeError": "Bu fayl formatı dəstəklənmir. JPG, PNG və ya WebP istifadə edin.",
+    "coverSizeError": "Fayl ölçüsü çox böyükdür. Məks. 5MB."
   },
   "eventDetail": {
     "rsvpButtonLabel": "Pulsuz qeydiyyat",
@@ -1020,6 +1038,8 @@
     "notFound": "Tədbir tapılmadı.",
     "notFoundHint": "Bu tədbir mövcud deyil və ya silinib.",
     "backToEvents": "Tədbirlərə qayıt",
+    "notPublished": "Bu tədbir hələ yayımlanmayıb.",
+    "notPublishedHint": "Tədbir yayımlandıqdan sonra buraya daxil olun.",
     "status": {
       "draft": "Qaralama",
       "venue_pending": "Məkan gözlənilir",

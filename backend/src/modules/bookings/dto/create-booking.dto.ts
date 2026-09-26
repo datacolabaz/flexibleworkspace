@@ -72,4 +72,10 @@ export class CreateBookingDto {
   @IsOptional()
   @IsString()
   referralSource?: string;
+
+  /** Feature 5 — UUID of the Spotva event page this booking was sourced from. */
+  @ApiPropertyOptional({ description: 'UUID of the event that referred this booking (spotva_event attribution).' })
+  @IsOptional()
+  @IsUUID()
+  attributionEventId?: string;
 }
