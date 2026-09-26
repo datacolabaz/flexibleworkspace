@@ -139,6 +139,7 @@ export class RoomsService {
       basePriceAmount: String(dto.basePriceAmount),
       basePriceCurrency: dto.basePriceCurrency ?? 'AZN',
       cancellationPolicy: dto.cancellationPolicy ?? null,
+      rules: dto.rules ?? null,
       status: RoomStatus.DRAFT,
       amenities,
       createdAt: now,
@@ -226,6 +227,7 @@ export class RoomsService {
     room.basePriceAmount = String(dto.basePriceAmount);
     if (dto.basePriceCurrency) room.basePriceCurrency = dto.basePriceCurrency;
     room.cancellationPolicy = dto.cancellationPolicy ?? null;
+    room.rules = dto.rules ?? null;
     if (dto.amenityIds)
       room.amenities = await this.resolveAmenities(dto.amenityIds);
     room.updatedAt = new Date();

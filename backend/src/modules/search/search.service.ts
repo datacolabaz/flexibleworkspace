@@ -218,6 +218,9 @@ export class SearchService {
         `ST_DWithin(l.geo, ${pointExpr}, ${pb.add(dto.radiusKm * 1000)})`,
       );
     }
+    if (dto.metroStationId) {
+      whereClauses.push(`l.nearest_metro_station_id = ${pb.add(dto.metroStationId)}`);
+    }
     if (hasAvailabilityCheck) {
       // "a room is never shown as a result if it can't actually be booked
       // for the requested slot" (§16.2 point 4) — a hard exclude, not a

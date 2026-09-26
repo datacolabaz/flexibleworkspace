@@ -39,6 +39,7 @@ export class LocationsService {
       countryCode: row.country_code,
       timezone: row.timezone,
       openingHours: row.opening_hours,
+      nearestMetroStationId: row.nearest_metro_station_id ?? null,
       lat: Number(row.lat),
       lng: Number(row.lng),
       createdAt: row.created_at,
@@ -75,9 +76,9 @@ export class LocationsService {
     }
 
     const rows = await this.dataSource.query(
-      `INSERT INTO location (provider_id, name, address_line, city, district, country_code, geo, timezone, opening_hours, created_at, updated_at)
-       VALUES ($1, $2, $3, $4, $5, $6, ST_SetSRID(ST_MakePoint($7, $8), 4326)::geography, $9, $10, now(), now())
-       RETURNING id, provider_id, name, address_line, city, district, country_code, timezone, opening_hours,
+      `INSERT INTO location (provider_id, name, address_line, city, district, country_code, geo, timezone, opening_hours, nearest_metro_station_id, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, ST_SetSRID(ST_MakePoint($7, $8), 4326)::geography, $9, $10, $11, now(), now())
+       RETURNING id, provider_id, name, address_line, city, district, country_code, timezone, opening_hours, nearest_metro_station_id,
                  ST_Y(geo::geometry) AS lat, ST_X(geo::geometry) AS lng, created_at, updated_at`,
       [
         providerId,
@@ -90,6 +91,7 @@ export class LocationsService {
         dto.lat,
         dto.timezone ?? 'Asia/Baku',
         dto.openingHours ? JSON.stringify(dto.openingHours) : null,
+        dto.nearestMetroStationId ?? null,
       ],
     );
     return this.mapRow(rows[0]);
@@ -97,7 +99,7 @@ export class LocationsService {
 
   async findById(id: string): Promise<LocationWithCoords> {
     const rows = await this.dataSource.query(
-      `SELECT id, provider_id, name, address_line, city, district, country_code, timezone, opening_hours,
+      `SELECT id, provider_id, name, address_line, city, district, country_code, timezone, opening_hours, nearest_metro_station_id,
               ST_Y(geo::geometry) AS lat, ST_X(geo::geometry) AS lng, created_at, updated_at
        FROM location WHERE id = $1 AND deleted_at IS NULL`,
       [id],
@@ -108,7 +110,7 @@ export class LocationsService {
 
   async listByProvider(providerId: string): Promise<LocationWithCoords[]> {
     const rows = await this.dataSource.query(
-      `SELECT id, provider_id, name, address_line, city, district, country_code, timezone, opening_hours,
+      `SELECT id, provider_id, name, address_line, city, district, country_code, timezone, opening_hours, nearest_metro_station_id,
               ST_Y(geo::geometry) AS lat, ST_X(geo::geometry) AS lng, created_at, updated_at
        FROM location WHERE provider_id = $1 AND deleted_at IS NULL ORDER BY created_at DESC`,
       [providerId],
@@ -134,8 +136,8 @@ export class LocationsService {
       `UPDATE location SET
          name = $1, address_line = $2, city = $3, district = $4, country_code = $5,
          geo = ST_SetSRID(ST_MakePoint($6, $7), 4326)::geography,
-         timezone = $8, opening_hours = $9, updated_at = now()
-       WHERE id = $10`,
+         timezone = $8, opening_hours = $9, nearest_metro_station_id = $10, updated_at = now()
+       WHERE id = $11`,
       [
         dto.name,
         dto.addressLine,
@@ -146,6 +148,7 @@ export class LocationsService {
         dto.lat,
         dto.timezone ?? 'Asia/Baku',
         dto.openingHours ? JSON.stringify(dto.openingHours) : null,
+        dto.nearestMetroStationId ?? null,
         id,
       ],
     );

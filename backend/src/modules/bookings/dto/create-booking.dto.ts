@@ -61,4 +61,16 @@ export class CreateBookingDto {
   @ValidateNested()
   @Type(() => GuestCustomerDto)
   customer?: GuestCustomerDto;
+
+  /** Task 4 — optional promo code; validated server-side, discount applied before final total. */
+  @ApiPropertyOptional({ description: 'Promo/discount code (case-insensitive).' })
+  @IsOptional()
+  @IsString()
+  promoCode?: string;
+
+  /** Task 4 — optional referral/UTM source tag for attribution tracking. */
+  @ApiPropertyOptional({ description: 'UTM/attribution source tag, e.g. "instagram_story".' })
+  @IsOptional()
+  @IsString()
+  referralSource?: string;
 }

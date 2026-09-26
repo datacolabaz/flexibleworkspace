@@ -21,6 +21,60 @@ import { DomainException } from '../../common/exceptions/domain.exception';
 import { HttpStatus } from '@nestjs/common';
 
 const MAX_OTP_ATTEMPTS = 5;
+
+// ── Minimal TOTP (RFC 6238 / RFC 4226) — Node built-in crypto only ────────
+// No external dependency (otplib / speakeasy) needed.
+// The TOTP window is 30 seconds; we allow ±1 window drift for clock skew.
+const BASE32_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+
+function _totpBase32Secret(byteLength = 20): string {
+  const bytes = crypto.randomBytes(byteLength);
+  let out = '';
+  for (let i = 0; i < bytes.length; i++) out += BASE32_CHARS[bytes[i] % 32];
+  return out;
+}
+
+function _totpBase32Decode(input: string): Buffer {
+  const clean = input.toUpperCase().replace(/=+$/, '');
+  let bits = 0;
+  let value = 0;
+  const output: number[] = [];
+  for (const ch of clean) {
+    const idx = BASE32_CHARS.indexOf(ch);
+    if (idx < 0) throw new Error(`Invalid base32 character: ${ch}`);
+    value = (value << 5) | idx;
+    bits += 5;
+    if (bits >= 8) {
+      bits -= 8;
+      output.push((value >> bits) & 0xff);
+    }
+  }
+  return Buffer.from(output);
+}
+
+function _totpGenerate(secret: string, windowOffset = 0): string {
+  const key = _totpBase32Decode(secret);
+  const counter = Math.floor(Date.now() / 1000 / 30) + windowOffset;
+  const buf = Buffer.alloc(8);
+  buf.writeBigUInt64BE(BigInt(counter), 0);
+  const hmac = crypto.createHmac('sha1', key).update(buf).digest();
+  const offset = hmac[hmac.length - 1] & 0x0f;
+  const code =
+    ((hmac[offset] & 0x7f) << 24) |
+    (hmac[offset + 1] << 16) |
+    (hmac[offset + 2] << 8) |
+    hmac[offset + 3];
+  return String(code % 1_000_000).padStart(6, '0');
+}
+
+function _totpVerify(secret: string, token: string, driftWindows = 1): boolean {
+  for (let w = -driftWindows; w <= driftWindows; w++) {
+    if (_totpGenerate(secret, w) === token) return true;
+  }
+  return false;
+}
+// ──────────────────────────────────────────────────────────────────────────
+
 const ADMIN_ROLE_NAMES = new Set<string>([
   RoleName.SUPER_ADMIN,
   RoleName.OPERATIONS_ADMIN,
@@ -552,5 +606,69 @@ export class AuthService {
       expiresAt: LessThan(new Date()),
     });
     return result.affected ?? 0;
+  }
+
+  // ── Task 3 — Admin TOTP (2FA) ──────────────────────────────────────────
+
+  /**
+   * Generates a new TOTP secret for an admin user and returns the
+   * otpauth:// URI for QR-code rendering (frontend AdminTotpSetup component).
+   * Does NOT yet set totp_enabled=true — the admin must call verifyAndEnableTotp()
+   * with a valid token first to confirm setup.
+   */
+  async setupTotp(userId: string): Promise<{ otpauthUri: string; secret: string }> {
+    const user = await this.userRepo.findOne({ where: { id: userId } });
+    if (!user) throw new DomainException('USER_NOT_FOUND', 'User not found.', HttpStatus.NOT_FOUND);
+
+    const secret = _totpBase32Secret();
+    await this.userRepo.update(userId, { totpSecret: secret, totpEnabled: false });
+
+    const issuer = 'Spotva';
+    const account = encodeURIComponent(user.email ?? user.phone ?? userId);
+    const otpauthUri = `otpauth://totp/${issuer}:${account}?secret=${secret}&issuer=${issuer}&algorithm=SHA1&digits=6&period=30`;
+
+    return { otpauthUri, secret };
+  }
+
+  /**
+   * Verifies a TOTP token against the user's pending secret, then sets
+   * totp_enabled=true.  Call this right after setupTotp() to complete 2FA enrollment.
+   */
+  async verifyAndEnableTotp(userId: string, token: string): Promise<void> {
+    const user = await this.userRepo.findOne({ where: { id: userId } });
+    if (!user || !user.totpSecret) {
+      throw new DomainException('TOTP_NOT_SETUP', 'TOTP setup has not been started.', HttpStatus.BAD_REQUEST);
+    }
+    if (!_totpVerify(user.totpSecret, token)) {
+      throw new DomainException('TOTP_INVALID', 'Invalid TOTP code. Check the time on your authenticator app.', HttpStatus.UNAUTHORIZED);
+    }
+    await this.userRepo.update(userId, { totpEnabled: true });
+  }
+
+  /**
+   * Verifies a TOTP token for an already-enabled admin user.
+   * Used as the second factor in the admin login flow.
+   * Returns a token pair on success.
+   */
+  async verifyTotpLogin(userId: string, token: string): Promise<TokenPair> {
+    const user = await this.userRepo.findOne({ where: { id: userId } });
+    if (!user) throw new DomainException('USER_NOT_FOUND', 'User not found.', HttpStatus.NOT_FOUND);
+    if (!user.totpEnabled || !user.totpSecret) {
+      throw new DomainException('TOTP_NOT_ENABLED', 'TOTP is not enabled for this account.', HttpStatus.BAD_REQUEST);
+    }
+    if (!_totpVerify(user.totpSecret, token)) {
+      throw new DomainException('TOTP_INVALID', 'Invalid TOTP code.', HttpStatus.UNAUTHORIZED);
+    }
+    const roles = await this.roleRepo.find({ where: { userId: user.id } });
+    return this.issueTokenPair(user, roles);
+  }
+
+  /**
+   * Checks if the given user has TOTP enabled.
+   * Called from adminLogin() to decide whether to require a second factor.
+   */
+  async checkTotpRequired(userId: string): Promise<boolean> {
+    const user = await this.userRepo.findOne({ where: { id: userId } });
+    return user?.totpEnabled ?? false;
   }
 }

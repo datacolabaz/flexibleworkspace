@@ -133,6 +133,10 @@ export class RoomEntity {
   @Column({ name: 'is_featured', type: 'boolean', default: false })
   isFeatured: boolean;
 
+  /** Task 1 — provider-authored usage rules shown to customers before booking. NULL = no rules set. */
+  @Column({ type: 'text', nullable: true })
+  rules: string | null;
+
   @ManyToMany(() => AmenityEntity)
   @JoinTable({
     name: 'room_amenity',

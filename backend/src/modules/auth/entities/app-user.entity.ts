@@ -44,6 +44,14 @@ export class AppUserEntity {
   @Column({ name: 'deleted_at', type: 'timestamptz', nullable: true })
   deletedAt: Date | null;
 
+  /** Task 3 — TOTP (admin 2FA). Base32-encoded shared secret; NULL until setup is completed. */
+  @Column({ name: 'totp_secret', type: 'varchar', length: 255, nullable: true })
+  totpSecret: string | null;
+
+  /** Task 3 — true once the admin has verified the first TOTP token after setupTotp(). */
+  @Column({ name: 'totp_enabled', type: 'boolean', default: false })
+  totpEnabled: boolean;
+
   @OneToMany(() => UserRoleEntity, (role) => role.user)
   roles: UserRoleEntity[];
 }

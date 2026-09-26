@@ -41,6 +41,14 @@ export class ProviderEntity {
   @Column({ type: 'varchar', length: 100, nullable: true })
   category: string | null;
 
+  /**
+   * Multi-category support (P2 slice) — stores an array of slugs from
+   * `location_categories`. Defaults to `[]`; the old `category` field is
+   * preserved for backward compatibility.
+   */
+  @Column({ type: 'jsonb', default: () => "'[]'" })
+  categories: string[];
+
   @Column({ name: 'tax_id', type: 'varchar', length: 100, nullable: true })
   taxId: string | null;
 

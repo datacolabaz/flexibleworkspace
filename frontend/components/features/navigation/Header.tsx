@@ -106,6 +106,7 @@ export async function Header() {
               </Link>
             ))}
             {isAuthenticated && <NextLink href="/provider" className="group relative inline-flex min-h-11 items-center rounded-md px-2 text-nav font-semibold text-accent hover:bg-surface-elevated">Məkan əlavə et / idarə et</NextLink>}
+            {isAuthenticated && <NextLink href="/events/create" className="group relative inline-flex min-h-11 items-center rounded-md px-2 text-nav font-semibold text-primary hover:bg-surface-elevated">Tədbir yarat</NextLink>}
           </nav>
 
           <div className="flex min-w-0 items-center gap-1 sm:gap-2">

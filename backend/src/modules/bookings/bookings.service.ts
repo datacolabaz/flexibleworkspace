@@ -13,6 +13,7 @@ import { ReferralTrackingService } from '../partners/referral-tracking.service';
 import { AppUserEntity } from '../auth/entities/app-user.entity';
 import { NotificationsService } from '../notifications/notifications.service';
 import { ProvidersService } from '../providers/providers.service';
+import { PromoService } from '../promo/promo.service';
 import { ProviderVerificationStatus } from '../../common/constants/provider.enum';
 import { BookingRejectionReason } from '../../common/constants/booking-rejection-reason.enum';
 import {
@@ -54,6 +55,7 @@ export class BookingsService {
     private readonly referralTrackingService: ReferralTrackingService,
     private readonly notificationsService: NotificationsService,
     private readonly providersService: ProvidersService,
+    private readonly promoService: PromoService,
   ) {}
 
   /**
@@ -124,7 +126,18 @@ export class BookingsService {
     const serviceFeeAmount = Math.round(
       grossAmount * (serviceFeePercentage / 100),
     );
-    const totalAmount = grossAmount + serviceFeeAmount;
+    const subtotal = grossAmount + serviceFeeAmount;
+
+    // Task 4 — validate promo code before opening the DB transaction.
+    // Discount reduces the final totalAmount; gross and service fee are unchanged.
+    let promoCodeId: string | null = null;
+    let promoDiscountAmount = 0;
+    if (dto.promoCode) {
+      const result = await this.promoService.validatePromoCode(dto.promoCode, subtotal);
+      promoCodeId = result.promoCodeId;
+      promoDiscountAmount = result.discountAmount;
+    }
+    const totalAmount = Math.max(0, subtotal - promoDiscountAmount);
 
     // T4 — which mode this NEW booking gets, and thus which hold window it
     // gets (see configuration.ts's `booking.paymentsEnabled` doc comment for
@@ -192,6 +205,26 @@ export class BookingsService {
 
       await queryRunner.commitTransaction();
       savedBooking.items = [item];
+
+      // Task 4 — increment uses_count after successful commit (best-effort;
+      // a failure here does not roll back the booking).
+      if (promoCodeId) {
+        await this.promoService.applyPromoToBooking(promoCodeId).catch((err) =>
+          this.logger.warn(`Failed to increment promo uses_count for ${promoCodeId}: ${err}`),
+        );
+      }
+
+      // Task 4 — auto-qualify any pending referral for this customer on their
+      // first confirmed booking (best-effort; never throws).
+      if (resolvedCustomerId) {
+        const pendingReferral = await this.promoService.findPendingReferral(resolvedCustomerId).catch(() => null);
+        if (pendingReferral) {
+          await this.promoService.qualifyReferral(pendingReferral.id, savedBooking.id).catch((err) =>
+            this.logger.warn(`Failed to qualify referral ${pendingReferral.id}: ${err}`),
+          );
+        }
+      }
+
       return savedBooking;
     } catch (err: any) {
       await queryRunner.rollbackTransaction();

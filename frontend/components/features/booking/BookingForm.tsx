@@ -9,6 +9,7 @@ import { FormField, fieldDescribedBy } from '@/components/ui/FormField';
 import { Input } from '@/components/ui/Input';
 import { Label } from '@/components/ui/Label';
 import { formatMoney } from '@/lib/format/money';
+import { track, AnalyticsEvent } from '@/lib/analytics/track';
 
 export interface BookingFormProps {
   roomId: string;
@@ -116,6 +117,7 @@ export function BookingForm({
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    track(AnalyticsEvent.BookingStarted, { location_id: roomId });
     setBanner(undefined);
     setContactError(undefined);
 
@@ -170,6 +172,7 @@ export function BookingForm({
       }
 
       const booking = (await res.json()) as { id: string };
+      track(AnalyticsEvent.BookingSubmitted, { location_id: roomId, booking_id: booking.id });
       setCreatedBookingId(booking.id);
       await submitPayment(booking.id);
     } catch {

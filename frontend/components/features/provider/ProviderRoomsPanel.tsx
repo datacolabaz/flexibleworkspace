@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState, type ChangeEvent, type DragEvent, type FormEvent } from 'react';
+import { useCallback, useEffect, useRef, useState, type ChangeEvent, type DragEvent, type FormEvent, type ReactNode } from 'react';
 import { Alert } from '@/components/ui/Alert';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -11,7 +11,10 @@ import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 import { Spinner } from '@/components/ui/Spinner';
 import { LocationPickerMap, type LocationPickerMapHandle } from './LocationPickerMap';
-import { geocodeAddress } from '@/lib/maps/geocodeAddress';
+import { geocodeAddress, reverseGeocodeCoords, GeocodeRateLimitedError } from '@/lib/maps/geocodeAddress';
+import azMessages from '@/messages/az.json';
+
+type MetroStation = { id: string; nameAz: string; line: number; lineColor: string };
 import type {
   AvailabilityRule,
   AvailabilityRuleInput,
@@ -30,17 +33,10 @@ interface BffErrorBody {
   error?: { code?: string; message?: string };
 }
 
-// Same Baku-center default used server-side when a location is created
-// (lib/api-client/provider-rooms.ts's DEFAULT_LOCATION_LAT/LNG) — kept
-// as a plain literal here rather than imported, since that module is
-// `server-only` and can't be imported into a Client Component. There's
-// still no geocoding tool in this codebase to turn a typed address into
-// real coordinates, so this is only ever the map picker's STARTING
-// point — `LocationForm`'s `<LocationPickerMap>` is what actually lets
-// the provider drag/click the pin onto their real location before
-// saving (both on first setup and when editing later via `LocationCard`).
-const DEFAULT_LAT = 40.3777;
-const DEFAULT_LNG = 49.892;
+// Default map center: Baku, Azerbaijan (per 09_DOMAIN_MODEL.md and
+// the provider onboarding spec: lat 40.4093, lng 49.8671).
+const DEFAULT_LAT = 40.4093;
+const DEFAULT_LNG = 49.8671;
 
 const ROOM_TYPE_LABEL_AZ: Record<string, string> = {
   'room_type.meeting_room': 'İclas otağı',
@@ -242,6 +238,17 @@ function LocationSetupCard({ onCreated }: { onCreated: (location: MyLocation) =>
  * (editing an already-created location) — same fields, same map picker,
  * only the submit target differs (POST vs PATCH), passed in as
  * `onSubmit` rather than duplicating the form twice.
+ *
+ * Full geocoding/map flow (per provider onboarding spec):
+ *  - Forward geocoding fires 400 ms after addressLine changes (debounced),
+ *    moves the pin + updates lat/lng in form state.
+ *  - Reverse geocoding fires on every marker drag-end or map click,
+ *    updates the addressLine input with the closest found address.
+ *  - A `suppressForwardGeocodeRef` flag breaks the potential forward ↔
+ *    reverse feedback loop: when reverse geocoding writes addressLine,
+ *    the next forward-geocode effect run is skipped, then the flag resets.
+ *  - "not found" / rate-limit / generic API error messages come from
+ *    azMessages.locationPicker (never hardcoded).
  */
 function LocationForm({
   initial,
@@ -261,49 +268,126 @@ function LocationForm({
   const [addressLine, setAddressLine] = useState(initial?.addressLine ?? '');
   const [lat, setLat] = useState(initial?.lat ?? DEFAULT_LAT);
   const [lng, setLng] = useState(initial?.lng ?? DEFAULT_LNG);
+  const [nearestMetroStationId, setNearestMetroStationId] = useState<string>(
+    initial?.nearestMetroStationId ?? '',
+  );
+  const [metroStations, setMetroStations] = useState<MetroStation[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | undefined>();
   const [geocoding, setGeocoding] = useState(false);
+  const [geocodeHint, setGeocodeHint] = useState<'not_found' | 'rate_limited' | 'error' | null>(null);
   const mapHandleRef = useRef<LocationPickerMapHandle>(null);
   const mapboxToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
 
-  // Provider feedback: typing/selecting the name/city/address fields had no
-  // effect on the map below, so the pin stayed wherever it started (the
-  // Baku-center default, or wherever it was last dragged) — "otherwise the
-  // map has no value there". Debounced so we don't fire a geocode request
-  // on every keystroke; only once typing has paused for a moment.
+  // Load metro stations once (best-effort; empty list = field hidden).
+  useEffect(() => {
+    fetch('/api/metro-stations')
+      .then((r) => r.ok ? r.json() : [])
+      .then((data: MetroStation[]) => { if (Array.isArray(data)) setMetroStations(data); })
+      .catch(() => { /* silent */ });
+  }, []);
+
+  /**
+   * Prevents the addressLine → forward-geocode → recenter cycle from
+   * re-triggering when the address was just written by reverse geocoding
+   * (not by the user). Set to `true` immediately before calling
+   * `setAddressLine` from the reverse-geocode path; the forward-geocode
+   * effect resets it to `false` on its next run so subsequent
+   * user keystrokes are geocoded normally.
+   */
+  const suppressForwardGeocodeRef = useRef(false);
+
+  /** AbortController for the in-flight reverse-geocode request. */
+  const reverseGeocodeAbortRef = useRef<AbortController | null>(null);
+
+  // ── Forward geocoding (address → map pin) ────────────────────────────
+  // Fires 400 ms after the provider stops typing in the address field.
+  // Requires at least 4 characters so we don't jump the pin to the
+  // middle of Bakı the instant the form opens with the default city.
   useEffect(() => {
     if (!mapboxToken) return undefined;
+
+    // If this addressLine change came from reverse geocoding, skip this
+    // run and reset the suppression flag for future user keystrokes.
+    if (suppressForwardGeocodeRef.current) {
+      suppressForwardGeocodeRef.current = false;
+      return undefined;
+    }
+
     const query = [addressLine.trim(), city.trim()].filter(Boolean).join(', ');
-    // Require a real street/address, not just a city, so we don't jump the
-    // pin to the middle of Bakı the instant the form opens with its
-    // default city value already filled in.
-    if (addressLine.trim().length < 4) return undefined;
+    if (addressLine.trim().length < 4) {
+      setGeocodeHint(null);
+      return undefined;
+    }
 
     const controller = new AbortController();
     const timer = setTimeout(() => {
       setGeocoding(true);
+      setGeocodeHint(null);
       geocodeAddress(query, mapboxToken, controller.signal)
         .then((result) => {
-          if (!result || controller.signal.aborted) return;
+          if (controller.signal.aborted) return;
+          if (!result) {
+            setGeocodeHint('not_found');
+            return;
+          }
           setLat(result.lat);
           setLng(result.lng);
           mapHandleRef.current?.recenter(result.lat, result.lng);
         })
         .catch((err) => {
           if (controller.signal.aborted) return;
-          console.error('Address geocoding failed:', err);
+          if (err instanceof GeocodeRateLimitedError) {
+            setGeocodeHint('rate_limited');
+          } else {
+            console.error('Address geocoding failed:', err);
+            setGeocodeHint('error');
+          }
         })
         .finally(() => {
           if (!controller.signal.aborted) setGeocoding(false);
         });
-    }, 700);
+    }, 400);
 
     return () => {
       clearTimeout(timer);
       controller.abort();
     };
   }, [addressLine, city, mapboxToken]);
+
+  // ── Reverse geocoding (map pin → address) ───────────────────────────
+  // Called when the provider drags the marker or clicks on the map.
+  // Cancels any prior in-flight reverse-geocode before starting a new one.
+  function handleMapChange(newLat: number, newLng: number) {
+    setLat(newLat);
+    setLng(newLng);
+
+    if (!mapboxToken) return;
+
+    reverseGeocodeAbortRef.current?.abort();
+    const controller = new AbortController();
+    reverseGeocodeAbortRef.current = controller;
+
+    reverseGeocodeCoords(newLat, newLng, mapboxToken, controller.signal)
+      .then((result) => {
+        if (controller.signal.aborted) return;
+        if (result) {
+          // Flag must be set immediately before the state update so the
+          // forward-geocode effect sees it on the resulting re-render.
+          suppressForwardGeocodeRef.current = true;
+          setAddressLine(result.placeName);
+          setGeocodeHint(null);
+        }
+        // No "not found" hint for reverse geocoding — the pin position is
+        // already accepted; a missing address name is just a silent no-op.
+      })
+      .catch((err) => {
+        if (controller.signal.aborted) return;
+        // Reverse geocoding errors are non-critical (the lat/lng is already
+        // saved); log but don't surface to the user.
+        console.error('Reverse geocoding failed:', err);
+      });
+  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -316,6 +400,7 @@ function LocationForm({
         addressLine: addressLine.trim(),
         lat,
         lng,
+        nearestMetroStationId: nearestMetroStationId || null,
       });
       if (!response.ok) {
         setError(await readBffError(response, 'Ünvan yadda saxlanmadı. Yenidən cəhd edin.'));
@@ -329,6 +414,22 @@ function LocationForm({
     }
   }
 
+  // ── Geocoding hint text shown below the map ──────────────────────────
+  let mapHintText: string;
+  if (geocoding) {
+    mapHintText = azMessages.locationPicker.geocodingInProgress;
+  } else if (geocodeHint === 'not_found') {
+    mapHintText = azMessages.locationPicker.geocodeNotFound;
+  } else if (geocodeHint === 'rate_limited') {
+    mapHintText = azMessages.locationPicker.geocodeRateLimited;
+  } else if (geocodeHint === 'error') {
+    mapHintText = azMessages.locationPicker.geocodeError;
+  } else {
+    mapHintText = azMessages.locationPicker.markerInstructions;
+  }
+
+  const hintIsWarning = geocodeHint !== null && !geocoding;
+
   return (
     <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-4 sm:max-w-sm">
       {error && <Alert variant="error">{error}</Alert>}
@@ -341,21 +442,38 @@ function LocationForm({
       <FormField id="location-address" label="Ünvan">
         <Input id="location-address" required value={addressLine} disabled={saving} onChange={(event) => setAddressLine(event.target.value)} placeholder="Küçə, bina" />
       </FormField>
+      {metroStations.length > 0 && (
+        <FormField id="location-metro" label="Yaxın metro stansiyası" hint="İstəyə bağlı — müştərilər üçün naviqasiyaya kömək edir.">
+          <Select
+            id="location-metro"
+            value={nearestMetroStationId}
+            disabled={saving}
+            onChange={(event) => setNearestMetroStationId(event.target.value)}
+          >
+            <option value="">Metro stansiyası seçin (istəyə bağlı)</option>
+            <optgroup label="Xətt 1 — Qırmızı">
+              {metroStations.filter((s) => s.line === 1).map((s) => (
+                <option key={s.id} value={s.id}>{s.nameAz}</option>
+              ))}
+            </optgroup>
+            <optgroup label="Xətt 2 — Yaşıl">
+              {metroStations.filter((s) => s.line === 2).map((s) => (
+                <option key={s.id} value={s.id}>{s.nameAz}</option>
+              ))}
+            </optgroup>
+          </Select>
+        </FormField>
+      )}
       <FormField id="location-map" label="Məkanı xəritədə seçin">
         <LocationPickerMap
           ref={mapHandleRef}
           lat={lat}
           lng={lng}
-          onChange={(newLat, newLng) => {
-            setLat(newLat);
-            setLng(newLng);
-          }}
+          onChange={handleMapChange}
           className="h-64 w-full"
         />
-        <p className="mt-1.5 text-caption text-text-muted">
-          {geocoding
-            ? 'Xəritə ünvana əsasən yenilənir…'
-            : 'Yazdığınız ünvana görə nişan avtomatik yerləşir — dəqiqləşdirmək üçün onu sürükləyə və ya xəritəyə klikləyə bilərsiniz.'}
+        <p className={['mt-1.5 text-caption', hintIsWarning ? 'text-warning' : 'text-text-muted'].join(' ')}>
+          {mapHintText}
         </p>
       </FormField>
       <div className="flex gap-3">
@@ -504,11 +622,14 @@ function AddRoomForm({
   onCreated: (room: MyRoom) => void;
   onCancel?: () => void;
 }) {
-  const [roomTypeId, setRoomTypeId] = useState(roomTypes[0]?.id ?? '');
   const [name, setName] = useState('');
-  const [capacityMax, setCapacityMax] = useState('4');
-  const [price, setPrice] = useState('');
+  const [roomTypeId, setRoomTypeId] = useState(roomTypes[0]?.id ?? '');
   const [description, setDescription] = useState('');
+  const [rules, setRules] = useState('');
+  const [capacityMax, setCapacityMax] = useState('4');
+  const [minBookingMinutes, setMinBookingMinutes] = useState('60');
+  const [maxBookingMinutes, setMaxBookingMinutes] = useState('');
+  const [price, setPrice] = useState('');
   const [selectedAmenityIds, setSelectedAmenityIds] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | undefined>();
@@ -519,8 +640,12 @@ function AddRoomForm({
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!name.trim()) {
+      setError('Məkan adını daxil edin.');
+      return;
+    }
     if (!roomTypeId) {
-      setError('Otaq növünü seçin.');
+      setError('Kateqoriya seçin.');
       return;
     }
     if (!Number.isFinite(Number(price)) || Number(price) <= 0) {
@@ -529,6 +654,16 @@ function AddRoomForm({
     }
     if (!Number.isInteger(Number(capacityMax)) || Number(capacityMax) < 1) {
       setError('Maksimum tutum ən azı 1 olmalıdır.');
+      return;
+    }
+    const minMins = minBookingMinutes ? Number(minBookingMinutes) : undefined;
+    const maxMins = maxBookingMinutes ? Number(maxBookingMinutes) : undefined;
+    if (minMins !== undefined && (!Number.isInteger(minMins) || minMins < 30)) {
+      setError('Minimum bron müddəti ən azı 30 dəqiqə olmalıdır.');
+      return;
+    }
+    if (maxMins !== undefined && minMins !== undefined && maxMins < minMins) {
+      setError('Maksimum bron müddəti minimumdən az ola bilməz.');
       return;
     }
     setSaving(true);
@@ -542,9 +677,12 @@ function AddRoomForm({
           roomTypeId,
           name: name.trim(),
           description: description.trim() || undefined,
+          rules: rules.trim() || undefined,
           capacityMax: Number(capacityMax),
           basePriceAmount: Math.round(Number(price) * 100),
           amenityIds: selectedAmenityIds.length > 0 ? selectedAmenityIds : undefined,
+          minBookingMinutes: minMins,
+          maxBookingMinutes: maxMins,
         }),
       });
       if (!response.ok) {
@@ -567,7 +705,14 @@ function AddRoomForm({
   return (
     <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-4 rounded-md border border-border p-4">
       {error && <Alert variant="error">{error}</Alert>}
-      <FormField id="room-type" label="Otaq növü">
+
+      {/* Step 1 — Məkan adı */}
+      <FormField id="room-name" label="Məkan adı" hint="Müştərilərin görəcəyi otaq adı.">
+        <Input id="room-name" required value={name} disabled={saving} onChange={(event) => setName(event.target.value)} placeholder="Məs. Podkast Studiyası A" />
+      </FormField>
+
+      {/* Step 2 — Kateqoriya */}
+      <FormField id="room-type" label="Kateqoriya" hint="Otağın növünü siyahıdan seçin.">
         <Select id="room-type" value={roomTypeId} disabled={saving} onChange={(event) => setRoomTypeId(event.target.value)}>
           {roomTypes.map((rt) => (
             <option key={rt.id} value={rt.id}>
@@ -576,18 +721,57 @@ function AddRoomForm({
           ))}
         </Select>
       </FormField>
-      <FormField id="room-name" label="Otağın adı">
-        <Input id="room-name" required value={name} disabled={saving} onChange={(event) => setName(event.target.value)} placeholder="Məs. Podkast Studiyası A" />
+
+      {/* Step 3 — Qısa təsvir */}
+      <FormField id="room-description" label="Qısa təsvir (istəyə bağlı)" hint="Avadanlıq, ab-hava, xüsusiyyətlər.">
+        <textarea
+          id="room-description"
+          rows={3}
+          value={description}
+          disabled={saving}
+          onChange={(event) => setDescription(event.target.value)}
+          placeholder="Otağınız haqqında qısa məlumat — avadanlıq, ab-hava, xüsusiyyətlər"
+          className="w-full min-h-24 rounded-sm border border-border-strong bg-surface px-4 py-2.5 text-body text-text-primary placeholder:text-text-muted focus:border-primary focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+        />
       </FormField>
+
+      {/* Task 1 — Qaydalar (rules/policies) */}
+      <FormField id="room-rules" label="Qaydalar" hint="Məkan istifadə qaydalarını daxil edin (istifadəçilər bron etməzdən əvvəl görəcək)">
+        <textarea
+          id="room-rules"
+          rows={3}
+          value={rules}
+          disabled={saving}
+          onChange={(event) => setRules(event.target.value)}
+          placeholder="məs. Siqaret qadağandır. Səs-küy limiti: 22:00-dan sonra sakitlik."
+          className="w-full min-h-24 rounded-sm border border-border-strong bg-surface px-4 py-2.5 text-body text-text-primary placeholder:text-text-muted focus:border-primary focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+        />
+      </FormField>
+
+      {/* Steps 4 (photos) and 5 (address+map) are managed in separate panels below */}
+
+      {/* Step 6 — Tutum */}
+      <FormField id="room-capacity" label="Tutum (maksimum nəfər sayı)" hint="Eyni anda bu otaqda neçə nəfər ola bilər.">
+        <Input id="room-capacity" type="number" min="1" required value={capacityMax} disabled={saving} onChange={(event) => setCapacityMax(event.target.value)} />
+      </FormField>
+
+      {/* Step 7 — Saatlıq qiymət */}
+      <FormField id="room-price" label="Saatlıq qiymət (AZN)" hint="Bir saatlıq bron üçün əsas qiymət.">
+        <Input id="room-price" type="number" min="0.01" step="0.01" required value={price} disabled={saving} onChange={(event) => setPrice(event.target.value)} />
+      </FormField>
+
+      {/* Step 8 — Bron müddəti (min/max) */}
       <div className="grid grid-cols-2 gap-4">
-        <FormField id="room-capacity" label="Maks. tutum (nəfər)">
-          <Input id="room-capacity" type="number" min="1" required value={capacityMax} disabled={saving} onChange={(event) => setCapacityMax(event.target.value)} />
+        <FormField id="room-min-booking" label="Min. bron (dəq, istəyə bağlı)" hint="Standart: 60 dəq.">
+          <Input id="room-min-booking" type="number" min="30" step="30" value={minBookingMinutes} disabled={saving} onChange={(event) => setMinBookingMinutes(event.target.value)} placeholder="60" />
         </FormField>
-        <FormField id="room-price" label="Saatlıq qiymət (AZN)">
-          <Input id="room-price" type="number" min="0.01" step="0.01" required value={price} disabled={saving} onChange={(event) => setPrice(event.target.value)} />
+        <FormField id="room-max-booking" label="Maks. bron (dəq, istəyə bağlı)" hint="Boş qoyulsa, limit yoxdur.">
+          <Input id="room-max-booking" type="number" min="30" step="30" value={maxBookingMinutes} disabled={saving} onChange={(event) => setMaxBookingMinutes(event.target.value)} placeholder="—" />
         </FormField>
       </div>
-      <FormField id="room-amenities" label="Amenitlər (könüllü)">
+
+      {/* Amenities — inline at creation, also editable separately in AmenitiesEditor */}
+      <FormField id="room-amenities" label="Amenitlər (könüllü)" hint="Otaqda mövcud olan imkanları seçin.">
         <div id="room-amenities" className="grid grid-cols-2 gap-2 sm:grid-cols-3">
           {amenityOptions.map((amenity) => (
             <label key={amenity.id} className="flex min-h-11 items-center gap-2 text-small text-text-primary">
@@ -603,17 +787,7 @@ function AddRoomForm({
           ))}
         </div>
       </FormField>
-      <FormField id="room-description" label="Təsvir (könüllü)">
-        <textarea
-          id="room-description"
-          rows={3}
-          value={description}
-          disabled={saving}
-          onChange={(event) => setDescription(event.target.value)}
-          placeholder="Otağınız haqqında qısa məlumat — avadanlıq, ab-hava, xüsusiyyətlər"
-          className="w-full min-h-24 rounded-sm border border-border-strong bg-surface px-4 py-2.5 text-body text-text-primary placeholder:text-text-muted focus:border-primary focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
-        />
-      </FormField>
+
       <div className="flex gap-3">
         <Button type="submit" isLoading={saving}>
           {saving ? 'Yaradılır…' : 'Otağı yarat'}
@@ -628,16 +802,6 @@ function AddRoomForm({
   );
 }
 
-/**
- * Editing an already-created room — until this, there was no way to
- * change a room's name/type/capacity/price/description at all once it
- * existed (only the "add a room" form set them, once, at creation).
- * Uses the general `PATCH :roomId` endpoint (full-object `RoomInputDto`
- * semantics — see `updateMyRoom`'s own comment): every field this form
- * doesn't collect is passed through from the room's current value so
- * the full-replace update can't silently wipe it, and `amenityIds` is
- * deliberately never sent since amenities have their own editor/endpoint.
- */
 function EditRoomForm({
   room,
   roomTypes,
@@ -651,18 +815,21 @@ function EditRoomForm({
   onCancel: () => void;
   onDelete: () => void;
 }) {
-  const [roomTypeId, setRoomTypeId] = useState(room.roomTypeId);
   const [name, setName] = useState(room.name);
-  const [capacityMax, setCapacityMax] = useState(String(room.capacityMax));
-  const [price, setPrice] = useState(String(Number(room.basePriceAmount) / 100));
+  const [roomTypeId, setRoomTypeId] = useState(room.roomTypeId);
   const [description, setDescription] = useState(room.description ?? '');
+  const [rules, setRules] = useState(room.rules ?? '');
+  const [capacityMax, setCapacityMax] = useState(String(room.capacityMax));
+  const [minBookingMinutes, setMinBookingMinutes] = useState(room.minBookingMinutes ? String(room.minBookingMinutes) : '');
+  const [maxBookingMinutes, setMaxBookingMinutes] = useState(room.maxBookingMinutes ? String(room.maxBookingMinutes) : '');
+  const [price, setPrice] = useState(String(Number(room.basePriceAmount) / 100));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | undefined>();
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!roomTypeId) {
-      setError('Otaq növünü seçin.');
+      setError('Kateqoriya seçin.');
       return;
     }
     if (!Number.isFinite(Number(price)) || Number(price) <= 0) {
@@ -671,6 +838,16 @@ function EditRoomForm({
     }
     if (!Number.isInteger(Number(capacityMax)) || Number(capacityMax) < 1) {
       setError('Maksimum tutum ən azı 1 olmalıdır.');
+      return;
+    }
+    const minMins = minBookingMinutes ? Number(minBookingMinutes) : undefined;
+    const maxMins = maxBookingMinutes ? Number(maxBookingMinutes) : undefined;
+    if (minMins !== undefined && (!Number.isInteger(minMins) || minMins < 30)) {
+      setError('Minimum bron müddəti ən azı 30 dəqiqə olmalıdır.');
+      return;
+    }
+    if (maxMins !== undefined && minMins !== undefined && maxMins < minMins) {
+      setError('Maksimum bron müddəti minimumdən az ola bilməz.');
       return;
     }
     setSaving(true);
@@ -684,10 +861,13 @@ function EditRoomForm({
           roomTypeId,
           name: name.trim(),
           description: description.trim() || undefined,
+          rules: rules.trim() || undefined,
           capacityMin: room.capacityMin,
           capacityMax: Number(capacityMax),
           basePriceAmount: Math.round(Number(price) * 100),
           basePriceCurrency: room.basePriceCurrency,
+          minBookingMinutes: minMins,
+          maxBookingMinutes: maxMins,
         }),
       });
       if (!response.ok) {
@@ -705,7 +885,20 @@ function EditRoomForm({
   return (
     <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-4">
       {error && <Alert variant="error">{error}</Alert>}
-      <FormField id={`edit-room-type-${room.id}`} label="Otaq növü">
+
+      {/* Step 1 — Məkan adı */}
+      <FormField id={`edit-room-name-${room.id}`} label="Məkan adı" hint="Müştərilərin görəcəyi otaq adı.">
+        <Input
+          id={`edit-room-name-${room.id}`}
+          required
+          value={name}
+          disabled={saving}
+          onChange={(event) => setName(event.target.value)}
+        />
+      </FormField>
+
+      {/* Step 2 — Kateqoriya */}
+      <FormField id={`edit-room-type-${room.id}`} label="Kateqoriya" hint="Otağın növünü siyahıdan seçin.">
         <Select
           id={`edit-room-type-${room.id}`}
           value={roomTypeId}
@@ -719,41 +912,9 @@ function EditRoomForm({
           ))}
         </Select>
       </FormField>
-      <FormField id={`edit-room-name-${room.id}`} label="Otağın adı">
-        <Input
-          id={`edit-room-name-${room.id}`}
-          required
-          value={name}
-          disabled={saving}
-          onChange={(event) => setName(event.target.value)}
-        />
-      </FormField>
-      <div className="grid grid-cols-2 gap-4">
-        <FormField id={`edit-room-capacity-${room.id}`} label="Maks. tutum (nəfər)">
-          <Input
-            id={`edit-room-capacity-${room.id}`}
-            type="number"
-            min="1"
-            required
-            value={capacityMax}
-            disabled={saving}
-            onChange={(event) => setCapacityMax(event.target.value)}
-          />
-        </FormField>
-        <FormField id={`edit-room-price-${room.id}`} label="Saatlıq qiymət (AZN)">
-          <Input
-            id={`edit-room-price-${room.id}`}
-            type="number"
-            min="0.01"
-            step="0.01"
-            required
-            value={price}
-            disabled={saving}
-            onChange={(event) => setPrice(event.target.value)}
-          />
-        </FormField>
-      </div>
-      <FormField id={`edit-room-description-${room.id}`} label="Təsvir (könüllü)">
+
+      {/* Step 3 — Qısa təsvir */}
+      <FormField id={`edit-room-description-${room.id}`} label="Qısa təsvir (istəyə bağlı)" hint="Avadanlıq, ab-hava, xüsusiyyətlər.">
         <textarea
           id={`edit-room-description-${room.id}`}
           rows={3}
@@ -763,6 +924,75 @@ function EditRoomForm({
           className="w-full min-h-24 rounded-sm border border-border-strong bg-surface px-4 py-2.5 text-body text-text-primary placeholder:text-text-muted focus:border-primary focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
         />
       </FormField>
+
+      {/* Task 1 — Qaydalar (rules/policies) */}
+      <FormField id={`edit-room-rules-${room.id}`} label="Qaydalar" hint="Məkan istifadə qaydalarını daxil edin (istifadəçilər bron etməzdən əvvəl görəcək)">
+        <textarea
+          id={`edit-room-rules-${room.id}`}
+          rows={3}
+          value={rules}
+          disabled={saving}
+          onChange={(event) => setRules(event.target.value)}
+          placeholder="məs. Siqaret qadağandır. Səs-küy limiti: 22:00-dan sonra sakitlik."
+          className="w-full min-h-24 rounded-sm border border-border-strong bg-surface px-4 py-2.5 text-body text-text-primary placeholder:text-text-muted focus:border-primary focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+        />
+      </FormField>
+
+      {/* Step 6 — Tutum */}
+      <FormField id={`edit-room-capacity-${room.id}`} label="Tutum (maksimum nəfər sayı)" hint="Eyni anda bu otaqda neçə nəfər ola bilər.">
+        <Input
+          id={`edit-room-capacity-${room.id}`}
+          type="number"
+          min="1"
+          required
+          value={capacityMax}
+          disabled={saving}
+          onChange={(event) => setCapacityMax(event.target.value)}
+        />
+      </FormField>
+
+      {/* Step 7 — Saatlıq qiymət */}
+      <FormField id={`edit-room-price-${room.id}`} label="Saatlıq qiymət (AZN)" hint="Bir saatlıq bron üçün əsas qiymət.">
+        <Input
+          id={`edit-room-price-${room.id}`}
+          type="number"
+          min="0.01"
+          step="0.01"
+          required
+          value={price}
+          disabled={saving}
+          onChange={(event) => setPrice(event.target.value)}
+        />
+      </FormField>
+
+      {/* Step 8 — Bron müddəti (min/max) */}
+      <div className="grid grid-cols-2 gap-4">
+        <FormField id={`edit-room-min-booking-${room.id}`} label="Min. bron (dəq, istəyə bağlı)" hint="Standart: 60 dəq.">
+          <Input
+            id={`edit-room-min-booking-${room.id}`}
+            type="number"
+            min="30"
+            step="30"
+            value={minBookingMinutes}
+            disabled={saving}
+            onChange={(event) => setMinBookingMinutes(event.target.value)}
+            placeholder="60"
+          />
+        </FormField>
+        <FormField id={`edit-room-max-booking-${room.id}`} label="Maks. bron (dəq, istəyə bağlı)" hint="Boş qoyulsa, limit yoxdur.">
+          <Input
+            id={`edit-room-max-booking-${room.id}`}
+            type="number"
+            min="30"
+            step="30"
+            value={maxBookingMinutes}
+            disabled={saving}
+            onChange={(event) => setMaxBookingMinutes(event.target.value)}
+            placeholder="—"
+          />
+        </FormField>
+      </div>
+
       <div className="flex flex-wrap gap-3">
         <Button type="submit" isLoading={saving}>
           {saving ? 'Yadda saxlanılır…' : 'Yadda saxla'}

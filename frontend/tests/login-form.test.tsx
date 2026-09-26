@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { NextIntlClientProvider } from 'next-intl';
 import messages from '../messages/en.json';
+import azMessages from '../messages/az.json';
 import { LoginForm } from '@/components/features/auth/LoginForm';
 
 // LoginForm only decides *whether* to show the Google button (env-var
@@ -25,10 +26,19 @@ vi.mock('@/components/features/auth/GoogleSignInButton', () => ({
   },
 }));
 
-function renderLoginForm(redirectTo?: string) {
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }),
+}));
+
+function renderLoginForm(
+  redirectTo?: string,
+  adminMode = false,
+  locale = 'en',
+  localizedMessages = messages,
+) {
   return render(
-    <NextIntlClientProvider locale="en" messages={messages}>
-      <LoginForm redirectTo={redirectTo} />
+    <NextIntlClientProvider locale={locale} messages={localizedMessages}>
+      <LoginForm redirectTo={redirectTo} adminMode={adminMode} />
     </NextIntlClientProvider>,
   );
 }
@@ -60,5 +70,11 @@ describe('LoginForm', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Mock Google button' }));
 
     expect(screen.getByRole('alert')).toHaveTextContent('google failed');
+  });
+
+  it('uses the generic Azerbaijani Gmail example in admin login mode', () => {
+    renderLoginForm(undefined, true, 'az', azMessages);
+
+    expect(screen.getByLabelText('Admin email')).toHaveAttribute('placeholder', 'adınız@gmail.com');
   });
 });

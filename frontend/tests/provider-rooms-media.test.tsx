@@ -32,6 +32,8 @@ const room: MyRoom = {
   basePriceCurrency: 'AZN',
   status: 'DRAFT',
   amenities: [],
+  minBookingMinutes: null,
+  maxBookingMinutes: null,
   createdAt: '2026-01-01T00:00:00Z',
   updatedAt: '2026-01-01T00:00:00Z',
 };

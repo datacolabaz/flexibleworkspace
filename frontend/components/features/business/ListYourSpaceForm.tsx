@@ -1,16 +1,43 @@
 'use client';
 
-import { useState, type ChangeEvent, type FormEvent } from 'react';
+import { useState, useEffect, type ChangeEvent, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { Alert } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/Button';
 import { FormField, fieldDescribedBy } from '@/components/ui/FormField';
 import { Input } from '@/components/ui/Input';
+import { Skeleton } from '@/components/ui/Skeleton';
+import { track, AnalyticsEvent } from '@/lib/analytics/track';
 
 interface BffErrorBody {
   error?: { code?: string; message?: string };
 }
+
+type LocationCategory = {
+  id: string;
+  slug: string;
+  nameAz: string;
+  nameEn: string;
+  sortOrder: number;
+};
+
+/** Static fallback list — shown when the API is unavailable. */
+const STATIC_CATEGORIES: LocationCategory[] = [
+  { id: 'studiya', slug: 'studiya', nameAz: 'Studiya', nameEn: 'Studio', sortOrder: 1 },
+  { id: 'telim-otagi', slug: 'telim-otagi', nameAz: 'Təlim otağı', nameEn: 'Training Room', sortOrder: 2 },
+  { id: 'workshop-otagi', slug: 'workshop-otagi', nameAz: 'Workshop otağı', nameEn: 'Workshop Space', sortOrder: 3 },
+  { id: 'coworking', slug: 'coworking', nameAz: 'Coworking', nameEn: 'Coworking', sortOrder: 4 },
+  { id: 'icas-otagi', slug: 'icas-otagi', nameAz: 'İclas otağı', nameEn: 'Meeting Room', sortOrder: 5 },
+  { id: 'podkast-studiyasi', slug: 'podkast-studiyasi', nameAz: 'Podkast studiyası', nameEn: 'Podcast Studio', sortOrder: 6 },
+  { id: 'foto-video-studiya', slug: 'foto-video-studiya', nameAz: 'Foto və video studiyası', nameEn: 'Photo & Video Studio', sortOrder: 7 },
+  { id: 'sinif-otagi', slug: 'sinif-otagi', nameAz: 'Sinif otağı', nameEn: 'Classroom', sortOrder: 8 },
+  { id: 'seminar-otagi', slug: 'seminar-otagi', nameAz: 'Seminar otağı', nameEn: 'Seminar Room', sortOrder: 9 },
+  { id: 'konfrans-otagi', slug: 'konfrans-otagi', nameAz: 'Konfrans otağı', nameEn: 'Conference Room', sortOrder: 10 },
+  { id: 'ferdi-ofis', slug: 'ferdi-ofis', nameAz: 'Fərdi ofis', nameEn: 'Private Office', sortOrder: 11 },
+  { id: 'tdbir-mkani', slug: 'tdbir-mkani', nameAz: 'Tədbir məkanı', nameEn: 'Event Space', sortOrder: 12 },
+  { id: 'emalatxana', slug: 'emalatxana', nameAz: 'Emalatxana sahəsi', nameEn: 'Workshop Area', sortOrder: 13 },
+];
 
 const MAX_LOGO_BYTES = 8 * 1024 * 1024;
 
@@ -70,10 +97,35 @@ export function ListYourSpaceForm() {
 
   const [legalName, setLegalName] = useState('');
   const [displayName, setDisplayName] = useState('');
-  const [category, setCategory] = useState('');
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [categories, setCategories] = useState<LocationCategory[]>(STATIC_CATEGORIES);
+  const [categoriesLoading, setCategoriesLoading] = useState(true);
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | undefined>();
+
+  // Load categories from API on mount; fall back silently to the static list.
+  useEffect(() => {
+    (async () => {
+      try {
+        const r = await fetch('/api/location-categories');
+        if (r && r.ok) {
+          const data = (await r.json()) as LocationCategory[];
+          if (Array.isArray(data) && data.length > 0) setCategories(data);
+        }
+      } catch {
+        // silent: static list already in state
+      } finally {
+        setCategoriesLoading(false);
+      }
+    })();
+  }, []);
+
+  function toggleCategory(slug: string) {
+    setSelectedCategories((prev) =>
+      prev.includes(slug) ? prev.filter((s) => s !== slug) : [...prev, slug],
+    );
+  }
 
   function handleLogoChange(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
@@ -102,6 +154,7 @@ export function ListYourSpaceForm() {
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    track(AnalyticsEvent.ProviderOnboardingStarted);
     const trimmedLegalName = legalName.trim();
     const trimmedDisplayName = displayName.trim();
     if (!trimmedLegalName || !trimmedDisplayName) {
@@ -119,11 +172,11 @@ export function ListYourSpaceForm() {
       const response = await fetch('/api/providers', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          legalName: trimmedLegalName,
-          displayName: trimmedDisplayName,
-          category: category.trim() || undefined,
-        }),
+        body: JSON.stringify(
+          selectedCategories.length > 0
+            ? { legalName: trimmedLegalName, displayName: trimmedDisplayName, categories: selectedCategories }
+            : { legalName: trimmedLegalName, displayName: trimmedDisplayName },
+        ),
       });
       if (!response.ok) {
         let code: string | undefined;
@@ -138,6 +191,7 @@ export function ListYourSpaceForm() {
       }
 
       const provider = (await response.json()) as { id: string };
+      track(AnalyticsEvent.ProviderProfileCreated, { provider_id: provider.id });
       // logoFile is guaranteed non-null past the check above — the
       // provider row already exists at this point regardless of what
       // happens to the photo upload, so an upload hiccup here must not
@@ -163,9 +217,16 @@ export function ListYourSpaceForm() {
       // since a redirect with a still-stale token is still better than no
       // redirect at all.
       try {
-        await fetch('/api/auth/refresh', { method: 'POST' });
+        const refreshResponse = await fetch('/api/auth/refresh', { method: 'POST' });
+        if (!refreshResponse.ok) {
+          setError(t('sessionRefreshFailed'));
+          setIsSubmitting(false);
+          return;
+        }
       } catch {
-        // best-effort — see comment above
+        setError(t('sessionRefreshFailed'));
+        setIsSubmitting(false);
+        return;
       }
       // `router.refresh()` first: when this form is rendered standalone
       // on `/list-your-space` the push below does the real navigation,
@@ -210,15 +271,36 @@ export function ListYourSpaceForm() {
       </FormField>
 
       <FormField id="lys-category" label={t('categoryLabel')} hint={t('categoryHint')}>
-        <Input
-          id="lys-category"
-          name="category"
-          type="text"
-          value={category}
-          disabled={isSubmitting}
-          aria-describedby={fieldDescribedBy('lys-category', { hint: t('categoryHint') })}
-          onChange={(event) => setCategory(event.target.value)}
-        />
+        {categoriesLoading ? (
+          <div className="grid grid-cols-2 gap-2">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <Skeleton key={i} className="h-9 rounded-sm" />
+            ))}
+          </div>
+        ) : (
+          <div
+            id="lys-category"
+            role="group"
+            aria-describedby={fieldDescribedBy('lys-category', { hint: t('categoryHint') })}
+            className="grid grid-cols-2 gap-2"
+          >
+            {categories.map((cat) => (
+              <label
+                key={cat.slug}
+                className="flex min-h-9 cursor-pointer items-center gap-2 text-small text-text-primary"
+              >
+                <input
+                  type="checkbox"
+                  checked={selectedCategories.includes(cat.slug)}
+                  disabled={isSubmitting}
+                  onChange={() => toggleCategory(cat.slug)}
+                  className="h-4 w-4 rounded-sm border-border-strong text-primary focus:ring-primary"
+                />
+                {cat.nameAz}
+              </label>
+            ))}
+          </div>
+        )}
       </FormField>
 
       <FormField id="lys-logo" label={t('logoLabel')} hint={t('logoHint')}>

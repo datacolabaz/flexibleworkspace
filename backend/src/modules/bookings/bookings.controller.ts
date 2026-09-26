@@ -14,6 +14,7 @@ import type { Request } from 'express';
 
 import { BookingsService } from './bookings.service';
 import { AvailabilityService } from './availability.service';
+import { PromoService } from '../promo/promo.service';
 import { CreateBookingDto } from './dto/create-booking.dto';
 import { AcceptBookingDto } from './dto/accept-booking.dto';
 import { RejectBookingDto } from './dto/reject-booking.dto';
@@ -33,6 +34,7 @@ export class BookingsController {
   constructor(
     private readonly bookingsService: BookingsService,
     private readonly availabilityService: AvailabilityService,
+    private readonly promoService: PromoService,
   ) {}
 
   @Public()
@@ -193,6 +195,21 @@ export class BookingsController {
       bookingId,
       dto.providerNote,
     );
+  }
+
+  /**
+   * Task 4 — POST /bookings/promo/validate
+   * Public endpoint for promo code client-side validation before booking.
+   * Returns the discount amount for the given code and booking amount.
+   * Body: { code: string; bookingAmount: number (minor units) }
+   */
+  @Public()
+  @Post('bookings/promo/validate')
+  @ApiOperation({ summary: 'Validate a promo code and compute its discount (Task 4)' })
+  async validatePromoCode(
+    @Body() body: { code: string; bookingAmount: number },
+  ) {
+    return this.promoService.validatePromoCode(body.code, body.bookingAmount);
   }
 
   @Patch('provider/bookings/:bookingId/reject')

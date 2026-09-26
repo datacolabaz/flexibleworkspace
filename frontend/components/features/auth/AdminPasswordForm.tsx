@@ -40,7 +40,7 @@ export function AdminPasswordForm({ redirectTo = '/admin' }: { redirectTo?: stri
       <p className="mt-1 text-small text-text-secondary">Bu giriş yalnız admin rolu olan hesablar üçündür.</p>
     </div>
     {error && <Alert variant="error">{error}</Alert>}
-    <label className="flex flex-col gap-2 text-label">Admin email<Input type="email" autoComplete="username" required value={email} onChange={(event) => setEmail(event.target.value)} placeholder="admin@spotva.co" /></label>
+    <label className="flex flex-col gap-2 text-label">Admin email<Input type="email" autoComplete="username" required value={email} onChange={(event) => setEmail(event.target.value)} placeholder="adınız@gmail.com" /></label>
     <label className="flex flex-col gap-2 text-label">Şifrə<Input type="password" autoComplete="current-password" required minLength={12} value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Minimum 12 simvol" /></label>
     <Button type="submit" fullWidth isLoading={submitting}>{submitting ? 'Yoxlanılır…' : 'Admin panelinə daxil ol'}</Button>
   </form>;

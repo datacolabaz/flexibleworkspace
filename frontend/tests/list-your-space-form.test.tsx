@@ -11,6 +11,26 @@ vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: pushMock, refresh: refreshMock }),
 }));
 
+/**
+ * Stub fetch globally. On each call, if the first arg contains
+ * 'location-categories' return an empty array so the form falls back to
+ * its static list and doesn't consume one of the test-specific mocked
+ * responses. Otherwise delegate to the per-test mock queue.
+ */
+function setupFetch(queue: Response[] = []) {
+  let qi = 0;
+  const fetchMock = vi.fn().mockImplementation((url: string | URL | Request) => {
+    const urlStr = typeof url === 'string' ? url : url instanceof URL ? url.href : url.url;
+    if (urlStr.includes('location-categories')) {
+      return Promise.resolve(new Response(JSON.stringify([]), { status: 200 }));
+    }
+    const res = queue[qi++];
+    return res ? Promise.resolve(res) : Promise.resolve(new Response('{}', { status: 500 }));
+  });
+  vi.stubGlobal('fetch', fetchMock);
+  return fetchMock;
+}
+
 function renderForm() {
   render(
     <NextIntlClientProvider locale="en" messages={messages}>
@@ -26,51 +46,57 @@ function attachLogo() {
 
 describe('ListYourSpaceForm', () => {
   beforeEach(() => {
-    vi.stubGlobal('fetch', vi.fn());
+    setupFetch();
     pushMock.mockClear();
     refreshMock.mockClear();
   });
 
   it('rejects submission with legal/display name blank, without calling the BFF route', () => {
-    const fetchMock = fetch as unknown as ReturnType<typeof vi.fn>;
+    const fetchMock = setupFetch();
     renderForm();
     fireEvent.click(screen.getByRole('button', { name: 'Submit application' }));
 
     expect(screen.getByText('Enter your legal and display name.')).toBeInTheDocument();
-    expect(fetchMock).not.toHaveBeenCalled();
+    // Only the location-categories fetch should have been called, not the providers endpoint
+    expect(fetchMock).not.toHaveBeenCalledWith('/api/providers', expect.anything());
   });
 
   it('rejects submission with no logo attached, without calling the BFF route', () => {
-    const fetchMock = fetch as unknown as ReturnType<typeof vi.fn>;
+    const fetchMock = setupFetch();
     renderForm();
     fireEvent.change(screen.getByLabelText('Legal business name'), { target: { value: 'Acme LLC' } });
     fireEvent.change(screen.getByLabelText('Display name'), { target: { value: 'Acme Spaces' } });
     fireEvent.click(screen.getByRole('button', { name: 'Submit application' }));
 
     expect(screen.getByText('Please upload a logo / cover photo.')).toBeInTheDocument();
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(fetchMock).not.toHaveBeenCalledWith('/api/providers', expect.anything());
   });
 
   it('POSTs the trimmed fields to /api/providers, uploads the logo, and redirects straight into /provider', async () => {
-    const fetchMock = fetch as unknown as ReturnType<typeof vi.fn>;
-    fetchMock.mockResolvedValueOnce(
+    const fetchMock = setupFetch([
       new Response(
         JSON.stringify({
           id: 'provider-1',
           legalName: 'Acme LLC',
           displayName: 'Acme Spaces',
-          category: 'Coworking',
           verificationStatus: 'PENDING',
         }),
         { status: 201 },
       ),
-    );
-    fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({ id: 'provider-1' }), { status: 200 }));
+      new Response(JSON.stringify({ id: 'provider-1' }), { status: 200 }),
+      // refresh call to rotate the access token after the new PROVIDER_OWNER role is granted
+      new Response(JSON.stringify({ success: true }), { status: 200 }),
+    ]);
 
     renderForm();
     fireEvent.change(screen.getByLabelText('Legal business name'), { target: { value: '  Acme LLC  ' } });
     fireEvent.change(screen.getByLabelText('Display name'), { target: { value: '  Acme Spaces  ' } });
-    fireEvent.change(screen.getByLabelText('Category'), { target: { value: '  Coworking  ' } });
+
+    // P2: categories are now multi-select checkboxes loaded from the static fallback list.
+    // Check "Coworking" checkbox.
+    const coworkingCheckbox = await screen.findByRole('checkbox', { name: 'Coworking' });
+    fireEvent.click(coworkingCheckbox);
+
     attachLogo();
     fireEvent.click(screen.getByRole('button', { name: 'Submit application' }));
 
@@ -78,14 +104,13 @@ describe('ListYourSpaceForm', () => {
     expect(fetchMock).toHaveBeenCalledWith('/api/providers', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ legalName: 'Acme LLC', displayName: 'Acme Spaces', category: 'Coworking' }),
+      body: JSON.stringify({ legalName: 'Acme LLC', displayName: 'Acme Spaces', categories: ['coworking'] }),
     });
     expect(fetchMock).toHaveBeenCalledWith('/api/providers/provider-1/logo', expect.objectContaining({ method: 'POST' }));
   });
 
-  it('omits category from the request body when left blank', async () => {
-    const fetchMock = fetch as unknown as ReturnType<typeof vi.fn>;
-    fetchMock.mockResolvedValueOnce(
+  it('omits categories from the request body when none are selected', async () => {
+    const fetchMock = setupFetch([
       new Response(
         JSON.stringify({
           id: 'provider-1',
@@ -95,7 +120,11 @@ describe('ListYourSpaceForm', () => {
         }),
         { status: 201 },
       ),
-    );
+      // logo upload (best-effort, but needs a response object to avoid TypeError)
+      new Response(JSON.stringify({}), { status: 200 }),
+      // refresh call
+      new Response(JSON.stringify({ success: true }), { status: 200 }),
+    ]);
 
     renderForm();
     fireEvent.change(screen.getByLabelText('Legal business name'), { target: { value: 'Acme LLC' } });
@@ -107,15 +136,14 @@ describe('ListYourSpaceForm', () => {
     expect(fetchMock).toHaveBeenCalledWith('/api/providers', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ legalName: 'Acme LLC', displayName: 'Acme Spaces', category: undefined }),
+      body: JSON.stringify({ legalName: 'Acme LLC', displayName: 'Acme Spaces' }),
     });
   });
 
   it('shows a signed-out message on a 401 UNAUTHENTICATED response', async () => {
-    const fetchMock = fetch as unknown as ReturnType<typeof vi.fn>;
-    fetchMock.mockResolvedValueOnce(
+    setupFetch([
       new Response(JSON.stringify({ error: { code: 'UNAUTHENTICATED' } }), { status: 401 }),
-    );
+    ]);
 
     renderForm();
     fireEvent.change(screen.getByLabelText('Legal business name'), { target: { value: 'Acme LLC' } });

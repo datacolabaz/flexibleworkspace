@@ -6,6 +6,7 @@ import {
   IsObject,
   IsOptional,
   IsString,
+  IsUUID,
   MaxLength,
 } from 'class-validator';
 
@@ -57,4 +58,10 @@ export class LocationInputDto {
   @IsOptional()
   @IsObject()
   openingHours?: Record<string, unknown>;
+
+  /** UUID of the nearest Baku Metro station (from metro_stations table). */
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsUUID()
+  nearestMetroStationId?: string;
 }

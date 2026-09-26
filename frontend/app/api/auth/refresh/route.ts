@@ -18,7 +18,7 @@ import {
  * refresh token comes from this origin's own httpOnly cookie, not
  * something the caller supplies.
  */
-export async function POST(request: NextRequest) {
+async function refreshResponse(request: NextRequest): Promise<NextResponse> {
   const { refreshToken } = readSession(request.cookies);
   if (!refreshToken) {
     return NextResponse.json(
@@ -45,4 +45,29 @@ export async function POST(request: NextRequest) {
     response.cookies.set(REFRESH_TOKEN_COOKIE, '', clearedCookieOptions());
     return response;
   }
+}
+
+export async function POST(request: NextRequest) {
+  return refreshResponse(request);
+}
+
+/**
+ * Server-rendered pages cannot mutate the browser cookie jar while rendering.
+ * This redirect form gives them one safe, single refresh attempt whose
+ * rotated cookies are then carried back to the page response.
+ */
+export async function GET(request: NextRequest) {
+  const returnTo = request.nextUrl.searchParams.get('returnTo');
+  const safeReturnTo = returnTo?.startsWith('/') && !returnTo.startsWith('//') ? returnTo : '/provider';
+  const response = await refreshResponse(request);
+  if (response.ok) {
+    const redirectResponse = NextResponse.redirect(new URL(safeReturnTo, request.url));
+    response.cookies.getAll().forEach((cookie) => redirectResponse.cookies.set(cookie));
+    return redirectResponse;
+  }
+
+  const expiredUrl = new URL('/provider?session=expired', request.url);
+  const redirectResponse = NextResponse.redirect(expiredUrl);
+  response.cookies.getAll().forEach((cookie) => redirectResponse.cookies.set(cookie));
+  return redirectResponse;
 }

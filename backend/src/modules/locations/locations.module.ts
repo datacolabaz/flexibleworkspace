@@ -1,8 +1,11 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { LocationsController } from './locations.controller';
+import { LocationsTaxonomyController } from './locations-taxonomy.controller';
 import { LocationsService } from './locations.service';
 import { LocationEntity } from './entities/location.entity';
+import { LocationCategoryEntity } from './entities/location-category.entity';
+import { MetroStationEntity } from './entities/metro-station.entity';
 import { ProvidersModule } from '../providers/providers.module';
 
 @Module({
@@ -15,10 +18,10 @@ import { ProvidersModule } from '../providers/providers.module';
     // module tree to resolve the relation at boot, or it fails with
     // "Entity metadata for ProviderEntity#locations was not found." This
     // forFeature() call exists purely to register that metadata.
-    TypeOrmModule.forFeature([LocationEntity]),
+    TypeOrmModule.forFeature([LocationEntity, LocationCategoryEntity, MetroStationEntity]),
     ProvidersModule,
   ],
-  controllers: [LocationsController],
+  controllers: [LocationsController, LocationsTaxonomyController],
   providers: [LocationsService],
   exports: [LocationsService],
 })

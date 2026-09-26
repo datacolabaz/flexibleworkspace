@@ -26,6 +26,8 @@ export type MyLocation = {
   district: string | null;
   countryCode: string;
   timezone: string;
+  /** UUID of the nearest Baku Metro station, if set (P2 slice). Undefined for locations created before this field existed. */
+  nearestMetroStationId?: string | null;
   lat: number;
   lng: number;
   createdAt: string;
@@ -57,6 +59,12 @@ export type MyRoom = {
   status: MyRoomStatus;
   /** Loaded relation — always present (empty array, never undefined) since the entity has no @Exclude() on it. */
   amenities: MyRoomAmenity[];
+  /** Provider-set minimum booking duration in minutes (null = use platform default of 60 min). */
+  minBookingMinutes: number | null;
+  /** Provider-set maximum booking duration in minutes (null = no upper limit). */
+  maxBookingMinutes: number | null;
+  /** Task 1 — free-text usage rules/policies shown to customers before booking. */
+  rules?: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -165,6 +173,8 @@ export type CreateLocationInput = {
   district?: string;
   lat: number;
   lng: number;
+  /** UUID of nearest Baku Metro station (P2 slice, optional). */
+  nearestMetroStationId?: string | null;
 };
 
 export async function createMyLocation(accessToken: string, input: CreateLocationInput): Promise<MyLocation> {
@@ -242,6 +252,12 @@ export type CreateRoomInput = {
   basePriceAmount: number;
   basePriceCurrency?: string;
   amenityIds?: string[];
+  /** Minimum booking duration in minutes. If omitted, platform default (60 min) applies. */
+  minBookingMinutes?: number;
+  /** Maximum booking duration in minutes. If omitted, no upper limit. */
+  maxBookingMinutes?: number;
+  /** Task 1 — free-text usage rules shown to customers before booking (optional). */
+  rules?: string;
 };
 
 export async function createMyRoom(accessToken: string, input: CreateRoomInput): Promise<MyRoom> {

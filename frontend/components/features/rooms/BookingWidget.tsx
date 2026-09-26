@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
 import { Link } from '@/lib/i18n/navigation';
 import { Button } from '@/components/ui/Button';
@@ -39,10 +39,16 @@ const STEP_MINUTES = 30;
 // is the backstop for that residual case, not a client-side timer.
 const START_TIME_LEAD_BUFFER_MINUTES = 10;
 
-function todayLocalDate(): string {
-  const now = new Date();
-  const offsetMs = now.getTimezoneOffset() * 60_000;
-  return new Date(now.getTime() - offsetMs).toISOString().slice(0, 10);
+/**
+ * Returns today's date in YYYY-MM-DD format using Asia/Baku timezone
+ * (UTC+4). Using the browser's local timezone offset is sufficient for
+ * Baku-only V1 (most customers share the venue's timezone), but
+ * explicitly fixing to Asia/Baku prevents midnight edge-cases for
+ * customers on different devices/settings.
+ */
+function todayBakuDate(): string {
+  // en-CA locale formats dates as YYYY-MM-DD which is what <input type="date"> needs.
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Baku' }).format(new Date());
 }
 
 function minutesBetween(startIso: string, endIso: string): number {
@@ -90,14 +96,23 @@ export function BookingWidget({ roomId, pricePerHour, minBookingMinutes, maxBook
   const t = useTranslations('room');
   const locale = useLocale();
 
-  const [date, setDate] = useState(todayLocalDate());
+  const [date, setDate] = useState(todayBakuDate());
   const [state, setState] = useState<FetchState>({ status: 'idle', slots: [] });
   const [selectedWindowIndex, setSelectedWindowIndex] = useState<number | null>(null);
   const [startAt, setStartAt] = useState<string | null>(null);
   const [durationMinutes, setDurationMinutes] = useState<number | null>(null);
 
-  const minMinutes = minBookingMinutes ?? STEP_MINUTES;
-  const maxMinutes = maxBookingMinutes ?? minMinutes;
+  // Task 4 — promo code state
+  const [promoExpanded, setPromoExpanded] = useState(false);
+  const [promoInput, setPromoInput] = useState('');
+  const [promoApplied, setPromoApplied] = useState<{ code: string; discountAmount: number } | null>(null);
+  const [promoError, setPromoError] = useState<string | undefined>();
+  const [promoLoading, setPromoLoading] = useState(false);
+
+  // Default minimum: 1 hour (per product spec — "default 1 hour if not set").
+  // Default maximum: no hard cap — use the full available window.
+  const minMinutes = minBookingMinutes ?? 60;
+  const maxMinutes = maxBookingMinutes ?? Number.POSITIVE_INFINITY;
   const price =
     pricePerHour?.amount !== undefined && pricePerHour.currency
       ? { amount: pricePerHour.amount, currency: pricePerHour.currency }
@@ -156,6 +171,39 @@ export function BookingWidget({ roomId, pricePerHour, minBookingMinutes, maxBook
 
   const endAt = startAt && durationMinutes ? addMinutes(startAt, durationMinutes) : null;
   const subtotal = price && durationMinutes ? Math.round((price.amount * durationMinutes) / 60) : null;
+  const discountedTotal =
+    subtotal !== null && promoApplied
+      ? Math.max(0, subtotal - promoApplied.discountAmount)
+      : subtotal;
+
+  async function handlePromoApply(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!promoInput.trim() || subtotal === null) return;
+    setPromoLoading(true);
+    setPromoError(undefined);
+    try {
+      // Validate the promo code via the booking BFF proxy — the backend
+      // computes the discount; we trust the server, not the client.
+      const res = await fetch('/api/bookings/validate-promo', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: promoInput.trim(), bookingAmount: subtotal }),
+      });
+      if (!res.ok) {
+        const body = (await res.json().catch(() => undefined)) as
+          | { error?: { message?: string } }
+          | undefined;
+        setPromoError(body?.error?.message ?? 'Bu promosyon kodu mövcud deyil və ya müddəti bitib.');
+        return;
+      }
+      const { discountAmount } = (await res.json()) as { discountAmount: number };
+      setPromoApplied({ code: promoInput.trim().toUpperCase(), discountAmount });
+    } catch {
+      setPromoError('Bu promosyon kodu mövcud deyil və ya müddəti bitib.');
+    } finally {
+      setPromoLoading(false);
+    }
+  }
 
   const bookHref =
     startAt && endAt
@@ -178,7 +226,7 @@ export function BookingWidget({ roomId, pricePerHour, minBookingMinutes, maxBook
         <input
           id="booking-date"
           type="date"
-          min={todayLocalDate()}
+          min={todayBakuDate()}
           value={date}
           onChange={(event) => setDate(event.target.value)}
           className="min-h-11 rounded-md border border-border-strong bg-surface px-3 text-body text-text-primary"
@@ -277,11 +325,73 @@ export function BookingWidget({ roomId, pricePerHour, minBookingMinutes, maxBook
 
       {subtotal !== null && price && (
         <div className="flex flex-col gap-1 border-t border-border pt-3 text-small">
+          {promoApplied && (
+            <div className="flex items-center justify-between text-text-secondary">
+              <span>{t('estimatedTotal')}</span>
+              <span className="line-through">{formatMoney(subtotal, price.currency, locale)}</span>
+            </div>
+          )}
+          {promoApplied && (
+            <div className="flex items-center justify-between text-success">
+              <span>Promosyon ({promoApplied.code})</span>
+              <span>−{formatMoney(promoApplied.discountAmount, price.currency, locale)}</span>
+            </div>
+          )}
           <div className="flex items-center justify-between text-text-secondary">
-            <span>{t('estimatedTotal')}</span>
-            <span className="font-semibold text-text-primary">{formatMoney(subtotal, price.currency, locale)}</span>
+            <span>{promoApplied ? 'Endirimli cəm' : t('estimatedTotal')}</span>
+            <span className="font-semibold text-text-primary">
+              {formatMoney(discountedTotal ?? subtotal, price.currency, locale)}
+            </span>
           </div>
           <p className="text-caption text-text-muted">{t('serviceFeeNote')}</p>
+        </div>
+      )}
+
+      {/* Task 4 — Promo code (collapsible, not intrusive) */}
+      {subtotal !== null && (
+        <div className="border-t border-border pt-3">
+          <button
+            type="button"
+            onClick={() => setPromoExpanded((prev) => !prev)}
+            className="text-small text-text-secondary underline-offset-2 hover:underline"
+          >
+            Promosyon kodu {promoExpanded ? '▲' : '▼'}
+          </button>
+          {promoExpanded && (
+            <div className="mt-2">
+              {promoApplied ? (
+                <div className="flex items-center gap-2">
+                  <span className="text-small text-success font-medium">
+                    Promosyon kodu tətbiq edildi ✓
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => { setPromoApplied(null); setPromoInput(''); }}
+                    className="text-caption text-text-muted underline"
+                  >
+                    Sil
+                  </button>
+                </div>
+              ) : (
+                <form onSubmit={handlePromoApply} className="flex gap-2">
+                  <input
+                    type="text"
+                    placeholder="Kodu daxil edin"
+                    value={promoInput}
+                    onChange={(e) => { setPromoInput(e.target.value); setPromoError(undefined); }}
+                    disabled={promoLoading}
+                    className="min-h-9 flex-1 rounded-md border border-border-strong bg-surface px-3 text-small text-text-primary placeholder:text-text-muted focus:border-primary focus:outline-none disabled:opacity-50"
+                  />
+                  <Button type="submit" size="sm" isLoading={promoLoading} disabled={!promoInput.trim()}>
+                    Tətbiq et
+                  </Button>
+                </form>
+              )}
+              {promoError && (
+                <p className="mt-1 text-caption text-error">{promoError}</p>
+              )}
+            </div>
+          )}
         </div>
       )}
 

@@ -303,6 +303,8 @@ export interface paths {
                     lat?: number;
                     lng?: number;
                     radiusKm?: number;
+                    /** UUID of the nearest metro station — filters to locations served by that station. */
+                    metroStationId?: string;
                     page?: number;
                     pageSize?: number;
                 };
@@ -2446,6 +2448,8 @@ export interface components {
             photos?: string[];
             minBookingMinutes?: number;
             maxBookingMinutes?: number;
+            /** Task 1 — provider-authored usage rules shown to customers before booking. */
+            rules?: string | null;
         };
         RoomInput: {
             /** Format: uuid */

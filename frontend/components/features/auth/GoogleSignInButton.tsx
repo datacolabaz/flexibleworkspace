@@ -4,6 +4,7 @@ import { useEffect, useRef } from 'react';
 import { useTranslations } from 'next-intl';
 import { useRouter } from 'next/navigation';
 import { loadGoogleIdentityServices } from '@/lib/auth/loadGoogleIdentity';
+import { track, AnalyticsEvent } from '@/lib/analytics/track';
 import { oauthErrorMessageKey } from './oauth-error-messages';
 
 export interface OAuthSignInButtonProps {
@@ -90,6 +91,7 @@ export function GoogleSignInButton({ redirectTo, onError }: OAuthSignInButtonPro
                   body: JSON.stringify({ idToken: response.credential }),
                 });
                 if (res.ok) {
+                  track(AnalyticsEvent.GoogleLoginCompleted, { source: 'google_button' });
                   // push() alone lands on whatever Next.js had already
                   // cached for that route from before sign-in (same
                   // reason AccountTabs' logout pairs push with refresh)
@@ -114,6 +116,12 @@ export function GoogleSignInButton({ redirectTo, onError }: OAuthSignInButtonPro
         // container it's given (a full-width flex child) reproduces that
         // full-width look without hardcoding a guess.
         const width = Math.min(Math.max(container.offsetWidth, 240), 400);
+        // Wrap the container click to fire google_login_started before
+        // Google's SDK opens its popup.
+        container.addEventListener('click', () => {
+          track(AnalyticsEvent.GoogleLoginStarted, { source: 'google_button' });
+        }, { once: false });
+
         google.accounts.id.renderButton(container, {
           type: 'standard',
           theme: 'outline',

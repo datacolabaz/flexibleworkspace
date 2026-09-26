@@ -50,6 +50,9 @@ export async function GET(request: NextRequest) {
   const amenities = searchParams.get('amenities');
   if (amenities) query.amenities = amenities.split(',').filter(Boolean);
 
+  const metroStationId = searchParams.get('metroStationId');
+  if (metroStationId) query.metroStationId = metroStationId;
+
   try {
     const result = await searchRooms(query);
     return NextResponse.json(result, { headers: { 'Cache-Control': 'no-store' } });

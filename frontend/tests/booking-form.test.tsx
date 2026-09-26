@@ -2,6 +2,7 @@ import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { NextIntlClientProvider } from 'next-intl';
 import messages from '../messages/en.json';
+import azMessages from '../messages/az.json';
 import { BookingForm } from '@/components/features/booking/BookingForm';
 
 vi.mock('@/lib/i18n/navigation', () => ({
@@ -12,9 +13,13 @@ vi.mock('@/lib/i18n/navigation', () => ({
   ),
 }));
 
-function renderForm(overrides: Partial<React.ComponentProps<typeof BookingForm>> = {}) {
+function renderForm(
+  overrides: Partial<React.ComponentProps<typeof BookingForm>> = {},
+  locale = 'en',
+  localizedMessages = messages,
+) {
   return render(
-    <NextIntlClientProvider locale="en" messages={messages}>
+    <NextIntlClientProvider locale={locale} messages={localizedMessages}>
       <BookingForm
         roomId="room-1"
         startAt="2026-01-01T09:00:00.000Z"
@@ -53,6 +58,12 @@ describe('BookingForm', () => {
 
     renderForm({ isAuthenticated: true });
     expect(screen.queryByLabelText('Email')).not.toBeInTheDocument();
+  });
+
+  it('uses the generic Azerbaijani Gmail example for the guest email placeholder', () => {
+    renderForm({}, 'az', azMessages);
+
+    expect(screen.getByLabelText('E-poçt')).toHaveAttribute('placeholder', 'adınız@gmail.com');
   });
 
   it('blocks submit with a field error when signed out with no email or phone, and never calls the backend', async () => {

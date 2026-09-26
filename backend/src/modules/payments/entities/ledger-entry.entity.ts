@@ -42,6 +42,18 @@ export class LedgerEntryEntity {
   @Column({ name: 'commission_rule_id', type: 'uuid', nullable: true })
   commissionRuleId: string | null;
 
+  /** Task 4 — the promo code applied to the booking that generated this ledger row (nullable). */
+  @Column({ name: 'promo_code_id', type: 'uuid', nullable: true })
+  promoCodeId: string | null;
+
+  /** Task 4 — the referral record associated with this ledger row (nullable). */
+  @Column({ name: 'referral_id', type: 'uuid', nullable: true })
+  referralId: string | null;
+
+  /** Task 4 — freeform UTM/attribution source string for analytics (not tied to a referrals row). */
+  @Column({ name: 'referral_source', type: 'varchar', length: 100, nullable: true })
+  referralSource: string | null;
+
   @Column({ name: 'created_at', type: 'timestamptz' })
   createdAt: Date;
 }

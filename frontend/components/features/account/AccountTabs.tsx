@@ -8,6 +8,7 @@ const TABS = [
   { href: '/account/bookings', labelKey: 'bookingsTabLabel' } as const,
   { href: '/account/favorites', labelKey: 'favoritesTabLabel' } as const,
   { href: '/account/reviews', labelKey: 'reviewsTabLabel' } as const,
+  { href: '/account/events', labelKey: 'eventsTabLabel' } as const,
   { href: '/account/payment-history', labelKey: 'paymentHistoryTabLabel' } as const,
   { href: '/account/profile', labelKey: 'profileTabLabel' } as const,
 ];

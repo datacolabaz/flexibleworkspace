@@ -76,6 +76,12 @@ export class RoomInputDto {
   @IsOptional()
   @IsObject()
   cancellationPolicy?: Record<string, unknown>;
+
+  /** Task 1 — free-text usage rules shown to customers before booking (optional). */
+  @ApiPropertyOptional({ description: 'Usage rules displayed to customers before booking.' })
+  @IsOptional()
+  @IsString()
+  rules?: string;
 }
 
 /**

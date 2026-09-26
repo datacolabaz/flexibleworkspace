@@ -256,6 +256,11 @@ export default async function RoomDetailPage({
 
           <section className="flex flex-col gap-2">
             <h2 className="font-display text-h4 text-text-primary">{t('rulesTitle')}</h2>
+            {room.rules && (
+              <p className="whitespace-pre-line rounded-md border border-border bg-surface-elevated p-3 text-small text-text-secondary">
+                {room.rules}
+              </p>
+            )}
             <CancellationPolicyCard cancellationPolicy={room.cancellationPolicy} />
           </section>
 

@@ -13,6 +13,13 @@ import { SearchResultsMap } from './SearchResultsMap';
 import { AiSearchBox } from './AiSearchBox';
 import type { SearchRoomsResult } from '@/lib/api-client/rooms';
 
+interface MetroStation {
+  id: string;
+  nameAz: string;
+  nameEn: string;
+  line?: string;
+}
+
 type MobileView = 'list' | 'map';
 
 interface FetchState {
@@ -47,6 +54,10 @@ export function SearchResultsView() {
   // "not yet known" the same as "not favorited", so there's no loading
   // state of its own to show here).
   const [favoritedRoomIds, setFavoritedRoomIds] = useState<Set<string>>(new Set());
+  // Metro stations for the metro filter — loaded once, passed into
+  // SearchFilters to avoid SearchFilters making its own parallel fetch
+  // (which would change the fetch call order that some tests rely on).
+  const [metroStations, setMetroStations] = useState<MetroStation[]>([]);
 
   const queryString = searchParams.toString();
 
@@ -103,6 +114,26 @@ export function SearchResultsView() {
     };
   }, []);
 
+  // Load metro stations once — public endpoint, no auth required.
+  // Declared after search/favorites effects so it doesn't shift their
+  // call position in tests that check fetch call order.
+  useEffect(() => {
+    let cancelled = false;
+    void fetch('/api/metro-stations', { cache: 'no-store' })
+      .then(async (r) => (r.ok ? (await r.json() as unknown) : []))
+      .then((data) => {
+        if (!cancelled && Array.isArray(data) && data.length > 0) {
+          setMetroStations(data as MetroStation[]);
+        }
+      })
+      .catch(() => {
+        // Best-effort — metro filter stays hidden when this call fails.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const results: RoomSummary[] = state.data?.results ?? [];
   const page = state.data?.page ?? 1;
   const pageSize = state.data?.pageSize ?? 20;
@@ -140,7 +171,7 @@ export function SearchResultsView() {
      // past the viewport edge). Stacking vertically below `lg` gives the
       // trigger button its own full-width row instead. */}
       <div className="mx-auto flex max-w-7xl flex-col gap-6 px-4 py-6 sm:px-6 lg:flex-row">
-      <SearchFilters />
+      <SearchFilters metroStations={metroStations} />
 
       <div className="min-w-0 flex-1">
         <div className="mb-4 flex items-center justify-between gap-3">

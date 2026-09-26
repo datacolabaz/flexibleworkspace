@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { cookies } from 'next/headers';
+import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { NextIntlClientProvider } from 'next-intl';
 import { Logo } from '@/components/ui/Logo';
@@ -18,11 +19,21 @@ import {
 } from '@/lib/api-client/provider-rooms';
 import { getMyProviderAnalytics, type ProviderAnalytics } from '@/lib/api-client/provider-analytics';
 import { getMyPlanUpgradeRequest, type PlanUpgradeRequest } from '@/lib/api-client/plan-upgrade-requests';
+import {
+  listProviderBookings,
+  getProviderPayoutBalance,
+  listProviderPayouts,
+  type ProviderBooking,
+  type ProviderPayoutBalance,
+  type ProviderPayout,
+} from '@/lib/api-client/provider-bookings';
 import { ProviderVerificationPanel } from '@/components/features/provider/ProviderVerificationPanel';
 import { ProviderLeadsPanel } from '@/components/features/provider/ProviderLeadsPanel';
 import { ProviderRoomsPanel } from '@/components/features/provider/ProviderRoomsPanel';
 import { ProviderAnalyticsPanel } from '@/components/features/provider/ProviderAnalyticsPanel';
 import { ProviderPlanPanel } from '@/components/features/provider/ProviderPlanPanel';
+import { ProviderBookingsPanel } from '@/components/features/provider/ProviderBookingsPanel';
+import { ProviderPayoutsPanel } from '@/components/features/provider/ProviderPayoutsPanel';
 
 export const metadata: Metadata = {
   title: 'Provider paneli — Spotva',
@@ -89,15 +100,20 @@ function Shell({ children }: { children: React.ReactNode }) {
  * button opens an in-app request instead of a checkout, and an admin
  * grants PRO by hand from the admin panel.
  */
-export default async function ProviderHome() {
+export default async function ProviderHome({
+  searchParams,
+}: {
+  searchParams?: Promise<{ session?: string }>;
+}) {
+  const sessionState = (await searchParams)?.session;
   const { accessToken } = readSession(await cookies());
 
   if (!accessToken) {
     return (
       <Shell>
-        <h1 className="font-display text-h2 text-text-primary">Provider paneli</h1>
+        <h1 className="font-display text-h2 text-text-primary">{azMessages.provider.title}</h1>
         <p className="text-body text-text-secondary">
-          Bu səhifəyə baxmaq üçün hesabınıza daxil olun.
+          {sessionState === 'expired' ? azMessages.provider.sessionExpired : azMessages.provider.signInRequired}
         </p>
         <Link
           href={`/az/login?redirect=${encodeURIComponent('/provider')}`}
@@ -118,11 +134,34 @@ export default async function ProviderHome() {
       listRoomTypes(accessToken),
       listAmenities(accessToken),
     ]);
+
+    // Best-effort: booking list and payout data — failures must not block the
+    // core dashboard panels (same convention as analytics/mediaCapabilities).
+    let providerBookings: ProviderBooking[] | null = null;
+    let payoutBalance: ProviderPayoutBalance | null = null;
+    let providerPayouts: ProviderPayout[] | null = null;
+    try {
+      [providerBookings, payoutBalance, providerPayouts] = await Promise.all([
+        listProviderBookings(accessToken),
+        getProviderPayoutBalance(accessToken),
+        listProviderPayouts(accessToken),
+      ]);
+    } catch (err) {
+      console.error('Best-effort provider bookings/payouts fetch failed:', err);
+    }
+    if (
+      locationsResult.status === 'rejected' ||
+      roomsResult.status === 'rejected' ||
+      roomTypesResult.status === 'rejected' ||
+      amenitiesResult.status === 'rejected'
+    ) {
+      throw new Error('PROVIDER_DATA_LOAD_FAILED');
+    }
     const leads = leadsResult.status === 'fulfilled' ? leadsResult.value : [];
-    const locations = locationsResult.status === 'fulfilled' ? locationsResult.value : [];
-    const rooms = roomsResult.status === 'fulfilled' ? roomsResult.value : [];
-    const roomTypes = roomTypesResult.status === 'fulfilled' ? roomTypesResult.value : [];
-    const amenityOptions = amenitiesResult.status === 'fulfilled' ? amenitiesResult.value : [];
+    const locations = locationsResult.value;
+    const rooms = roomsResult.value;
+    const roomTypes = roomTypesResult.value;
+    const amenityOptions = amenitiesResult.value;
 
     // Best-effort — analytics is a secondary panel, not a core part of the
     // dashboard, so a hiccup here (same soft-fail convention as
@@ -166,6 +205,12 @@ export default async function ProviderHome() {
 
     return (
       <Shell>
+        {locations.length === 0 && (
+          <div className="rounded-md border border-border bg-surface p-4">
+            <h1 className="font-display text-h2 text-text-primary">{azMessages.provider.emptyLocationsTitle}</h1>
+            <p className="mt-2 text-body text-text-secondary">{azMessages.provider.emptyLocationsMessage}</p>
+          </div>
+        )}
         <ProviderVerificationPanel initialProvider={provider} />
         {analytics && <ProviderAnalyticsPanel analytics={analytics} />}
         {/* id targeted by ProviderVerificationPanel's post-verification
@@ -181,11 +226,16 @@ export default async function ProviderHome() {
             mediaCapabilities={mediaCapabilities}
           />
         </div>
+        <ProviderBookingsPanel initialBookings={providerBookings} />
+        <ProviderPayoutsPanel initialBalance={payoutBalance} initialPayouts={providerPayouts} />
         <ProviderPlanPanel planTier={provider.planTier} initialRequest={planUpgradeRequest} />
         <ProviderLeadsPanel initialLeads={leads} />
       </Shell>
     );
   } catch (error) {
+    if (error instanceof ProviderApiError && error.status === 401) {
+      redirect('/api/auth/refresh?returnTo=%2Fprovider');
+    }
     if (error instanceof ProviderApiError && error.code === 'NOT_A_PROVIDER') {
       // Embeds the same registration form `/list-your-space` uses,
       // right here — the owner's explicit fix for "doldur sonra ordan
@@ -211,8 +261,15 @@ export default async function ProviderHome() {
     }
     return (
       <Shell>
-        <h1 className="font-display text-h2 text-text-primary">Provider paneli</h1>
-        <p className="text-body text-error">Məlumatlar yüklənmədi. Zəhmət olmasa səhifəni yeniləyin.</p>
+        <h1 className="font-display text-h2 text-text-primary">{azMessages.provider.title}</h1>
+        <p className="text-body text-error">
+          {error instanceof Error && error.message === 'PROVIDER_DATA_LOAD_FAILED'
+            ? azMessages.provider.dataLoadFailed
+            : azMessages.provider.backendUnavailable}
+        </p>
+        <Link href="/provider" className="self-start rounded-md bg-accent px-5 py-3 text-label text-accent-on">
+          {azMessages.provider.retry}
+        </Link>
       </Shell>
     );
   }

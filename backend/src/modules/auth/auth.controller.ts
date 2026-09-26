@@ -1,15 +1,39 @@
 import { Body, Controller, HttpCode, HttpStatus, Post } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
+import { IsString, IsUUID } from 'class-validator';
+import { ApiProperty } from '@nestjs/swagger';
 
 import { AuthService, TokenPair } from './auth.service';
 import { Public } from '../../common/decorators/public.decorator';
+import { Roles } from '../../common/decorators/roles.decorator';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { ADMIN_ROLES } from '../../common/constants/roles.enum';
+import type { AuthenticatedUser } from '../../common/guards/jwt-auth.guard';
 import { RequestOtpDto } from './dto/request-otp.dto';
 import { VerifyOtpDto } from './dto/verify-otp.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { GoogleLoginDto } from './dto/google-login.dto';
 import { FacebookLoginDto } from './dto/facebook-login.dto';
 import { AdminLoginDto } from './dto/admin-login.dto';
+
+/** Task 3 — DTO for TOTP verification (setup confirmation and login second-factor). */
+class TotpVerifyDto {
+  @ApiProperty({ description: 'The 6-digit TOTP code from the authenticator app.' })
+  @IsString()
+  token: string;
+}
+
+/** Task 3 — DTO for TOTP second-factor login (userId from first-factor response). */
+class TotpLoginDto {
+  @ApiProperty({ description: 'The userId returned from admin-password login when totp is required.' })
+  @IsUUID()
+  userId: string;
+
+  @ApiProperty({ description: 'The 6-digit TOTP code from the authenticator app.' })
+  @IsString()
+  token: string;
+}
 
 /**
  * 11_API_CONTRACTS.md §11.4 — passwordless OTP auth. All routes here are
@@ -92,5 +116,52 @@ export class AuthController {
   @ApiOperation({ summary: 'Revoke a refresh token' })
   async logout(@Body() dto: RefreshTokenDto): Promise<void> {
     await this.authService.logout(dto.refreshToken);
+  }
+
+  // ── Task 3 — Admin TOTP endpoints ─────────────────────────────────────
+
+  /**
+   * POST /auth/admin/totp/setup
+   * Admin-only: generates a TOTP secret for the authenticated admin user
+   * and returns the otpauth:// URI for QR-code rendering.
+   * Does NOT enable 2FA yet — call /verify after scanning to activate.
+   */
+  @Post('admin/totp/setup')
+  @Roles(...ADMIN_ROLES)
+  @ApiOperation({ summary: 'Generate TOTP secret for admin 2FA setup (admin only)' })
+  async adminTotpSetup(
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<{ otpauthUri: string; secret: string }> {
+    return this.authService.setupTotp(user.userId);
+  }
+
+  /**
+   * POST /auth/admin/totp/verify
+   * Admin-only: confirms a TOTP token from the authenticator app and
+   * sets totp_enabled=true (completes 2FA enrollment).
+   */
+  @Post('admin/totp/verify')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @Roles(...ADMIN_ROLES)
+  @ApiOperation({ summary: 'Verify TOTP token to complete 2FA enrollment (admin only)' })
+  async adminTotpVerify(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: TotpVerifyDto,
+  ): Promise<void> {
+    await this.authService.verifyAndEnableTotp(user.userId, dto.token);
+  }
+
+  /**
+   * POST /auth/admin/totp/login
+   * Public second-factor endpoint: after a successful admin-password login
+   * returns { requiresTotp: true, userId }, the client posts here with the
+   * TOTP code to receive the real JWT token pair.
+   */
+  @Public()
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  @Post('admin/totp/login')
+  @ApiOperation({ summary: 'Second-factor TOTP verification for admin login' })
+  async adminTotpLogin(@Body() dto: TotpLoginDto): Promise<TokenPair> {
+    return this.authService.verifyTotpLogin(dto.userId, dto.token);
   }
 }

@@ -8,6 +8,7 @@ import {
   IsNumber,
   IsOptional,
   IsString,
+  IsUUID,
   Matches,
   Max,
   Min,
@@ -95,6 +96,11 @@ export class SearchQueryDto {
   @IsNumber()
   @Min(0)
   radiusKm?: number;
+
+  /** Filter by the nearest metro station (UUID from metro_stations table). */
+  @IsOptional()
+  @IsUUID()
+  metroStationId?: string;
 
   @IsOptional()
   @Type(() => Number)

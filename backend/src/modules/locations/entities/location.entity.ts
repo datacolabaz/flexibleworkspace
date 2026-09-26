@@ -61,6 +61,10 @@ export class LocationEntity {
   @Column({ name: 'opening_hours', type: 'jsonb', nullable: true })
   openingHours: Record<string, unknown> | null;
 
+  /** Optional nearest Baku Metro station (P2 slice). */
+  @Column({ name: 'nearest_metro_station_id', type: 'uuid', nullable: true })
+  nearestMetroStationId: string | null;
+
   @Column({ name: 'created_at', type: 'timestamptz' })
   createdAt: Date;
 
@@ -82,6 +86,7 @@ export interface LocationWithCoords {
   countryCode: string;
   timezone: string;
   openingHours: Record<string, unknown> | null;
+  nearestMetroStationId: string | null;
   lat: number;
   lng: number;
   createdAt: Date;

@@ -18,6 +18,7 @@ import { AvailabilityRuleEntity } from '../rooms/entities/availability-rule.enti
 import { BlockedPeriodEntity } from '../rooms/entities/blocked-period.entity';
 import { HolidayEntity } from '../rooms/entities/holiday.entity';
 import { AppUserEntity } from '../auth/entities/app-user.entity';
+import { PromoModule } from '../promo/promo.module';
 
 @Module({
   imports: [
@@ -36,6 +37,7 @@ import { AppUserEntity } from '../auth/entities/app-user.entity';
     PartnersModule, // ReferralTrackingService.attributeBooking (31_PARTNER_REFERRAL_ARCHITECTURE.md §31.4 step 4)
     NotificationsModule, // T4 — accept/reject customer notifications
     ProvidersModule, // T4 — provider ownership + verification-status checks
+    PromoModule, // Task 4 — promo code validation and referral qualification
   ],
   controllers: [BookingsController],
   providers: [BookingsService, AvailabilityService, BookingsTasks],

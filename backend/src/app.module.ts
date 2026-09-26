@@ -30,6 +30,8 @@ import { AiSearchModule } from './modules/ai-search/ai-search.module';
 import { AdminModule } from './modules/admin/admin.module';
 import { LeadsModule } from './modules/leads/leads.module';
 import { PlanUpgradeRequestsModule } from './modules/plan-upgrade-requests/plan-upgrade-requests.module';
+import { EventsModule } from './modules/events/events.module';
+import { PromoModule } from './modules/promo/promo.module';
 
 @Module({
   imports: [
@@ -85,6 +87,8 @@ import { PlanUpgradeRequestsModule } from './modules/plan-upgrade-requests/plan-
     AdminModule,
     LeadsModule,
     PlanUpgradeRequestsModule,
+    EventsModule,
+    PromoModule,
   ],
   controllers: [AppController],
   providers: [

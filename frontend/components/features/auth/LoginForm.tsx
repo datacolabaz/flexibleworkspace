@@ -1,10 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { Link } from '@/lib/i18n/navigation';
 import { Alert } from '@/components/ui/Alert';
 import { Logo } from '@/components/ui/Logo';
+import { track, AnalyticsEvent } from '@/lib/analytics/track';
 import { GoogleSignInButton } from './GoogleSignInButton';
 import { AdminPasswordForm } from './AdminPasswordForm';
 
@@ -22,6 +23,12 @@ export function LoginForm({ redirectTo, adminMode = false }: LoginFormProps) {
   const t = useTranslations('auth.login');
   const [banner, setBanner] = useState<string | undefined>();
   const hasGoogle = Boolean(process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID);
+
+  useEffect(() => {
+    if (!adminMode) {
+      track(AnalyticsEvent.LoginStarted, { source: 'login_form' });
+    }
+  }, [adminMode]);
 
   return (
     <div className="flex flex-col gap-6">

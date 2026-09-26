@@ -11,6 +11,13 @@ import { Select } from '@/components/ui/Select';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import { ROOM_TYPES, AMENITIES, AMENITY_CATEGORIES } from '@/lib/constants/taxonomy';
 
+interface MetroStation {
+  id: string;
+  nameAz: string;
+  nameEn: string;
+  line?: string;
+}
+
 const DURATION_OPTIONS = [30, 60, 90, 120, 180, 240, 360, 480] as const;
 const SORT_OPTIONS = ['relevance', 'price', 'distance', 'rating'] as const;
 
@@ -24,6 +31,7 @@ interface FilterDraft {
   priceMax: string;
   amenities: string[];
   sort: string;
+  metroStationId: string;
 }
 
 const EMPTY_DRAFT: FilterDraft = {
@@ -36,6 +44,7 @@ const EMPTY_DRAFT: FilterDraft = {
   priceMax: '',
   amenities: [],
   sort: 'relevance',
+  metroStationId: '',
 };
 
 function getCurrentTime(): string {
@@ -63,6 +72,7 @@ function draftFromSearchParams(params: URLSearchParams): FilterDraft {
     priceMax: params.get('priceMax') ? String(Math.round(Number(params.get('priceMax')) / 100)) : '',
     amenities: params.get('amenities')?.split(',').filter(Boolean) ?? [],
     sort: params.get('sort') ?? 'relevance',
+    metroStationId: params.get('metroStationId') ?? '',
   };
 }
 
@@ -176,6 +186,7 @@ function draftToQueryString(draft: FilterDraft): string {
   if (draft.priceMax) qs.set('priceMax', String(Math.round(Number(draft.priceMax) * 100)));
   if (draft.amenities.length > 0) qs.set('amenities', draft.amenities.join(','));
   if (draft.sort && draft.sort !== 'relevance') qs.set('sort', draft.sort);
+  if (draft.metroStationId) qs.set('metroStationId', draft.metroStationId);
   // Filter changes are a new search — always land back on page 1.
   return qs.toString();
 }
@@ -190,10 +201,19 @@ function countActive(draft: FilterDraft): number {
   if (draft.participants) count += 1;
   if (draft.priceMax) count += 1;
   count += draft.amenities.length;
+  if (draft.metroStationId) count += 1;
   return count;
 }
 
-function FilterFields({ draft, onChange }: { draft: FilterDraft; onChange: (next: FilterDraft) => void }) {
+function FilterFields({
+  draft,
+  onChange,
+  metroStations,
+}: {
+  draft: FilterDraft;
+  onChange: (next: FilterDraft) => void;
+  metroStations: MetroStation[];
+}) {
   const t = useTranslations();
   const locale = useLocale();
   const [dateText, setDateText] = useState(() => formatDateForDisplay(draft.date || getCurrentDate(), locale));
@@ -221,6 +241,24 @@ function FilterFields({ draft, onChange }: { draft: FilterDraft; onChange: (next
           onChange={(e) => onChange({ ...draft, city: e.target.value })}
         />
       </div>
+
+      {metroStations.length > 0 && (
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="filter-metro">{t('search.metroFilter')}</Label>
+          <Select
+            id="filter-metro"
+            value={draft.metroStationId}
+            onChange={(e) => onChange({ ...draft, metroStationId: e.target.value })}
+          >
+            <option value="">{t('search.metroFilterAny')}</option>
+            {metroStations.map((station) => (
+              <option key={station.id} value={station.id}>
+                {locale.startsWith('en') ? station.nameEn : station.nameAz}
+              </option>
+            ))}
+          </Select>
+        </div>
+      )}
 
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="filter-room-type">{t('search.roomTypeLabel')}</Label>
@@ -447,7 +485,7 @@ value={dateText}
  * Mobile: a Filters button (badge = active count) opens the shared
  * <BottomSheet> primitive with the same fields and its own Apply/Clear.
  */
-export function SearchFilters() {
+export function SearchFilters({ metroStations = [] }: { metroStations?: MetroStation[] }) {
   const t = useTranslations();
   const router = useRouter();
   const pathname = usePathname();
@@ -489,7 +527,7 @@ export function SearchFilters() {
       <aside className="hidden w-72 shrink-0 lg:block">
         <div className="sticky top-20 rounded-lg border border-border bg-surface p-4 shadow-sm">
           <h2 className="mb-4 text-h4 font-display text-text-primary">{t('search.filtersTitle')}</h2>
-          <FilterFields draft={desktopDraft} onChange={setDesktopDraft} />
+          <FilterFields draft={desktopDraft} onChange={setDesktopDraft} metroStations={metroStations} />
           <div className="mt-5 flex gap-2">
             <Button variant="primary" fullWidth onClick={() => apply(desktopDraft)}>
               {t('search.applyButton')}
@@ -516,7 +554,7 @@ export function SearchFilters() {
         </Button>
 
         <BottomSheet open={mobileOpen} onClose={() => setMobileOpen(false)} title={t('search.filtersTitle')} closeLabel={t('nav.closeMenu')}>
-          <FilterFields draft={mobileDraft} onChange={setMobileDraft} />
+          <FilterFields draft={mobileDraft} onChange={setMobileDraft} metroStations={metroStations} />
           <div className="mt-5 flex gap-2 pb-2">
             <Button variant="primary" fullWidth onClick={() => apply(mobileDraft)}>
               {t('search.applyButton')}
