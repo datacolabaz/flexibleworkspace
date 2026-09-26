@@ -24,6 +24,10 @@ function maskIdentifier(identifier: string): string {
   return `${visible}${'*'.repeat(Math.max(3, Math.min(6, local.length - 1)))}@${domain}`;
 }
 
+function isValidEmail(value: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+}
+
 function errorKey(code?: string):
   | 'invalidCode'
   | 'expiredCode'
@@ -74,7 +78,11 @@ export function LoginForm({ redirectTo, adminMode = false }: LoginFormProps) {
 
   const sendCode = async () => {
     const normalized = identifier.trim();
-    if (!normalized || isSending || cooldown > 0) return;
+    if (isSending || cooldown > 0) return;
+    if (!isValidEmail(normalized)) {
+      setBanner(t('errors.invalidEmail'));
+      return;
+    }
     setBanner(undefined);
     setIsSending(true);
     try {
@@ -90,7 +98,7 @@ export function LoginForm({ redirectTo, adminMode = false }: LoginFormProps) {
       setIdentifier(normalized);
       setCode('');
       setStep('otp');
-      setCooldown(30);
+      setCooldown(60);
     } catch {
       setBanner(t('errors.requestFailed'));
     } finally {
@@ -113,7 +121,7 @@ export function LoginForm({ redirectTo, adminMode = false }: LoginFormProps) {
         setCode('');
         return;
       }
-      router.push(redirectTo ?? '/');
+      router.push(redirectTo ?? '/account/bookings');
       router.refresh();
     } catch {
       setBanner(t('errors.generic'));
@@ -145,7 +153,8 @@ export function LoginForm({ redirectTo, adminMode = false }: LoginFormProps) {
       ) : (
         <>
           {step === 'email' ? (
-            <form className="flex flex-col gap-4" onSubmit={(event) => { event.preventDefault(); void sendCode(); }}>
+            <form noValidate className="flex flex-col gap-4" onSubmit={(event) => { event.preventDefault(); void sendCode(); }}>
+              <p className="text-label font-semibold text-text-primary">{t('otp.methodTitle')}</p>
               <label className="flex flex-col gap-2 text-label" htmlFor="login-email">
                 {t('otp.emailLabel')}
                 <Input
@@ -155,10 +164,12 @@ export function LoginForm({ redirectTo, adminMode = false }: LoginFormProps) {
                   inputMode="email"
                   required
                   value={identifier}
+                  aria-describedby="login-email-hint"
                   onChange={(event) => setIdentifier(event.target.value)}
-                  placeholder="you@example.com"
+                  placeholder={t('otp.emailPlaceholder')}
                 />
               </label>
+              <p id="login-email-hint" className="-mt-2 text-caption text-text-muted">{t('otp.emailHint')}</p>
               <Button type="submit" fullWidth isLoading={isSending}>
                 {isSending ? t('otp.sending') : t('otp.sendCode')}
               </Button>
@@ -206,7 +217,7 @@ export function LoginForm({ redirectTo, adminMode = false }: LoginFormProps) {
                 <span className="text-caption text-text-muted">{t('oneStep')}</span>
                 <span className="h-px flex-1 bg-border" />
               </div>
-              <GoogleSignInButton redirectTo={redirectTo} onError={setBanner} />
+              <GoogleSignInButton redirectTo={redirectTo ?? '/account/bookings'} onError={setBanner} />
             </>
           )}
         </>

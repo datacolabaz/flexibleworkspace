@@ -46,7 +46,7 @@
   "auth": {
     "login": {
       "title": "Войти в Spotva",
-      "subtitle": "Войдите в Spotva с помощью кода, отправленного на email.",
+      "subtitle": "Войдите в тот же аккаунт Spotva по коду из email или через Google — отдельная регистрация не нужна.",
       "noMethodsAvailable": "Вход сейчас недоступен. Попробуйте немного позже.",
       "continueWithFacebook": "Продолжить с Facebook",
       "errors": {
@@ -60,10 +60,11 @@
         "invalidCode": "Код неверный или истёк. Запросите новый.",
         "expiredCode": "Срок действия кода истёк. Запросите новый.",
         "rateLimited": "Слишком много попыток. Подождите и попробуйте снова.",
+        "invalidEmail": "Введите корректный адрес email.",
         "requestFailed": "Не удалось отправить код. Попробуйте ещё раз."
       },
       "secureBadge": "Безопасный вход",
-      "oneStep": "вход в один шаг",
+      "oneStep": "или войдите через Google",
       "privacyPrefix": "Продолжая, вы принимаете условия конфиденциальности.",
       "privacyLink": "Политика конфиденциальности",
       "panel": {
@@ -86,10 +87,13 @@
         }
       },
       "otp": {
-        "emailLabel": "Email",
-        "sendCode": "Отправить код",
+        "methodTitle": "Войти по коду из email",
+        "emailLabel": "Ваш адрес email",
+        "emailPlaceholder": "name@example.com",
+        "emailHint": "Укажите email, и мы отправим 6-значный код для входа.",
+        "sendCode": "Отправить 6-значный код",
         "sending": "Отправка…",
-        "codeLabel": "Код входа",
+        "codeLabel": "Введите код, отправленный на email",
         "verifyCode": "Подтвердить код",
         "verifying": "Проверка…",
         "sentTo": "Код отправлен на {email}.",

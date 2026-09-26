@@ -96,7 +96,7 @@ export function GoogleSignInButton({ redirectTo, onError }: OAuthSignInButtonPro
                   // — without this, the header/account pages can render
                   // stale pre-login (or even a previous visitor's
                   // cached) data instead of this session's own profile.
-                  router.push(redirectTo ?? '/');
+                  router.push(redirectTo ?? '/account/bookings');
                   router.refresh();
                   return;
                 }

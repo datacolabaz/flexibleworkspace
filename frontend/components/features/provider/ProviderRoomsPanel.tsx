@@ -10,8 +10,8 @@ import { IconButton } from '@/components/ui/IconButton';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 import { Spinner } from '@/components/ui/Spinner';
-import { LocationPickerMap, type LocationPickerMapHandle } from './LocationPickerMap';
-import { geocodeAddress } from '@/lib/maps/geocodeAddress';
+import { LocationPickerMap } from './LocationPickerMap';
+import { geocodeAddress, reverseGeocodeLocation } from '@/lib/maps/geocodeAddress';
 import type {
   AvailabilityRule,
   AvailabilityRuleInput,
@@ -33,14 +33,20 @@ interface BffErrorBody {
 // Same Baku-center default used server-side when a location is created
 // (lib/api-client/provider-rooms.ts's DEFAULT_LOCATION_LAT/LNG) — kept
 // as a plain literal here rather than imported, since that module is
-// `server-only` and can't be imported into a Client Component. There's
-// still no geocoding tool in this codebase to turn a typed address into
-// real coordinates, so this is only ever the map picker's STARTING
-// point — `LocationForm`'s `<LocationPickerMap>` is what actually lets
-// the provider drag/click the pin onto their real location before
-// saving (both on first setup and when editing later via `LocationCard`).
+// `server-only` and can't be imported into a Client Component. This is only
+// the map picker's STARTING point: a typed address is geocoded, then the
+// provider confirms or fine-tunes it by dragging/clicking the pin.
 const DEFAULT_LAT = 40.3777;
 const DEFAULT_LNG = 49.892;
+
+type GeocodingStatus =
+  | { state: 'idle' }
+  | { state: 'searching' }
+  | { state: 'reverse-searching' }
+  | { state: 'matched'; placeName: string }
+  | { state: 'not-found' }
+  | { state: 'failed' }
+  | { state: 'manual'; placeName?: string };
 
 const ROOM_TYPE_LABEL_AZ: Record<string, string> = {
   'room_type.meeting_room': 'İclas otağı',
@@ -167,7 +173,7 @@ function formatMegabytes(bytes: number): string {
  * the backend API existed) — this closes that gap: create a business
  * address on first use (a room needs a `locationId`, and registering as
  * a provider doesn't create one), then add rooms with photos, then
- * activate them once the provider account is verified.
+ * activate them once the listing has at least one photo.
  *
  * Provider Listing Media Specification — `mediaCapabilities` (this
  * provider's plan-tier photo/video limits, fetched once server-side)
@@ -263,8 +269,11 @@ function LocationForm({
   const [lng, setLng] = useState(initial?.lng ?? DEFAULT_LNG);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | undefined>();
-  const [geocoding, setGeocoding] = useState(false);
-  const mapHandleRef = useRef<LocationPickerMapHandle>(null);
+  const [geocodingStatus, setGeocodingStatus] = useState<GeocodingStatus>({ state: 'idle' });
+  const [positionConfirmed, setPositionConfirmed] = useState(Boolean(initial));
+  const geocodeRequestIdRef = useRef(0);
+  const reverseGeocodeRequestIdRef = useRef(0);
+  const suppressForwardForRef = useRef<string | null>(null);
   const mapboxToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
 
   // Provider feedback: typing/selecting the name/city/address fields had no
@@ -274,30 +283,42 @@ function LocationForm({
   // on every keystroke; only once typing has paused for a moment.
   useEffect(() => {
     if (!mapboxToken) return undefined;
-    const query = [addressLine.trim(), city.trim()].filter(Boolean).join(', ');
+    const inputSignature = `${addressLine.trim()}\n${city.trim()}`;
+    if (suppressForwardForRef.current === inputSignature) {
+      suppressForwardForRef.current = null;
+      return undefined;
+    }
+    const query = [addressLine.trim(), city.trim(), 'Azərbaycan'].filter(Boolean).join(', ');
     // Require a real street/address, not just a city, so we don't jump the
     // pin to the middle of Bakı the instant the form opens with its
     // default city value already filled in.
-    if (addressLine.trim().length < 4) return undefined;
+    if (addressLine.trim().length < 4) {
+      setGeocodingStatus({ state: 'idle' });
+      return undefined;
+    }
 
     const controller = new AbortController();
+    const requestId = ++geocodeRequestIdRef.current;
     const timer = setTimeout(() => {
-      setGeocoding(true);
+      setGeocodingStatus({ state: 'searching' });
       geocodeAddress(query, mapboxToken, controller.signal)
         .then((result) => {
-          if (!result || controller.signal.aborted) return;
+          if (controller.signal.aborted || geocodeRequestIdRef.current !== requestId) return;
+          if (!result) {
+            setGeocodingStatus({ state: 'not-found' });
+            return;
+          }
           setLat(result.lat);
           setLng(result.lng);
-          mapHandleRef.current?.recenter(result.lat, result.lng);
+          setPositionConfirmed(true);
+          setGeocodingStatus({ state: 'matched', placeName: result.placeName });
         })
         .catch((err) => {
-          if (controller.signal.aborted) return;
+          if (controller.signal.aborted || geocodeRequestIdRef.current !== requestId) return;
           console.error('Address geocoding failed:', err);
-        })
-        .finally(() => {
-          if (!controller.signal.aborted) setGeocoding(false);
+          setGeocodingStatus({ state: 'failed' });
         });
-    }, 700);
+    }, 800);
 
     return () => {
       clearTimeout(timer);
@@ -305,8 +326,47 @@ function LocationForm({
     };
   }, [addressLine, city, mapboxToken]);
 
+  function handleMapPositionChange(newLat: number, newLng: number) {
+    geocodeRequestIdRef.current += 1;
+    const reverseRequestId = ++reverseGeocodeRequestIdRef.current;
+    setLat(newLat);
+    setLng(newLng);
+    setPositionConfirmed(true);
+    setError(undefined);
+
+    if (!mapboxToken) {
+      setGeocodingStatus({ state: 'manual' });
+      return;
+    }
+
+    setGeocodingStatus({ state: 'reverse-searching' });
+    reverseGeocodeLocation(newLat, newLng, mapboxToken)
+      .then((result) => {
+        if (reverseGeocodeRequestIdRef.current !== reverseRequestId) return;
+        if (!result) {
+          setGeocodingStatus({ state: 'manual' });
+          return;
+        }
+
+        const nextCity = result.city ?? city;
+        suppressForwardForRef.current = `${result.addressLine.trim()}\n${nextCity.trim()}`;
+        setAddressLine(result.addressLine);
+        if (result.city) setCity(result.city);
+        setGeocodingStatus({ state: 'manual', placeName: result.placeName });
+      })
+      .catch((err) => {
+        if (reverseGeocodeRequestIdRef.current !== reverseRequestId) return;
+        console.error('Reverse geocoding failed:', err);
+        setGeocodingStatus({ state: 'manual' });
+      });
+  }
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!positionConfirmed) {
+      setError('Ünvan üçün xəritə nöqtəsi təsdiqlənməyib. Ünvan nəticəsini gözləyin və ya nöqtəni xəritədə əl ilə seçin.');
+      return;
+    }
     setSaving(true);
     setError(undefined);
     try {
@@ -336,26 +396,36 @@ function LocationForm({
         <Input id="location-name" required value={name} disabled={saving} onChange={(event) => setName(event.target.value)} placeholder="Məs. Əsas ofis" />
       </FormField>
       <FormField id="location-city" label="Şəhər">
-        <Input id="location-city" required value={city} disabled={saving} onChange={(event) => setCity(event.target.value)} />
+        <Input id="location-city" required value={city} disabled={saving} onChange={(event) => {
+          reverseGeocodeRequestIdRef.current += 1;
+          setCity(event.target.value);
+          setPositionConfirmed(false);
+          setGeocodingStatus({ state: 'idle' });
+        }} />
       </FormField>
       <FormField id="location-address" label="Ünvan">
-        <Input id="location-address" required value={addressLine} disabled={saving} onChange={(event) => setAddressLine(event.target.value)} placeholder="Küçə, bina" />
+        <Input id="location-address" required value={addressLine} disabled={saving} onChange={(event) => {
+          reverseGeocodeRequestIdRef.current += 1;
+          setAddressLine(event.target.value);
+          setPositionConfirmed(false);
+          setGeocodingStatus({ state: 'idle' });
+        }} placeholder="Məs. Mətbuat prospekti 25" />
       </FormField>
       <FormField id="location-map" label="Məkanı xəritədə seçin">
         <LocationPickerMap
-          ref={mapHandleRef}
           lat={lat}
           lng={lng}
-          onChange={(newLat, newLng) => {
-            setLat(newLat);
-            setLng(newLng);
-          }}
+          onChange={handleMapPositionChange}
           className="h-64 w-full"
         />
-        <p className="mt-1.5 text-caption text-text-muted">
-          {geocoding
-            ? 'Xəritə ünvana əsasən yenilənir…'
-            : 'Yazdığınız ünvana görə nişan avtomatik yerləşir — dəqiqləşdirmək üçün onu sürükləyə və ya xəritəyə klikləyə bilərsiniz.'}
+        <p className="mt-1.5 text-caption text-text-muted" aria-live="polite">
+          {geocodingStatus.state === 'searching' && 'Ünvan xəritədə axtarılır…'}
+          {geocodingStatus.state === 'reverse-searching' && 'Seçilmiş xəritə nöqtəsinin ünvanı müəyyən edilir…'}
+          {geocodingStatus.state === 'matched' && `Tapıldı: ${geocodingStatus.placeName}. Nişanı yoxlayın; lazım olsa sürükləyin və ya xəritəyə klikləyin.`}
+          {geocodingStatus.state === 'not-found' && 'Bu ünvana uyğun xəritə nəticəsi tapılmadı. Zəhmət olmasa ünvanı dəqiqləşdirin və ya xəritədə nöqtəni əl ilə seçin.'}
+          {geocodingStatus.state === 'failed' && 'Ünvan axtarışı hazırda alınmadı. Xəritədə dəqiq nöqtəni əl ilə seçə bilərsiniz.'}
+          {geocodingStatus.state === 'manual' && (geocodingStatus.placeName ? `Xəritə nöqtəsi seçildi: ${geocodingStatus.placeName}` : 'Xəritə nöqtəsi əl ilə seçildi.')}
+          {geocodingStatus.state === 'idle' && 'Küçə və bina nömrəsini yazın — nəticə tapıldıqda nişan avtomatik həmin nöqtəyə keçəcək.'}
         </p>
       </FormField>
       <div className="flex gap-3">
@@ -825,7 +895,7 @@ function RoomRow({
         const body = (await response.json().catch(() => undefined)) as BffErrorBody | undefined;
         setStatusError(
           body?.error?.code === 'PROVIDER_NOT_VERIFIED'
-            ? "Otağı aktivləşdirmək üçün əvvəlcə hesabınız təsdiqlənməlidir (yuxarıdakı 'Doğrulama sənədləri' bölümünə baxın)."
+            ? 'Provider hesabınız məhdudlaşdırılıb. Dəstək komandası ilə əlaqə saxlayın.'
             : body?.error?.code === 'ROOM_NO_PHOTOS'
               ? 'Otağı aktivləşdirmək üçün əvvəlcə ən azı bir şəkil əlavə edin (aşağıdakı şəkil bölümü).'
               : (body?.error?.message ?? 'Status dəyişdirilmədi. Yenidən cəhd edin.'),

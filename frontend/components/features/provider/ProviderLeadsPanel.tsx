@@ -38,8 +38,8 @@ function formatDate(iso: string) {
  * Sprint 3, Lead Tracking — provider-only leads inbox in `/provider`.
  * Deliberately provider-scoped, not admin-panel: the user's own choice
  * (AskUserQuestion) was "Provider (öz panelində)" only, not
- * "Admin (admin panelində)". Mirrors `ProviderVerificationPanel`'s
- * styling and `admin/page.tsx`'s `ProvidersSection` status-badge/action-
+ * "Admin (admin panelində)". Mirrors the provider-card styling and
+ * `admin/page.tsx`'s `ProvidersSection` status-badge/action-
  * button conventions (busy-per-row disabled state, PATCH-then-refresh).
  */
 export function ProviderLeadsPanel({ initialLeads }: { initialLeads: Lead[] }) {

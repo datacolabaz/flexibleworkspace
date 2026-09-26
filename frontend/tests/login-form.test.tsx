@@ -40,9 +40,9 @@ function renderLoginForm(redirectTo?: string, adminMode = false) {
 }
 
 async function requestOtp(identifier = 'dana@example.com') {
-  fireEvent.change(screen.getByLabelText('Email'), { target: { value: identifier } });
-  fireEvent.click(screen.getByRole('button', { name: 'Send code' }));
-  await screen.findByLabelText('Sign-in code');
+  fireEvent.change(screen.getByLabelText('Your email address'), { target: { value: identifier } });
+  fireEvent.click(screen.getByRole('button', { name: 'Send 6-digit code' }));
+  await screen.findByLabelText('Enter the code sent to your email');
 }
 
 describe('LoginForm', () => {
@@ -61,15 +61,22 @@ describe('LoginForm', () => {
     vi.stubEnv('NEXT_PUBLIC_GOOGLE_CLIENT_ID', 'test-google-client-id');
     renderLoginForm();
 
-    expect(screen.getByRole('button', { name: 'Send code' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Send 6-digit code' })).toBeInTheDocument();
+    expect(screen.getByText('Sign in with an email code')).toBeInTheDocument();
+    expect(screen.getByText(/we'll send you a 6-digit sign-in code/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Mock Google button' })).toBeInTheDocument();
+    expect(screen.getByText('or sign in with Google')).toBeInTheDocument();
+    expect(screen.getByText(/no separate registration is needed/i)).toBeInTheDocument();
     expect(screen.queryByText(/isn't available right now/i)).not.toBeInTheDocument();
   });
 
   it('still shows OTP login when Google is not configured', () => {
     renderLoginForm();
 
-    expect(screen.getByRole('button', { name: 'Send code' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Send 6-digit code' })).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('name@example.com')).toHaveAccessibleDescription(
+      "Enter your email address and we'll send you a 6-digit sign-in code.",
+    );
     expect(screen.queryByText(/isn't available right now/i)).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Mock Google button' })).not.toBeInTheDocument();
   });
@@ -77,7 +84,7 @@ describe('LoginForm', () => {
   it('does not render OTP UI in admin mode', () => {
     renderLoginForm('/admin', true);
     expect(screen.getByText('Admin password form')).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Send code' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Send 6-digit code' })).not.toBeInTheDocument();
   });
 
   it('shows the error the Google button reports as a banner', () => {
@@ -110,11 +117,21 @@ describe('LoginForm', () => {
       }),
     );
     renderLoginForm();
-    fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'dana@example.com' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Send code' }));
+    fireEvent.change(screen.getByLabelText('Your email address'), { target: { value: 'dana@example.com' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Send 6-digit code' }));
 
     expect(await screen.findByRole('alert')).toHaveTextContent(/too many attempts/i);
-    expect(screen.queryByLabelText('Sign-in code')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Enter the code sent to your email')).not.toBeInTheDocument();
+  });
+
+  it('explains an invalid email without sending an OTP request', () => {
+    const fetchMock = fetch as unknown as ReturnType<typeof vi.fn>;
+    renderLoginForm();
+    fireEvent.change(screen.getByLabelText('Your email address'), { target: { value: 'wrong-address' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Send 6-digit code' }));
+
+    expect(screen.getByRole('alert')).toHaveTextContent('Enter a valid email address.');
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it('verifies a 6-digit code and refreshes the session without storing tokens', async () => {
@@ -124,7 +141,7 @@ describe('LoginForm', () => {
       .mockResolvedValueOnce(new Response(JSON.stringify({ success: true }), { status: 200 }));
     renderLoginForm('/account/bookings');
     await requestOtp();
-    fireEvent.change(screen.getByLabelText('Sign-in code'), { target: { value: '135790' } });
+    fireEvent.change(screen.getByLabelText('Enter the code sent to your email'), { target: { value: '135790' } });
     fireEvent.click(screen.getByRole('button', { name: 'Confirm code' }));
 
     await waitFor(() => expect(mockPush).toHaveBeenCalledWith('/account/bookings'));
@@ -148,7 +165,7 @@ describe('LoginForm', () => {
       );
     renderLoginForm();
     await requestOtp();
-    fireEvent.change(screen.getByLabelText('Sign-in code'), { target: { value: '000000' } });
+    fireEvent.change(screen.getByLabelText('Enter the code sent to your email'), { target: { value: '000000' } });
     fireEvent.click(screen.getByRole('button', { name: 'Confirm code' }));
 
     expect(await screen.findByRole('alert')).toHaveTextContent(/invalid or has expired/i);
@@ -162,8 +179,8 @@ describe('LoginForm', () => {
     renderLoginForm();
     await requestOtp();
     fireEvent.click(screen.getByRole('button', { name: 'Change email' }));
-    expect(screen.getByRole('button', { name: 'Send code' })).toBeInTheDocument();
-    expect(screen.queryByLabelText('Sign-in code')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Send 6-digit code' })).toBeInTheDocument();
+    expect(screen.queryByLabelText('Enter the code sent to your email')).not.toBeInTheDocument();
   });
 
   it('disables resend during the client cooldown window', async () => {
@@ -171,7 +188,7 @@ describe('LoginForm', () => {
     fetchMock.mockResolvedValueOnce(new Response(null, { status: 204 }));
     renderLoginForm();
     await requestOtp();
-    expect(screen.getByRole('button', { name: /resend in 30s/i })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /resend in 60s/i })).toBeDisabled();
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 });

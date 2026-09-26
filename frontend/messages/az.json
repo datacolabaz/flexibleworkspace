@@ -46,7 +46,7 @@
   "auth": {
     "login": {
       "title": "Spotva-ya daxil olun",
-      "subtitle": "E-poçt ünvanınıza göndərilən kodla Spotva-ya daxil olun.",
+      "subtitle": "E-poçt kodu və ya Google hesabınızla eyni Spotva hesabına daxil olun — ayrıca qeydiyyat lazım deyil.",
       "noMethodsAvailable": "Giriş hazırda mümkün deyil. Bir az sonra yenidən cəhd edin.",
       "continueWithFacebook": "Facebook ilə davam et",
       "errors": {
@@ -60,10 +60,11 @@
         "invalidCode": "Kod yanlışdır və ya vaxtı bitib. Yeni kod göndərin.",
         "expiredCode": "Kodun vaxtı bitib. Yeni kod göndərin.",
         "rateLimited": "Çox cəhd etdiniz. Bir az sonra yenidən cəhd edin.",
+        "invalidEmail": "Düzgün e-poçt ünvanı daxil edin.",
         "requestFailed": "Kod göndərilmədi. Zəhmət olmasa yenidən cəhd edin."
       },
       "secureBadge": "Təhlükəsiz giriş",
-      "oneStep": "bir addımlıq giriş",
+      "oneStep": "və ya Google hesabı ilə daxil olun",
       "privacyPrefix": "Davam etməklə məxfilik şərtlərimizi qəbul edirsiniz.",
       "privacyLink": "Məxfilik siyasəti",
       "panel": {
@@ -86,10 +87,13 @@
         }
       },
       "otp": {
-        "emailLabel": "E-poçt",
-        "sendCode": "Kod göndər",
+        "methodTitle": "E-poçt kodu ilə daxil olun",
+        "emailLabel": "E-poçt ünvanınız",
+        "emailPlaceholder": "adiniz@numune.az",
+        "emailHint": "6 rəqəmli giriş kodunu göndərmək üçün e-poçt ünvanınızı yazın.",
+        "sendCode": "6 rəqəmli kod göndər",
         "sending": "Göndərilir…",
-        "codeLabel": "Giriş kodu",
+        "codeLabel": "E-poçtunuza göndərilən kodu daxil edin",
         "verifyCode": "Kodu təsdiqlə",
         "verifying": "Yoxlanılır…",
         "sentTo": "Kod {email} ünvanına göndərildi.",

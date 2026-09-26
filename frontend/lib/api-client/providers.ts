@@ -8,8 +8,7 @@ export type Provider = ApiPaths['/providers']['post']['responses']['201']['conte
 /**
  * `POST /providers` (`ProvidersController.create`, 09_DOMAIN_MODEL.md
  * §9.2) — self-service provider registration: any signed-in user can
- * register, starting `verificationStatus: PENDING` (an admin verifies
- * later, `admin/providers.e2e-spec.ts` covers that side). Called only
+ * register, starting active without a document-verification step. Called only
  * from `app/api/providers/route.ts` — `ListYourSpaceForm` is a Client
  * Component and can't read the session cookie itself, same reasoning as
  * every other BFF-backed form in this app.
@@ -38,8 +37,7 @@ function backendUrl(path: string) {
 }
 
 /**
- * `POST providers/:id/logo` — multipart passthrough, same shape as
- * `provider-dashboard.ts`'s `uploadMyVerificationDocument`. Not part of
+ * `POST providers/:id/logo` — multipart passthrough. Not part of
  * the typed OpenAPI client above (new endpoint, not yet in
  * `29_API_OPENAPI.yaml`) — a raw fetch instead, matching every other
  * not-yet-contracted provider endpoint in this codebase.

@@ -1123,7 +1123,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Register as a provider (self-service — starts PENDING, 09_DOMAIN_MODEL.md §9.2) */
+        /** Register as a provider (self-service — no document verification required) */
         post: {
             parameters: {
                 query?: never;

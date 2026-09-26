@@ -3,8 +3,8 @@ import type { ProviderAnalytics } from '@/lib/api-client/provider-analytics';
 
 /**
  * Provider Analytics (Feature Gap Analysis, Medium priority) — three
- * read-only stat tiles in `/provider`, alongside `ProviderVerificationPanel`/
- * `ProviderRoomsPanel`/`ProviderLeadsPanel`. Plain server-rendered
+ * read-only stat tiles in `/provider`, alongside `ProviderRoomsPanel` and
+ * `ProviderLeadsPanel`. Plain server-rendered
  * component (no 'use client', no hooks) since it only displays numbers
  * the page already fetched — nothing here is interactive.
  *

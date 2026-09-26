@@ -1,32 +1,12 @@
 import 'server-only';
 
 /**
- * Raw-fetch client for the provider-side verification dashboard
- * (`/provider`), same pattern as `admin.ts` rather than the typed
- * openapi-fetch client in `client.ts`: `providers/me/verification-documents`
- * (POST, multipart) isn't in the
- * approved OpenAPI contract (docs/phase2/29_API_OPENAPI.yaml) yet — adding
- * them there and regenerating `schema.d.ts` is a separate follow-up, not
- * bundled into this minimal first version of the page.
+ * Raw-fetch client for the provider self-service dashboard (`/provider`).
  */
 
 export type MyProviderVerificationStatus = 'PENDING' | 'VERIFIED' | 'REJECTED' | 'SUSPENDED';
 
 export type MyProviderPlanTier = 'FREE' | 'STARTER' | 'PRO' | 'ENTERPRISE';
-
-export type MyProviderVerificationDocumentType =
-  | 'ID_DOCUMENT'
-  | 'BUSINESS_REGISTRATION'
-  | 'ADDRESS_PROOF'
-  | 'OTHER';
-
-export type MyProviderVerificationDocument = {
-  type: MyProviderVerificationDocumentType;
-  storageKey: string;
-  originalFilename: string;
-  mimeType: string;
-  uploadedAt: string;
-};
 
 export type MyProvider = {
   id: string;
@@ -35,7 +15,6 @@ export type MyProvider = {
   slug: string;
   category: string | null;
   verificationStatus: MyProviderVerificationStatus;
-  verificationDocuments: MyProviderVerificationDocument[];
   planTier: MyProviderPlanTier;
   createdAt: string;
 };
@@ -77,22 +56,6 @@ async function jsonOrThrow<T>(response: Response): Promise<T> {
 export async function getMyProvider(accessToken: string): Promise<MyProvider> {
   const response = await fetch(backendUrl('providers/me'), {
     headers: { Accept: 'application/json', Authorization: `Bearer ${accessToken}` },
-    cache: 'no-store',
-  });
-  return jsonOrThrow<MyProvider>(response);
-}
-
-/**
- * `POST providers/me/verification-documents` — multipart passthrough. The
- * caller (the BFF route handler) already has a `FormData` parsed from the
- * incoming request; this forwards it as-is rather than re-encoding it, so
- * the file bytes are never buffered into a JS string in between.
- */
-export async function uploadMyVerificationDocument(accessToken: string, formData: FormData): Promise<MyProvider> {
-  const response = await fetch(backendUrl('providers/me/verification-documents'), {
-    method: 'POST',
-    headers: { Accept: 'application/json', Authorization: `Bearer ${accessToken}` },
-    body: formData,
     cache: 'no-store',
   });
   return jsonOrThrow<MyProvider>(response);

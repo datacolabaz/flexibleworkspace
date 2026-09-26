@@ -659,7 +659,7 @@ paths:
   /providers:
     post:
       tags: [Provider]
-      summary: Register as a provider (self-service — starts PENDING, 09_DOMAIN_MODEL.md §9.2)
+      summary: Register as a provider (self-service — no document verification required)
       requestBody:
         required: true
         content:

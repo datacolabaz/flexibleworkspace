@@ -3,8 +3,7 @@ import { setProviderLogo, ProviderLogoApiError } from '@/lib/api-client/provider
 import { readSession } from '@/lib/auth/session';
 
 /**
- * Multipart passthrough for `POST providers/:id/logo`, same shape as
- * `app/api/provider/me/verification-documents/route.ts`. Called as a
+ * Multipart passthrough for `POST providers/:id/logo`. Called as a
  * same-session follow-up right after `POST /api/providers` succeeds —
  * see `setProviderLogo`'s comment for why this takes the provider id in
  * the URL rather than resolving "my provider" from the session.

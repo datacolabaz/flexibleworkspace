@@ -46,7 +46,7 @@
   "auth": {
     "login": {
       "title": "Log in to Spotva",
-      "subtitle": "Sign in to Spotva with the code sent to your email.",
+      "subtitle": "Sign in to the same Spotva account with an email code or Google — no separate registration is needed.",
       "noMethodsAvailable": "Sign-in isn't available right now. Please try again shortly.",
       "continueWithFacebook": "Continue with Facebook",
       "errors": {
@@ -60,10 +60,11 @@
         "invalidCode": "That code is invalid or has expired. Request a new one.",
         "expiredCode": "That code has expired. Request a new one.",
         "rateLimited": "Too many attempts. Please wait and try again.",
+        "invalidEmail": "Enter a valid email address.",
         "requestFailed": "We could not send a code. Please try again."
       },
       "secureBadge": "Secure sign-in",
-      "oneStep": "one-step access",
+      "oneStep": "or sign in with Google",
       "privacyPrefix": "By continuing, you agree to our privacy terms.",
       "privacyLink": "Privacy policy",
       "panel": {
@@ -86,10 +87,13 @@
         }
       },
       "otp": {
-        "emailLabel": "Email",
-        "sendCode": "Send code",
+        "methodTitle": "Sign in with an email code",
+        "emailLabel": "Your email address",
+        "emailPlaceholder": "name@example.com",
+        "emailHint": "Enter your email address and we'll send you a 6-digit sign-in code.",
+        "sendCode": "Send 6-digit code",
         "sending": "Sending…",
-        "codeLabel": "Sign-in code",
+        "codeLabel": "Enter the code sent to your email",
         "verifyCode": "Confirm code",
         "verifying": "Checking…",
         "sentTo": "A code was sent to {email}.",
