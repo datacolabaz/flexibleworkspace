@@ -44,15 +44,17 @@ interface Props {
 
 const MAX_RECORDING_SECONDS = 8;
 
-/** Returns 'audio/webm' if supported, otherwise 'audio/mp4' (iOS Safari). */
+/**
+ * Returns the best supported MIME type for MediaRecorder.
+ * Checks audio/mp4 FIRST because iOS Safari only supports mp4 (AAC) and
+ * does NOT support audio/webm. Returns '' if nothing is supported.
+ */
 function getSupportedMimeType(): string {
-  if (
-    typeof MediaRecorder !== 'undefined' &&
-    MediaRecorder.isTypeSupported('audio/webm')
-  ) {
-    return 'audio/webm';
-  }
-  return 'audio/mp4';
+  if (typeof MediaRecorder === 'undefined') return '';
+  // iOS Safari only supports audio/mp4 — check it first
+  if (MediaRecorder.isTypeSupported('audio/mp4')) return 'audio/mp4';
+  if (MediaRecorder.isTypeSupported('audio/webm')) return 'audio/webm';
+  return '';
 }
 
 export function VoiceSearchButton({
@@ -72,6 +74,8 @@ export function VoiceSearchButton({
   const chunksRef = useRef<Blob[]>([]);
   const countdownTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const autoStopTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** Timestamp (ms) when recording actually started — used for minimum duration guard. */
+  const recordingStartRef = useRef<number>(0);
 
   useEffect(() => {
     if (
@@ -110,7 +114,20 @@ export function VoiceSearchButton({
 
   const handleRecordingDone = useCallback(
     async (chunks: Blob[], mimeType: string) => {
+      console.log('[VoiceSearch] handleRecordingDone — chunks:', chunks.length, 'mimeType:', mimeType);
+
       if (chunks.length === 0) {
+        console.warn('[VoiceSearch] No audio chunks captured — recording likely failed (iOS MIME issue or permission)');
+        setErrorKey('voiceNoSpeech');
+        setVoiceState('error');
+        setTimeout(() => setVoiceState('idle'), 3000);
+        return;
+      }
+
+      const totalBytes = chunks.reduce((sum, c) => sum + c.size, 0);
+      console.log('[VoiceSearch] Total audio size:', totalBytes, 'bytes');
+      if (totalBytes < 100) {
+        console.warn('[VoiceSearch] Audio blob too small (<100 bytes), likely silent/empty');
         setErrorKey('voiceNoSpeech');
         setVoiceState('error');
         setTimeout(() => setVoiceState('idle'), 3000);
@@ -121,20 +138,43 @@ export function VoiceSearchButton({
 
       try {
         // Step 1: Transcribe via Whisper
+        const ext = mimeType.includes('mp4') ? 'mp4' : 'webm';
+        const filename = `voice.${ext}`;
         const audioBlob = new Blob(chunks, { type: mimeType });
+        console.log('[VoiceSearch] Sending to /api/search/voice-transcribe:', filename, audioBlob.size, 'bytes');
         const formData = new FormData();
-        formData.append('audio', audioBlob, `voice.${mimeType.includes('mp4') ? 'mp4' : 'webm'}`);
+        formData.append('audio', audioBlob, filename);
 
         const transcribeRes = await fetch('/api/search/voice-transcribe', {
           method: 'POST',
           body: formData,
         });
 
-        if (!transcribeRes.ok) throw new Error('transcribe_failed');
+        if (!transcribeRes.ok) {
+          console.error('[VoiceSearch] Transcribe request failed:', transcribeRes.status);
+          throw new Error('transcribe_failed');
+        }
         const { transcript, error: transcribeError } =
           (await transcribeRes.json()) as { transcript: string; error?: string };
 
-        if (transcribeError || !transcript) {
+        console.log('[VoiceSearch] Transcript result:', JSON.stringify(transcript), 'error:', transcribeError);
+
+        if (transcribeError === 'no_audio_file') {
+          setErrorKey('voiceNoSpeech');
+          setVoiceState('error');
+          setTimeout(() => setVoiceState('idle'), 3000);
+          return;
+        }
+
+        if (transcribeError && transcribeError !== 'empty_transcript') {
+          setErrorKey('voiceNetworkError');
+          setVoiceState('error');
+          setTimeout(() => setVoiceState('idle'), 3000);
+          return;
+        }
+
+        if (!transcript) {
+          // Whisper returned empty — audio was likely silent
           setErrorKey('voiceNoSpeech');
           setVoiceState('error');
           setTimeout(() => setVoiceState('idle'), 3000);
@@ -177,7 +217,8 @@ export function VoiceSearchButton({
         onApply(next);
         setVoiceState('done');
         setTimeout(() => setVoiceState('idle'), 1500);
-      } catch {
+      } catch (err) {
+        console.error('[VoiceSearch] Pipeline error:', err);
         setErrorKey('voiceNetworkError');
         setVoiceState('error');
         setTimeout(() => setVoiceState('idle'), 3000);
@@ -187,6 +228,13 @@ export function VoiceSearchButton({
   );
 
   function stopRecording() {
+    // Enforce minimum 500ms recording time so the blob has actual audio data.
+    const elapsed = Date.now() - recordingStartRef.current;
+    if (elapsed < 500) {
+      console.log('[VoiceSearch] Deferring stop — only', elapsed, 'ms recorded so far');
+      setTimeout(() => stopRecording(), 500 - elapsed);
+      return;
+    }
     stopTimers();
     if (
       recorderRef.current &&
@@ -198,10 +246,22 @@ export function VoiceSearchButton({
   }
 
   async function startRecording() {
+    const mimeType = getSupportedMimeType();
+    console.log('[VoiceSearch] Detected MIME type:', mimeType || '(none — unsupported browser)');
+
+    if (!mimeType) {
+      // Browser doesn't support MediaRecorder with any known audio format
+      setErrorKey('voiceError');
+      setVoiceState('error');
+      setTimeout(() => setVoiceState('idle'), 4000);
+      return;
+    }
+
     let stream: MediaStream;
     try {
       stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    } catch {
+    } catch (err) {
+      console.error('[VoiceSearch] getUserMedia failed:', err);
       setErrorKey('voicePermissionError');
       setVoiceState('error');
       setTimeout(() => setVoiceState('idle'), 4000);
@@ -211,28 +271,42 @@ export function VoiceSearchButton({
     streamRef.current = stream;
     chunksRef.current = [];
 
-    const mimeType = getSupportedMimeType();
     let recorder: MediaRecorder;
     try {
       recorder = new MediaRecorder(stream, { mimeType });
-    } catch {
-      // fallback without mimeType constraint
-      recorder = new MediaRecorder(stream);
+      console.log('[VoiceSearch] MediaRecorder created with mimeType:', mimeType);
+    } catch (err) {
+      console.warn('[VoiceSearch] MediaRecorder with mimeType failed, falling back:', err);
+      try {
+        recorder = new MediaRecorder(stream);
+      } catch (err2) {
+        console.error('[VoiceSearch] MediaRecorder creation failed entirely:', err2);
+        stopStream();
+        setErrorKey('voiceError');
+        setVoiceState('error');
+        setTimeout(() => setVoiceState('idle'), 3000);
+        return;
+      }
     }
     recorderRef.current = recorder;
 
     recorder.ondataavailable = (e: BlobEvent) => {
-      if (e.data && e.data.size > 0) chunksRef.current.push(e.data);
+      if (e.data && e.data.size > 0) {
+        chunksRef.current.push(e.data);
+        console.log('[VoiceSearch] ondataavailable chunk:', e.data.size, 'bytes, total chunks:', chunksRef.current.length);
+      }
     };
 
     recorder.onstop = () => {
       const effectiveMime =
         recorder.mimeType || mimeType || 'audio/webm';
+      console.log('[VoiceSearch] recorder.onstop — effectiveMime:', effectiveMime, 'chunks:', chunksRef.current.length);
       void handleRecordingDone(chunksRef.current, effectiveMime);
       stopStream();
     };
 
-    recorder.onerror = () => {
+    recorder.onerror = (ev) => {
+      console.error('[VoiceSearch] recorder.onerror:', ev);
       stopTimers();
       stopStream();
       setErrorKey('voiceError');
@@ -240,9 +314,11 @@ export function VoiceSearchButton({
       setTimeout(() => setVoiceState('idle'), 3000);
     };
 
-    recorder.start(250); // collect data every 250ms
+    recorder.start(100); // collect data every 100ms for better chunk reliability
+    recordingStartRef.current = Date.now();
     setCountdown(MAX_RECORDING_SECONDS);
     setVoiceState('recording');
+    console.log('[VoiceSearch] Recording started');
 
     // Countdown timer
     countdownTimerRef.current = setInterval(() => {
