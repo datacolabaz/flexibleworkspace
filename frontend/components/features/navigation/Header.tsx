@@ -126,7 +126,7 @@ export async function Header() {
             <ThemeToggle />
             <Link
               href={loginHref}
-              className="hidden min-h-11 max-w-[10rem] items-center gap-2 rounded-md bg-accent px-3 text-label font-semibold text-accent-on hover:bg-accent-hover sm:inline-flex lg:px-4"
+              className="hidden min-h-11 max-w-[10rem] min-w-0 items-center gap-2 overflow-hidden rounded-md bg-accent px-3 text-label font-semibold text-accent-on hover:bg-accent-hover sm:inline-flex lg:px-4"
             >
               {isAuthenticated && initials && (
                 <span
@@ -136,7 +136,7 @@ export async function Header() {
                   {initials}
                 </span>
               )}
-              <span className="truncate">{loginLabel}</span>
+              <span className="min-w-0 truncate">{loginLabel}</span>
             </Link>
             <MobileMenu
               navItems={navItems}
