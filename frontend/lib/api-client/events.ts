@@ -1,6 +1,7 @@
 import 'server-only';
 
-const BACKEND = process.env.BACKEND_URL ?? 'http://localhost:3001';
+// Same env var as every other api-client in this project.
+const BACKEND = process.env.BACKEND_API_URL ?? 'http://localhost:3001/api/v1';
 
 function authHeaders(accessToken?: string) {
   return {

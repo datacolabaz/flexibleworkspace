@@ -593,12 +593,12 @@ export function EventCreateWizard() {
           <h2 className="font-display text-h2 text-text-primary">{t('step4Title')}</h2>
 
           {state.coverImage && (
-            <div className="overflow-hidden rounded-md border border-border">
+            <div className="relative w-full aspect-video overflow-hidden rounded-md border border-border">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={state.coverImage}
                 alt={state.title}
-                className="h-48 w-full object-cover"
+                className="absolute inset-0 h-full w-full object-cover"
               />
             </div>
           )}

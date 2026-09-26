@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { readSession } from '@/lib/auth/session';
 import { apiErrorResponse } from '@/lib/auth/route-helpers';
 
-const BACKEND = process.env.BACKEND_URL ?? 'http://localhost:3001';
+// Same env var as every other api-client / BFF route in this project.
+const BACKEND = process.env.BACKEND_API_URL ?? 'http://localhost:3001/api/v1';
 
 /**
  * POST /api/events/[id]/cover
@@ -48,12 +49,36 @@ export async function POST(
       body: formData,
     });
 
-    const data = await res.json() as unknown;
+    // Safely parse JSON — a mis-configured BACKEND URL can return an HTML
+    // error page, which would cause res.json() to throw and swallow the real
+    // error.  Log the raw text so developers can diagnose it immediately.
+    let data: unknown;
+    try {
+      data = await res.json();
+    } catch (parseErr) {
+      const raw = await res.text().catch(() => '(could not read body)');
+      console.error(
+        `[/api/events/${id}/cover] backend returned non-JSON (status ${res.status}):`,
+        raw.slice(0, 500),
+        parseErr,
+      );
+      return NextResponse.json(
+        {
+          error: {
+            code: 'UPSTREAM_ERROR',
+            message: `Backend upload service returned an unexpected response (HTTP ${res.status}). Check BACKEND_API_URL configuration.`,
+          },
+        },
+        { status: 502 },
+      );
+    }
+
     return NextResponse.json(data, {
       status: res.status,
       headers: { 'Cache-Control': 'no-store' },
     });
   } catch (err) {
+    console.error(`[/api/events/${id}/cover] fetch to backend failed:`, err);
     return apiErrorResponse(err);
   }
 }
