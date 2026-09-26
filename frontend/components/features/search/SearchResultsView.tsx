@@ -233,7 +233,7 @@ export function SearchResultsView() {
         <div className="flex gap-6">
           <div className={['min-w-0 flex-1 lg:!block', mobileView === 'map' ? 'hidden' : 'block'].join(' ')}>
             {state.status === 'loading' && (
-              <div className="flex flex-col gap-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {Array.from({ length: 6 }).map((_, index) => (
                   <RoomListingCardSkeleton key={index} />
                 ))}
@@ -260,7 +260,7 @@ export function SearchResultsView() {
 
             {state.status === 'success' && results.length > 0 && (
               <>
-                <div className="flex flex-col gap-3">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {results.map((room) => (
                     <RoomListingCard
                       key={room.id}
