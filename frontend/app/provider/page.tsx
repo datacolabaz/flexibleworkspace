@@ -219,6 +219,7 @@ export default async function ProviderHome({
             roomTypes={roomTypes}
             amenityOptions={amenityOptions}
             mediaCapabilities={mediaCapabilities}
+            planTier={provider.planTier}
           />
         </div>
         <ProviderBookingsPanel initialBookings={providerBookings} />

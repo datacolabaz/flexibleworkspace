@@ -82,6 +82,20 @@ export class RoomInputDto {
   @IsOptional()
   @IsString()
   rules?: string;
+
+  /** Minimum booking duration in minutes (must be ≥30 and a multiple of 30). */
+  @ApiPropertyOptional({ description: 'Minimum booking duration in minutes (e.g. 60 = 1 hour). Must be ≥30.' })
+  @IsOptional()
+  @IsInt()
+  @Min(30)
+  minBookingMinutes?: number | null;
+
+  /** Maximum booking duration in minutes. null = no upper cap. */
+  @ApiPropertyOptional({ description: 'Maximum booking duration in minutes. Omit or null for no cap.' })
+  @IsOptional()
+  @IsInt()
+  @Min(30)
+  maxBookingMinutes?: number | null;
 }
 
 /**

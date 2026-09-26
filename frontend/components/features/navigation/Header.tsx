@@ -95,18 +95,18 @@ export async function Header() {
             <Logo variant="wordmark" height={55} className="hidden sm:block" />
           </Link>
 
-          <nav aria-label={t('primaryNavigation')} className="hidden items-center gap-5 lg:flex">
+          <nav aria-label={t('primaryNavigation')} className="hidden items-center gap-1 lg:flex xl:gap-4">
             {navItems.map((item) => (
               <Link
                 key={item.href}
                 href={item.href}
-                className="group relative inline-flex min-h-11 items-center rounded-md px-2 text-nav text-text-secondary transition-[color,background-color,transform] duration-150 hover:-translate-y-px hover:bg-surface-elevated hover:text-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary after:absolute after:bottom-1 after:left-2 after:right-2 after:h-px after:origin-left after:scale-x-0 after:bg-accent after:transition-transform after:duration-200 hover:after:scale-x-100"
+                className="group relative inline-flex min-h-11 items-center whitespace-nowrap rounded-md px-2 text-nav text-text-secondary transition-[color,background-color,transform] duration-150 hover:-translate-y-px hover:bg-surface-elevated hover:text-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary after:absolute after:bottom-1 after:left-2 after:right-2 after:h-px after:origin-left after:scale-x-0 after:bg-accent after:transition-transform after:duration-200 hover:after:scale-x-100"
               >
                 {item.label}
               </Link>
             ))}
-            {isAuthenticated && <NextLink href="/provider" className="group relative inline-flex min-h-11 items-center rounded-md px-2 text-nav font-semibold text-accent hover:bg-surface-elevated">Məkan əlavə et / idarə et</NextLink>}
-            {isAuthenticated && <NextLink href="/events/create" className="group relative inline-flex min-h-11 items-center rounded-md px-2 text-nav font-semibold text-primary hover:bg-surface-elevated">Tədbir yarat</NextLink>}
+            {isAuthenticated && <NextLink href="/provider" className="group relative inline-flex min-h-11 items-center whitespace-nowrap rounded-md px-2 text-nav font-semibold text-accent hover:bg-surface-elevated">Məkan idarəsi</NextLink>}
+            {isAuthenticated && <NextLink href="/events/create" className="group relative inline-flex min-h-11 items-center whitespace-nowrap rounded-md px-2 text-nav font-semibold text-primary hover:bg-surface-elevated">Tədbir yarat</NextLink>}
           </nav>
 
           <div className="flex min-w-0 items-center gap-1 sm:gap-2">

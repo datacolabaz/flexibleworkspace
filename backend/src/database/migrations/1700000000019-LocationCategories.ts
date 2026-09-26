@@ -27,19 +27,26 @@ export class LocationCategories1700000000019 implements MigrationInterface {
 
     await queryRunner.query(`
       INSERT INTO location_categories (slug, name_az, name_en, sort_order) VALUES
-        ('studiya',            'Studiya',                   'Studio',              1),
-        ('telim-otagi',        'Təlim otağı',               'Training Room',       2),
-        ('workshop-otagi',     'Workshop otağı',            'Workshop Space',      3),
-        ('coworking',          'Coworking',                 'Coworking',           4),
-        ('icas-otagi',         'İclas otağı',               'Meeting Room',        5),
-        ('podkast-studiyasi',  'Podkast studiyası',         'Podcast Studio',      6),
-        ('foto-video-studiya', 'Foto və video studiyası',   'Photo & Video Studio',7),
-        ('sinif-otagi',        'Sinif otağı',               'Classroom',           8),
-        ('seminar-otagi',      'Seminar otağı',             'Seminar Room',        9),
-        ('konfrans-otagi',     'Konfrans otağı',            'Conference Room',     10),
-        ('ferdi-ofis',         'Fərdi ofis',                'Private Office',      11),
-        ('tdbir-mkani',        'Tədbir məkanı',             'Event Space',         12),
-        ('emalatxana',         'Emalatxana sahəsi',         'Workshop Area',       13)
+        ('studiya',            'Studiya',                   'Studio',                          1),
+        ('telim-otagi',        'Təlim otağı',               'Training Room',                   2),
+        ('workshop-otagi',     'Workshop otağı',            'Workshop Space',                  3),
+        ('coworking',          'Coworking',                 'Coworking',                       4),
+        ('ofis-sahesi',        'Ofis sahəsi',               'Office Space (hot/flex desk)',     5),
+        ('ferdi-ofis',         'Fərdi ofis',                'Private Office',                  6),
+        ('icas-otagi',         'İclas otağı',               'Meeting Room',                    7),
+        ('konfrans-otagi',     'Konfrans otağı',            'Conference Room',                 8),
+        ('seminar-otagi',      'Seminar otağı',             'Seminar Room',                    9),
+        ('sinif-otagi',        'Sinif otağı',               'Classroom',                       10),
+        ('podkast-studiyasi',  'Podkast studiyası',         'Podcast Studio',                  11),
+        ('foto-video-studiya', 'Foto və video studiyası',   'Photo & Video Studio',            12),
+        ('tdbir-mkani',        'Tədbir məkanı',             'Event Space',                     13),
+        ('emalatxana',         'Emalatxana sahəsi',         'Workshop Area',                   14),
+        ('mutfeq-yeyi',        'Mətbəx / yeməkxana',        'Kitchen / Canteen',               15),
+        ('spor-zal',           'İdman zalı',                'Gym / Sports Hall',               16),
+        ('ses-studiyasi',      'Səs studiyası',             'Sound Studio',                    17),
+        ('rehearsal-space',    'Məşq sahəsi',               'Rehearsal Space',                 18),
+        ('outdoor-space',      'Açıq sahə',                 'Outdoor Space',                   19),
+        ('kafe-restoran',      'Kafe / restoran',           'Cafe / Restaurant',               20)
       ON CONFLICT (slug) DO NOTHING;
     `);
 

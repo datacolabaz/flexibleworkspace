@@ -39,20 +39,21 @@ export enum RoomStatus {
  * 25_PROVIDER_ARCHITECTURE.md §25.2 — not re-derived or approximated here.
  * These are code-level product decisions, not admin-configurable data, in V1.
  */
+/**
+ * Max active (non-draft, non-archived) locations per plan tier.
+ * FREE: 3 (a provider can try the platform with up to 3 locations before
+ * needing to upgrade). PRO/ENTERPRISE: unlimited (-1 sentinel).
+ * Draft and archived locations do NOT count toward this limit.
+ */
 export const PLAN_LOCATION_LIMITS: Record<ProviderPlanTier, number> = {
-  [ProviderPlanTier.FREE]: 1,
-  [ProviderPlanTier.STARTER]: 1,
-  [ProviderPlanTier.PRO]: 5,
+  [ProviderPlanTier.FREE]: 3,
+  [ProviderPlanTier.STARTER]: 3,
+  [ProviderPlanTier.PRO]: Number.POSITIVE_INFINITY,
   [ProviderPlanTier.ENTERPRISE]: Number.POSITIVE_INFINITY,
 };
 
-// FREE capped at 1 room (owner's decision, same pass that shrank the
-// FREE/PRO photo counts below) — consistent with PLAN_LOCATION_LIMITS'
-// existing FREE cap of 1 business address: a FREE account gets exactly
-// one listing, full stop, which is also the strongest natural nudge
-// toward PRO this app has.
 export const PLAN_ROOM_LIMITS: Record<ProviderPlanTier, number> = {
-  [ProviderPlanTier.FREE]: 1,
+  [ProviderPlanTier.FREE]: 10,
   [ProviderPlanTier.STARTER]: 10,
   [ProviderPlanTier.PRO]: 50, // soft cap, raise on request per §25.2
   [ProviderPlanTier.ENTERPRISE]: Number.POSITIVE_INFINITY,

@@ -181,39 +181,150 @@ function formatMegabytes(bytes: number): string {
  * re-fetching it, since the limits are the same for every room this
  * provider owns.
  */
+/** Plan-tier → max active locations (mirrors backend PLAN_LOCATION_LIMITS). */
+const LOCATION_LIMITS: Record<string, number> = {
+  FREE: 3,
+  STARTER: 3,
+  PRO: Infinity,
+  ENTERPRISE: Infinity,
+};
+
 export function ProviderRoomsPanel({
   initialLocations,
   initialRooms,
   roomTypes,
   amenityOptions,
   mediaCapabilities,
+  planTier = 'FREE',
 }: {
   initialLocations: MyLocation[];
   initialRooms: MyRoom[];
   roomTypes: RoomTypeOption[];
   amenityOptions: RoomTypeOption[];
   mediaCapabilities: MediaCapabilities;
+  planTier?: string;
 }) {
   const [locations, setLocations] = useState(initialLocations);
   const [rooms, setRooms] = useState(initialRooms);
+  const [addingNewLocation, setAddingNewLocation] = useState(false);
+  const [expandedLocationId, setExpandedLocationId] = useState<string | null>(
+    initialLocations.length > 0 ? initialLocations[0].id : null,
+  );
 
-  if (locations.length === 0) {
-    return <LocationSetupCard onCreated={(location) => setLocations([location])} />;
+  const maxLocations = LOCATION_LIMITS[planTier] ?? 3;
+  const atLimit = locations.length >= maxLocations;
+
+  if (locations.length === 0 && !addingNewLocation) {
+    return <LocationSetupCard onCreated={(location) => {
+      setLocations([location]);
+      setExpandedLocationId(location.id);
+    }} />;
   }
 
   return (
     <div className="flex flex-col gap-4">
-      <LocationCard location={locations[0]} onUpdated={(location) => setLocations([location])} />
-      <RoomsCard
-        locationId={locations[0].id}
-        rooms={rooms}
-        roomTypes={roomTypes}
-        amenityOptions={amenityOptions}
-        mediaCapabilities={mediaCapabilities}
-        onCreated={(room) => setRooms((prev) => [room, ...prev])}
-        onUpdated={(room) => setRooms((prev) => prev.map((item) => (item.id === room.id ? room : item)))}
-        onDeleted={(roomId) => setRooms((prev) => prev.filter((item) => item.id !== roomId))}
-      />
+      {/* Məkanlarım header */}
+      <div className="flex items-center justify-between">
+        <h2 className="font-display text-h4 text-text-primary">Məkanlarım</h2>
+        {atLimit ? (
+          <span className="rounded-md bg-warning-bg px-3 py-1.5 text-small text-warning">
+            {isFinite(maxLocations)
+              ? `${maxLocations} aktiv məkan limitinə çatdınız — Pro plana keçərək limitsiz məkan əlavə edin`
+              : ''}
+          </span>
+        ) : (
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={() => {
+              setAddingNewLocation(true);
+              setExpandedLocationId(null);
+            }}
+          >
+            + Yeni məkan əlavə et
+          </Button>
+        )}
+      </div>
+
+      {/* New location form */}
+      {addingNewLocation && (
+        <Card className="flex flex-col gap-4 p-5">
+          <div>
+            <h3 className="font-display text-h4 text-text-primary">Yeni məkan</h3>
+            <p className="mt-1 text-small text-text-secondary">Yeni məkanınızın ünvanını və xəritə mövqeyini təyin edin.</p>
+          </div>
+          <LocationForm
+            submitLabel="Məkanı yarat"
+            onSubmit={(input) =>
+              fetch('/api/provider/locations', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(input),
+              })
+            }
+            onSaved={(location) => {
+              setLocations((prev) => [...prev, location]);
+              setExpandedLocationId(location.id);
+              setAddingNewLocation(false);
+            }}
+            onCancel={() => setAddingNewLocation(false)}
+          />
+        </Card>
+      )}
+
+      {/* Location list */}
+      {locations.map((location) => {
+        const locationRooms = rooms.filter((r) => r.locationId === location.id);
+        const isExpanded = expandedLocationId === location.id;
+        return (
+          <div key={location.id} className="flex flex-col gap-3">
+            {/* Location summary row */}
+            <div className="flex items-center justify-between rounded-md border border-border bg-surface px-4 py-3">
+              <button
+                type="button"
+                className="flex flex-1 flex-col gap-0.5 text-left"
+                onClick={() => setExpandedLocationId(isExpanded ? null : location.id)}
+                aria-expanded={isExpanded}
+              >
+                <span className="font-semibold text-text-primary">{location.name}</span>
+                <span className="text-small text-text-secondary">{location.addressLine}, {location.city}</span>
+                <span className="mt-0.5 text-caption text-text-muted">
+                  {locationRooms.length} otaq
+                  {' · '}
+                  {locationRooms.filter((r) => r.status === 'ACTIVE').length} aktiv
+                </span>
+              </button>
+              <span className="ml-3 text-text-muted">{isExpanded ? '▲' : '▼'}</span>
+            </div>
+
+            {/* Expanded: location edit + rooms */}
+            {isExpanded && (
+              <div className="flex flex-col gap-3 pl-2">
+                <LocationCard
+                  location={location}
+                  onUpdated={(updated) =>
+                    setLocations((prev) => prev.map((l) => (l.id === updated.id ? updated : l)))
+                  }
+                />
+                <RoomsCard
+                  locationId={location.id}
+                  rooms={locationRooms}
+                  roomTypes={roomTypes}
+                  amenityOptions={amenityOptions}
+                  mediaCapabilities={mediaCapabilities}
+                  onCreated={(room) => setRooms((prev) => [room, ...prev])}
+                  onUpdated={(room) =>
+                    setRooms((prev) => prev.map((item) => (item.id === room.id ? room : item)))
+                  }
+                  onDeleted={(roomId) =>
+                    setRooms((prev) => prev.filter((item) => item.id !== roomId))
+                  }
+                />
+              </div>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }

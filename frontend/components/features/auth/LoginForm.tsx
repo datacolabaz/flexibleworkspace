@@ -161,7 +161,6 @@ export function LoginForm({ redirectTo, adminMode = false }: LoginFormProps) {
         <>
           {step === 'email' ? (
             <form noValidate className="flex flex-col gap-4" onSubmit={(event) => { event.preventDefault(); void sendCode(); }}>
-              <p className="text-label font-semibold text-text-primary">{t('otp.methodTitle')}</p>
               <label className="flex flex-col gap-2 text-label" htmlFor="login-email">
                 {t('otp.emailLabel')}
                 <Input

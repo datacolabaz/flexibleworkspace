@@ -14,7 +14,6 @@ import { AmenitiesList } from '@/components/features/rooms/AmenitiesList';
 import { CancellationPolicyCard } from '@/components/features/rooms/CancellationPolicyCard';
 import { RoomLocationMap } from '@/components/features/rooms/RoomLocationMap';
 import { HostInfoCard } from '@/components/features/rooms/HostInfoCard';
-import { LeadCaptureForm } from '@/components/features/rooms/LeadCaptureForm';
 import { BookingWidget } from '@/components/features/rooms/BookingWidget';
 import { BookmarkButton } from '@/components/features/rooms/BookmarkButton';
 import { ShareButton } from '@/components/features/rooms/ShareButton';
@@ -274,12 +273,6 @@ export default async function RoomDetailPage({
             <HostInfoCard providerName={room.providerName} verified={room.verified} />
           </section>
 
-          {/* Sprint 3, Lead Tracking — a soft "express interest" path
-           * alongside the booking widget: a visitor who isn't ready to
-           * book yet can leave their name/phone and the provider follows
-           * up manually. No payment involved (standing decision: no live
-           * payment gateway pre-launch). */}
-          <LeadCaptureForm roomId={id} />
         </div>
 
         <div className="hidden w-full shrink-0 lg:block lg:w-[360px]">
