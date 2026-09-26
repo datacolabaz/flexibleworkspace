@@ -7,8 +7,9 @@ import { Card } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { AdminAnalyticsCharts } from '@/components/features/admin/AdminAnalyticsCharts';
+import { AdminTotpSetup } from '@/components/features/auth/AdminTotpSetup';
 
-type Section = 'overview' | 'listings' | 'pricing' | 'providers' | 'users' | 'audit';
+type Section = 'overview' | 'listings' | 'pricing' | 'providers' | 'users' | 'audit' | 'security';
 type RoomStatus = 'DRAFT' | 'ACTIVE' | 'INACTIVE';
 
 type AdminRoom = {
@@ -63,6 +64,7 @@ const NAV_ITEMS: Array<{ id: Section; label: string; description: string }> = [
   { id: 'providers', label: 'Provider-lər', description: 'Doğrulama gözləyən və mövcud provider-lər' },
   { id: 'users', label: 'İstifadəçilər', description: 'Müştəri, provider və rollar' },
   { id: 'audit', label: 'Audit jurnalı', description: 'Kim nəyi və nə vaxt dəyişdi' },
+  { id: 'security', label: '2FA Quraşdırması', description: 'İki faktorlu autentifikasiya (TOTP)' },
 ];
 
 async function requestJson<T>(url: string, init?: RequestInit): Promise<T> {
@@ -219,6 +221,7 @@ export default function AdminHome() {
           )}
           {section === 'users' && <UsersSection users={users} query={query} onQuery={setQuery} />}
           {section === 'audit' && <AuditSection entries={audit} />}
+          {section === 'security' && <SecuritySection />}
         </main>
       </div>
     </div>
@@ -597,4 +600,20 @@ function UsersSection({ users, query, onQuery }: { users: AdminUser[]; query: st
 
 function AuditSection({ entries }: { entries: AdminAuditEntry[] }) {
   return <section className="space-y-5"><h2 className="font-display text-h3">Audit jurnalı</h2><Card className="overflow-hidden p-0"><div className="overflow-x-auto"><table className="w-full min-w-[760px] text-left text-small"><thead className="border-b border-border bg-surface-elevated text-label text-text-secondary"><tr><th className="px-5 py-3">Vaxt</th><th className="px-5 py-3">Əməliyyat</th><th className="px-5 py-3">Entity</th><th className="px-5 py-3">Səbəb</th></tr></thead><tbody>{entries.map((entry) => <tr key={entry.id} className="border-b border-border last:border-0"><td className="px-5 py-4 text-text-secondary">{formatDate(entry.createdAt)}</td><td className="px-5 py-4 font-semibold">{entry.action}</td><td className="px-5 py-4">{entry.entityType} · {entry.entityId ?? '—'}</td><td className="px-5 py-4 text-text-secondary">{entry.reason ?? '—'}</td></tr>)}</tbody></table></div>{entries.length === 0 && <p className="p-5 text-small text-text-secondary">Audit qeydi tapılmadı.</p>}</Card></section>;
+}
+
+function SecuritySection() {
+  return (
+    <section className="space-y-5" aria-labelledby="security-title">
+      <div>
+        <p className="text-label text-accent">Təhlükəsizlik</p>
+        <h2 id="security-title" className="mt-1 font-display text-h3">İki faktorlu autentifikasiya</h2>
+        <p className="mt-2 max-w-2xl text-body text-text-secondary">
+          Admin hesabı üçün TOTP əsaslı 2FA-nı quraşdırın. Autentifikator tətbiqi (Google Authenticator, Authy və s.) tələb olunur.
+        </p>
+        {/* NOTE: TOTP backup codes not implemented - add in future iteration */}
+      </div>
+      <AdminTotpSetup />
+    </section>
+  );
 }

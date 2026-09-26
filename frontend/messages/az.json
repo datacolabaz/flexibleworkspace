@@ -1225,6 +1225,9 @@
     "trustBody": "Sponsorlu yerləşdirmə üzvi nəticəni gizli dəyişmir. Hər reklamın etiketi, tərəfdaş adı, şərtləri və ölçmə metodu görünən olmalıdır.",
     "cta": "Tərəfdaş modelinə bax"
   },
+  "admin": {
+    "twoFactorSetup": "İki faktorlu autentifikasiya"
+  },
   "locationPicker": {
     "geocodeNotFound": "Ünvan avtomatik tapılmadı. Xəritədə dəqiq nöqtəni əl ilə seçin.",
     "geocodeError": "Ünvan yoxlanılarkən xəta baş verdi. Bir az sonra yenidən cəhd edin.",
