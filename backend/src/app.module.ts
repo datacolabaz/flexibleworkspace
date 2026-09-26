@@ -3,7 +3,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { JwtModule } from '@nestjs/jwt';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
-import { APP_GUARD, APP_FILTER } from '@nestjs/core';
+import { APP_GUARD, APP_FILTER, APP_INTERCEPTOR } from '@nestjs/core';
 
 import configuration from './config/configuration';
 import { AppController } from './app.controller';
@@ -13,6 +13,9 @@ import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { RolesGuard } from './common/guards/roles.guard';
 import { PermissionGuard } from './common/guards/permission.guard';
 
+import { DatabaseModule } from './database/database.module';
+import { RlsInterceptor } from './database/rls.interceptor';
+import { RlsTransactionSubscriber } from './database/rls-transaction.subscriber';
 import { AuthModule } from './modules/auth/auth.module';
 import { ProvidersModule } from './modules/providers/providers.module';
 import { LocationsModule } from './modules/locations/locations.module';
@@ -70,6 +73,7 @@ import { PromoModule } from './modules/promo/promo.module';
     // via @Throttle() at the controller level.
     ThrottlerModule.forRoot([{ ttl: 60_000, limit: 120 }]),
 
+    DatabaseModule,
     AuthModule,
     ProvidersModule,
     LocationsModule,
@@ -101,6 +105,10 @@ import { PromoModule } from './modules/promo/promo.module';
     { provide: APP_GUARD, useClass: RolesGuard },
     { provide: APP_GUARD, useClass: PermissionGuard },
     { provide: APP_FILTER, useClass: AllExceptionsFilter },
+    // RLS interceptor runs after guards (JwtAuthGuard attaches req.user first),
+    // populating AsyncLocalStorage context for each request so the TypeORM
+    // transaction subscriber can inject SET LOCAL app.* variables.
+    { provide: APP_INTERCEPTOR, useClass: RlsInterceptor },
   ],
 })
 export class AppModule {}
