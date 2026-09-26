@@ -18,8 +18,213 @@ interface VoiceParseRequest {
 }
 
 // ---------------------------------------------------------------------------
-// Simple regex/keyword fallback parser for Azerbaijani speech.
-// Used when no AI backend is configured, or as a fallback on AI failure.
+// Normalisation helper — strips Azerbaijani diacritics and punctuation so
+// that 'içəri şəhər' and 'İçərişəhər' both reduce to 'icerisehер' and can
+// be substring-matched.
+// ---------------------------------------------------------------------------
+function normalize(s: string): string {
+  return s
+    .toLowerCase()
+    .replace(/ə/g, 'e')
+    .replace(/ş/g, 's')
+    .replace(/ç/g, 'c')
+    .replace(/ğ/g, 'g')
+    .replace(/ı/g, 'i')
+    .replace(/ö/g, 'o')
+    .replace(/ü/g, 'u')
+    .replace(/İ/g, 'i')
+    .replace(/[^a-z0-9]/g, '');
+}
+
+// ---------------------------------------------------------------------------
+// Priority 1: OpenAI directly from the BFF
+// ---------------------------------------------------------------------------
+async function openAiParser(
+  transcript: string,
+  availableMetroStations: string[],
+  availableRoomTypes: string[],
+): Promise<VoiceParsedFilters | null> {
+  const apiKey = process.env.OPENAI_API_KEY;
+  const apiBase = (
+    process.env.OPENAI_API_BASE ?? 'https://api.openai.com/v1'
+  ).replace(/\/$/, '');
+  const model = process.env.AI_SEARCH_MODEL ?? 'gpt-4o-mini';
+
+  if (!apiKey) return null;
+
+  const systemPrompt = `Sen Spotva platforması üçün səs axtarış assistentisən.
+İstifadəçinin səsli sorğusunu aşağıdakı filter strukturuna çevir.
+
+Mövcud metro stansiyaları: ${availableMetroStations.join(', ')}
+Mövcud otaq növləri: ${availableRoomTypes.join(', ')}
+
+Yalnız aşağıdakı JSON formatında cavab ver, başqa heç nə yazma:
+{
+  "city": "Bakı" ya da null,
+  "metroStation": "dəqiq metro adı siyahıdan" ya da null,
+  "roomType": "dəqiq otaq növü siyahıdan" ya da null,
+  "participants": rəqəm ya da null,
+  "maxHourlyPrice": rəqəm ya da null,
+  "date": "YYYY-MM-DD" ya da null,
+  "startTime": "HH:mm" ya da null,
+  "durationMinutes": rəqəm ya da null
+}
+
+Qayda: metroStation yalnız mövcud siyahıdan seçilə bilər. roomType yalnız mövcud siyahıdan seçilə bilər. Əmin olmadığın sahəni null qoy.`;
+
+  try {
+    const res = await fetch(`${apiBase}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: transcript.trim() },
+        ],
+        max_completion_tokens: 400,
+        temperature: 0,
+      }),
+      signal: AbortSignal.timeout(8000),
+      cache: 'no-store',
+    });
+
+    if (!res.ok) return null;
+
+    const payload = (await res.json()) as {
+      choices?: Array<{ message?: { content?: string } }>;
+    };
+    const content = payload.choices?.[0]?.message?.content?.trim();
+    if (!content) return null;
+
+    // Strip markdown fences if the model wrapped it
+    const jsonStr = content.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
+    const parsed = JSON.parse(jsonStr) as Record<string, unknown>;
+
+    const result: VoiceParsedFilters = {};
+
+    if (typeof parsed.city === 'string' && parsed.city) result.city = parsed.city;
+
+    if (typeof parsed.metroStation === 'string' && parsed.metroStation) {
+      if (availableMetroStations.includes(parsed.metroStation)) {
+        result.metroStation = parsed.metroStation;
+      } else {
+        // Fuzzy-validate the AI's answer against the list
+        const aiNorm = normalize(parsed.metroStation);
+        const match = availableMetroStations.find(
+          (s) => normalize(s) === aiNorm,
+        );
+        if (match) result.metroStation = match;
+      }
+    }
+
+    if (typeof parsed.roomType === 'string' && parsed.roomType) {
+      if (availableRoomTypes.includes(parsed.roomType)) {
+        result.roomType = parsed.roomType;
+      } else {
+        const aiNorm = normalize(parsed.roomType);
+        const match = availableRoomTypes.find((rt) => normalize(rt) === aiNorm);
+        if (match) result.roomType = match;
+      }
+    }
+
+    if (typeof parsed.participants === 'number' && parsed.participants > 0 && parsed.participants <= 500) {
+      result.participants = parsed.participants;
+    }
+    if (typeof parsed.maxHourlyPrice === 'number' && parsed.maxHourlyPrice > 0 && parsed.maxHourlyPrice <= 10000) {
+      result.maxHourlyPrice = parsed.maxHourlyPrice;
+    }
+    if (typeof parsed.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(parsed.date)) {
+      result.date = parsed.date;
+    }
+    if (typeof parsed.startTime === 'string' && /^\d{2}:\d{2}$/.test(parsed.startTime)) {
+      result.startTime = parsed.startTime;
+    }
+    if (typeof parsed.durationMinutes === 'number' && parsed.durationMinutes > 0 && parsed.durationMinutes <= 1440) {
+      result.durationMinutes = parsed.durationMinutes;
+    }
+
+    return result;
+  } catch {
+    return null;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Priority 2: Backend /ai/search/interpret endpoint
+// ---------------------------------------------------------------------------
+async function backendAiParser(
+  transcript: string,
+  availableMetroStations: string[],
+  availableRoomTypes: string[],
+): Promise<VoiceParsedFilters | null> {
+  const backendUrl = process.env.BACKEND_API_URL;
+  if (!backendUrl) return null;
+
+  try {
+    const res = await fetch(
+      `${backendUrl.replace(/\/$/, '')}/ai/search/interpret`,
+      {
+        method: 'POST',
+        headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query: transcript, locale: 'az' }),
+        cache: 'no-store',
+        signal: AbortSignal.timeout(6000),
+      },
+    );
+    if (!res.ok) return null;
+
+    // Backend returns SearchIntent — extract what we need.
+    const data = (await res.json()) as {
+      filters?: {
+        city?: string;
+        district?: string;
+        roomType?: string;
+        date?: string;
+        startTime?: string;
+        durationMinutes?: number;
+        participants?: number;
+        priceMax?: number; // in minor units (×100)
+      };
+    };
+
+    if (!data?.filters) return null;
+    const f = data.filters;
+    const result: VoiceParsedFilters = {};
+
+    if (f.city) result.city = f.city;
+    if (f.date && /^\d{4}-\d{2}-\d{2}$/.test(f.date)) result.date = f.date;
+    if (f.startTime && /^\d{2}:\d{2}$/.test(f.startTime)) result.startTime = f.startTime;
+    if (f.durationMinutes && f.durationMinutes > 0) result.durationMinutes = f.durationMinutes;
+    if (f.participants && f.participants > 0) result.participants = f.participants;
+    if (typeof f.priceMax === 'number' && f.priceMax > 0) {
+      result.maxHourlyPrice = Math.round(f.priceMax / 100);
+    }
+
+    // Map roomType (backend key) → available room type using fuzzy normalization
+    if (f.roomType) {
+      const rtNorm = normalize(f.roomType);
+      const rtMatch = availableRoomTypes.find(
+        (rt) => normalize(rt) === rtNorm || normalize(rt).includes(rtNorm) || rtNorm.includes(normalize(rt)),
+      );
+      if (rtMatch) result.roomType = rtMatch;
+    }
+
+    // Backend doesn't return metroStation — let regex fallback handle that
+    const metroMatch = fuzzyMatchStation(transcript, availableMetroStations);
+    if (metroMatch) result.metroStation = metroMatch;
+
+    return result;
+  } catch {
+    return null;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Priority 3: Improved regex / fuzzy fallback parser for Azerbaijani speech.
 // ---------------------------------------------------------------------------
 function regexFallbackParser(
   transcript: string,
@@ -36,7 +241,7 @@ function regexFallbackParser(
     if (n > 0 && n <= 500) result.participants = n;
   }
 
-  // maxHourlyPrice: "N manat" or "N AZN" or "N azn" — also "N-dən ucuz"
+  // maxHourlyPrice: "N manat" or "N AZN" or "N-dən ucuz"
   const priceMatch = text.match(/(\d+)\s*(manat|azn)/i);
   if (priceMatch) {
     const n = parseInt(priceMatch[1], 10);
@@ -64,7 +269,6 @@ function regexFallbackParser(
   }
 
   // durationMinutes: "N saatlıq" or "N saat" (duration context)
-  // "2 saatlıq" → 120, "1.5 saat" → 90, "30 dəqiqəlik" → 30
   const durationHourMatch = text.match(/(\d+(?:[.,]\d+)?)\s*saat(?:l[ıi]q)?/i);
   const durationMinMatch = text.match(/(\d+)\s*d[əe]q/i);
   if (durationHourMatch) {
@@ -76,70 +280,90 @@ function regexFallbackParser(
     if (mins > 0 && mins <= 1440) result.durationMinutes = mins;
   }
 
-  // metro station: fuzzy match against availableMetroStations
-  const matchedStation = fuzzyMatchList(text, availableMetroStations);
+  // metro station: fuzzy normalize match
+  const matchedStation = fuzzyMatchStation(transcript, availableMetroStations);
   if (matchedStation) result.metroStation = matchedStation;
 
-  // room type: fuzzy match against availableRoomTypes (translation keys)
-  const matchedRoomType = fuzzyMatchRoomType(text, availableRoomTypes);
+  // room type: fuzzy normalize match then keyword fallback
+  const matchedRoomType = fuzzyMatchRoomType(transcript, availableRoomTypes);
   if (matchedRoomType) result.roomType = matchedRoomType;
 
   return result;
 }
 
 // ---------------------------------------------------------------------------
-// Fuzzy match helpers
+// Fuzzy matching helpers (normalization-based)
 // ---------------------------------------------------------------------------
 
-/** Returns the best matching item from the list if any word in the
- *  transcript appears as a substring of a list item (case-insensitive). */
-function fuzzyMatchList(text: string, list: string[]): string | undefined {
-  const normalised = text.toLowerCase();
-  // Prefer longer matches to avoid false positives on short names.
+/**
+ * Matches metro station names using diacritic-normalized substring matching.
+ * Handles 'içəri şəhərdə' → normalize → 'iceriseherde' containing 'icerisehер'.
+ */
+function fuzzyMatchStation(
+  transcript: string,
+  availableMetroStations: string[],
+): string | undefined {
+  const normTranscript = normalize(transcript);
   let best: string | undefined;
   let bestLen = 0;
-  for (const item of list) {
-    const itemLower = item.toLowerCase();
-    if (normalised.includes(itemLower) && itemLower.length > bestLen) {
-      best = item;
-      bestLen = itemLower.length;
+
+  for (const station of availableMetroStations) {
+    const normStation = normalize(station);
+    if (normStation.length > 1 && normTranscript.includes(normStation) && normStation.length > bestLen) {
+      best = station;
+      bestLen = normStation.length;
     }
   }
   return best;
 }
 
-/** Azerbaijani keywords → room_type translation key fragments.
- *  The transcript will contain Azerbaijani words; we map common phrases
- *  to the backend's room_type.* translation keys. */
+/** Azerbaijani keywords → room_type key fragments. */
 const AZ_ROOM_TYPE_KEYWORDS: Array<{ keywords: string[]; keyFragment: string }> = [
-  { keywords: ['iclaslar', 'iclas otağı', 'görüş otağı', 'meeting'], keyFragment: 'meeting_room' },
+  { keywords: ['iclaslar', 'iclas otağı', 'görüş otağı', 'görüs otagi', 'meeting'], keyFragment: 'meeting_room' },
   { keywords: ['konfrans', 'conference'], keyFragment: 'conference_room' },
   { keywords: ['biznes görüş', 'business meeting'], keyFragment: 'business_meeting_room' },
-  { keywords: ['müsahibə', 'intervyu', 'interview'], keyFragment: 'interview_room' },
-  { keywords: ['təlim', 'training'], keyFragment: 'training_room' },
-  { keywords: ['sinif', 'dərs otağı', 'classroom'], keyFragment: 'classroom' },
-  { keywords: ['müəllim', 'müəllimlik', 'repetitor', 'tutor'], keyFragment: 'tutor_teacher_room' },
+  { keywords: ['müsahibə', 'musahibe', 'intervyu', 'interview'], keyFragment: 'interview_room' },
+  { keywords: ['təlim', 'telim', 'training'], keyFragment: 'training_room' },
+  { keywords: ['sinif', 'dərs otağı', 'dərs otagi', 'classroom'], keyFragment: 'classroom' },
+  { keywords: ['müəllim', 'muellim', 'repetitor', 'tutor'], keyFragment: 'tutor_teacher_room' },
   { keywords: ['seminar'], keyFragment: 'seminar_room' },
   { keywords: ['workshop', 'emalatxana'], keyFragment: 'workshop_space' },
-  { keywords: ['kovorkinq', 'coworking', 'iş masası', 'desk'], keyFragment: 'coworking_desk' },
-  { keywords: ['xüsusi ofis', 'private office', 'şəxsi ofis'], keyFragment: 'private_office' },
+  { keywords: ['kovorkinq', 'koworking', 'coworking', 'koüorking', 'iş masası', 'is masasi', 'desk'], keyFragment: 'coworking' },
+  { keywords: ['xüsusi ofis', 'xususi ofis', 'private office', 'şəxsi ofis', 'sexsi ofis'], keyFragment: 'private_office' },
   { keywords: ['podcast', 'radio'], keyFragment: 'podcast_studio' },
   { keywords: ['foto', 'video studiyası', 'photo studio'], keyFragment: 'photo_video_studio' },
-  { keywords: ['event', 'tədbir', 'mərasim'], keyFragment: 'event_space' },
+  { keywords: ['event', 'tədbir', 'teddir', 'mərasim', 'merasim'], keyFragment: 'event_space' },
 ];
 
-function fuzzyMatchRoomType(text: string, availableRoomTypes: string[]): string | undefined {
-  const normalised = text.toLowerCase();
+function fuzzyMatchRoomType(
+  transcript: string,
+  availableRoomTypes: string[],
+): string | undefined {
+  const normTranscript = normalize(transcript);
+  const transcriptLower = transcript.toLowerCase();
+
+  // 1. Keyword mapping
   for (const { keywords, keyFragment } of AZ_ROOM_TYPE_KEYWORDS) {
-    const matched = keywords.some((kw) => normalised.includes(kw.toLowerCase()));
+    const matched = keywords.some(
+      (kw) => transcriptLower.includes(kw.toLowerCase()) || normTranscript.includes(normalize(kw)),
+    );
     if (matched) {
-      // Find the exact translation key that contains this fragment.
-      const found = availableRoomTypes.find((rt) => rt.includes(keyFragment));
+      const found = availableRoomTypes.find((rt) => normalize(rt).includes(normalize(keyFragment)));
       if (found) return found;
     }
   }
-  // Also try direct substring match against translation key leafs.
-  return fuzzyMatchList(text, availableRoomTypes);
+
+  // 2. Direct normalized substring match against available room types
+  let best: string | undefined;
+  let bestLen = 0;
+  for (const rt of availableRoomTypes) {
+    const normRt = normalize(rt);
+    if (normRt.length > 1 && normTranscript.includes(normRt) && normRt.length > bestLen) {
+      best = rt;
+      bestLen = normRt.length;
+    }
+  }
+  return best;
 }
 
 function toIsoDate(date: Date): string {
@@ -170,35 +394,19 @@ export async function POST(request: NextRequest) {
   // Sanitise transcript — never log, never store.
   const sanitised = transcript.slice(0, 500);
 
-  // Try backend AI parse endpoint if configured.
-  const backendUrl = process.env.BACKEND_API_URL;
-  if (backendUrl) {
-    try {
-      const res = await fetch(`${backendUrl.replace(/\/$/, '')}/ai-search/parse`, {
-        method: 'POST',
-        headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
-        body: JSON.stringify({ transcript: sanitised, availableMetroStations, availableRoomTypes }),
-        cache: 'no-store',
-        signal: AbortSignal.timeout(5000),
-      });
-      if (res.ok) {
-        const parsed = (await res.json()) as VoiceParsedFilters;
-        // Validate that returned values are in the available lists.
-        const validated: VoiceParsedFilters = { ...parsed };
-        if (validated.metroStation && !availableMetroStations.includes(validated.metroStation)) {
-          delete validated.metroStation;
-        }
-        if (validated.roomType && !availableRoomTypes.includes(validated.roomType)) {
-          delete validated.roomType;
-        }
-        return NextResponse.json(validated);
-      }
-    } catch {
-      // Fall through to regex fallback.
-    }
+  // Priority 1: OpenAI directly from BFF (uses OPENAI_API_KEY + OPENAI_API_BASE)
+  const openAiResult = await openAiParser(sanitised, availableMetroStations, availableRoomTypes);
+  if (openAiResult) {
+    return NextResponse.json({ ...openAiResult, _parser: 'openai' });
   }
 
-  // Regex fallback parser.
+  // Priority 2: Backend AI parse endpoint (/ai/search/interpret)
+  const backendResult = await backendAiParser(sanitised, availableMetroStations, availableRoomTypes);
+  if (backendResult) {
+    return NextResponse.json({ ...backendResult, _parser: 'backend-ai' });
+  }
+
+  // Priority 3: Improved fuzzy regex fallback
   const result = regexFallbackParser(sanitised, availableMetroStations, availableRoomTypes);
-  return NextResponse.json(result);
+  return NextResponse.json({ ...result, _parser: 'regex' });
 }
