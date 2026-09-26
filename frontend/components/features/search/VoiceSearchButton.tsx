@@ -16,6 +16,9 @@ interface VoiceParsedFilters {
   metroStation?: string;
   metroStationId?: string; // UUID — use directly when backend provides it
   nearbyMetro?: boolean;
+  lat?: number; // PostGIS proximity latitude (metro station or landmark)
+  lng?: number; // PostGIS proximity longitude
+  radiusKm?: number; // PostGIS proximity radius in km
   roomType?: string;
   participants?: number;
   maxHourlyPrice?: number;
@@ -221,13 +224,33 @@ export function VoiceSearchButton({
         // Prefer the UUID returned directly by the backend AI parser (most
         // reliable — already validated against the DB canonical list).
         // Fall back to name-based lookup for the regex fallback parser path.
-        if (parsed.metroStationId) {
+        //
+        // When the backend also returned lat/lng (proximity search: "near metro"
+        // or landmark), use PostGIS ST_DWithin instead of the FK filter.
+        // They must NOT both be set — they'd AND-combine and be overly restrictive.
+        if (typeof parsed.lat === 'number' && typeof parsed.lng === 'number') {
+          // Proximity search (metro station coords or landmark coords)
+          next.lat = String(parsed.lat);
+          next.lng = String(parsed.lng);
+          next.radiusKm = String(parsed.radiusKm ?? 0.8);
+          // Clear any stale FK filter so it doesn't AND with the geo filter
+          next.metroStationId = '';
+        } else if (parsed.metroStationId) {
+          // FK-based exact metro match (station has no coords, or no nearbyMetro intent)
           next.metroStationId = parsed.metroStationId;
+          next.lat = '';
+          next.lng = '';
+          next.radiusKm = '';
         } else if (parsed.metroStation) {
           const station = metroStations.find(
             (s) => s.nameAz === parsed.metroStation,
           );
-          if (station) next.metroStationId = station.id;
+          if (station) {
+            next.metroStationId = station.id;
+            next.lat = '';
+            next.lng = '';
+            next.radiusKm = '';
+          }
         }
 
         onApply(next);

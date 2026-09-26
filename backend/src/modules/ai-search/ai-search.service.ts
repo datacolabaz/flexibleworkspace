@@ -13,6 +13,12 @@ export type VoiceFilters = {
   metroStation?: string;
   metroStationId?: string;
   nearbyMetro?: boolean;
+  /** PostGIS proximity: latitude of the target point (metro station or landmark). */
+  lat?: number;
+  /** PostGIS proximity: longitude of the target point. */
+  lng?: number;
+  /** PostGIS proximity radius in km (default 0.8 — approx 10 min walk). */
+  radiusKm?: number;
   roomType?: string;
   participants?: number;
   maxHourlyPrice?: number;
@@ -37,6 +43,64 @@ export type SearchIntent = {
   clarifyingQuestion: string | null;
   confidence: number;
 };
+
+/** Proximity radius when searching "near a metro station" or a landmark (≈10 min walk). */
+const NEARBY_METRO_RADIUS_KM = 0.8;
+
+/**
+ * Well-known Baku landmarks mapped to coordinates.
+ * Search terms are pre-normalised (diacritics stripped, lowercase) so they
+ * can be compared directly against the output of normalizeTaxonomyText().
+ */
+const BAKU_LANDMARKS: ReadonlyArray<{
+  name: string;
+  searchTerms: readonly string[];
+  lat: number;
+  lng: number;
+}> = [
+  {
+    name: 'Həydər Əliyev Mərkəzi',
+    searchTerms: ['heyder eliyev', 'heydar aliyev'],
+    lat: 40.3974,
+    lng: 49.8673,
+  },
+  {
+    name: 'Bəyük Park / Buləvar',
+    searchTerms: ['bulevar', 'bulvar', 'denizkenari'],
+    lat: 40.3669,
+    lng: 49.8346,
+  },
+  {
+    name: 'Fəvvarələr meydanı',
+    searchTerms: ['fevvareler', 'fontanlar'],
+    lat: 40.3717,
+    lng: 49.8402,
+  },
+  {
+    name: 'İçərişəhər',
+    searchTerms: ['iceriseher', 'iceri seher', 'old city'],
+    lat: 40.3663,
+    lng: 49.8357,
+  },
+  {
+    name: 'Gənclik Mall',
+    searchTerms: ['genclik mall'],
+    lat: 40.4079,
+    lng: 49.8671,
+  },
+  {
+    name: 'Nizami küçəsi',
+    searchTerms: ['torqovaya', 'torgovaya'],
+    lat: 40.3728,
+    lng: 49.8385,
+  },
+  {
+    name: 'Port Baku',
+    searchTerms: ['port baku', 'port baki'],
+    lat: 40.3641,
+    lng: 49.8314,
+  },
+];
 
 const SEARCH_INTENT_SCHEMA = {
   type: 'object',
@@ -193,7 +257,22 @@ Qayda 4: Əmin olmadığın hər bir sahəni null qoy.`;
         if (canonical) {
           result.metroStation = canonical;
           const matched = stations.find((s) => s.nameAz === canonical);
-          if (matched) result.metroStationId = matched.id;
+          if (matched) {
+            result.metroStationId = matched.id;
+            // When user says "near/yanında" and the station has coordinates,
+            // use PostGIS proximity (ST_DWithin) instead of the FK-only filter.
+            // This covers locations that haven't had nearest_metro_station_id
+            // populated yet, while still finding everything within walking distance.
+            if (
+              parsed.nearbyMetro === true &&
+              matched.latitude !== null &&
+              matched.longitude !== null
+            ) {
+              result.lat = matched.latitude;
+              result.lng = matched.longitude;
+              result.radiusKm = NEARBY_METRO_RADIUS_KM;
+            }
+          }
         }
       }
 
@@ -220,6 +299,17 @@ Qayda 4: Əmin olmadığın hər bir sahəni null qoy.`;
         result.startTime = parsed.startTime;
       if (typeof parsed.durationMinutes === 'number' && parsed.durationMinutes > 0)
         result.durationMinutes = parsed.durationMinutes;
+
+      // ---- Landmark resolution (runs only when metro proximity didn't already
+      // set coords — landmark coords are used for the same ST_DWithin path). ----
+      if (result.lat === undefined) {
+        const landmark = this.findLandmarkInTranscript(transcript);
+        if (landmark) {
+          result.lat = landmark.lat;
+          result.lng = landmark.lng;
+          result.radiusKm = NEARBY_METRO_RADIUS_KM;
+        }
+      }
 
       return result;
     } catch {
@@ -264,6 +354,25 @@ Qayda 4: Əmin olmadığın hər bir sahəni null qoy.`;
     });
     if (wordMatch) return wordMatch;
 
+    return null;
+  }
+
+  /**
+   * Checks the raw transcript for any known Baku landmark name.
+   * Uses pre-normalised search terms from BAKU_LANDMARKS so no DB round-trip
+   * is needed. Returns the landmark's coordinates, or null if nothing matched.
+   */
+  private findLandmarkInTranscript(
+    transcript: string,
+  ): { lat: number; lng: number } | null {
+    const normTranscript = normalizeTaxonomyText(transcript);
+    for (const landmark of BAKU_LANDMARKS) {
+      for (const term of landmark.searchTerms) {
+        if (normTranscript.includes(term)) {
+          return { lat: landmark.lat, lng: landmark.lng };
+        }
+      }
+    }
     return null;
   }
 

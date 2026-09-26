@@ -47,6 +47,10 @@ interface FilterDraft {
   // a sort the user set from the header. sort is preserved through Apply
   // because draftToQueryString reads the current URL sort param directly.
   metroStationId: string;
+  /** PostGIS proximity fields — set by voice search, not exposed in the filter UI. */
+  lat: string;
+  lng: string;
+  radiusKm: string;
 }
 
 const EMPTY_DRAFT: FilterDraft = {
@@ -59,6 +63,9 @@ const EMPTY_DRAFT: FilterDraft = {
   priceMax: '',
   amenities: [],
   metroStationId: '',
+  lat: '',
+  lng: '',
+  radiusKm: '',
 };
 
 function getCurrentTime(): string {
@@ -86,6 +93,9 @@ function draftFromSearchParams(params: URLSearchParams): FilterDraft {
     priceMax: params.get('priceMax') ? String(Math.round(Number(params.get('priceMax')) / 100)) : '',
     amenities: params.get('amenities')?.split(',').filter(Boolean) ?? [],
     metroStationId: params.get('metroStationId') ?? '',
+    lat: params.get('lat') ?? '',
+    lng: params.get('lng') ?? '',
+    radiusKm: params.get('radiusKm') ?? '',
   };
 }
 
@@ -199,6 +209,13 @@ function draftToQueryString(draft: FilterDraft, currentParams?: URLSearchParams)
   if (draft.priceMax) qs.set('priceMax', String(Math.round(Number(draft.priceMax) * 100)));
   if (draft.amenities.length > 0) qs.set('amenities', draft.amenities.join(','));
   if (draft.metroStationId) qs.set('metroStationId', draft.metroStationId);
+  // PostGIS proximity (set by voice search for "near metro" / landmark queries).
+  // lat/lng must both be present to be meaningful.
+  if (draft.lat && draft.lng) {
+    qs.set('lat', draft.lat);
+    qs.set('lng', draft.lng);
+    if (draft.radiusKm) qs.set('radiusKm', draft.radiusKm);
+  }
   // Preserve the current sort value from the URL so Apply never resets a
   // sort the user set via the header SortControl.
   const sort = currentParams?.get('sort');

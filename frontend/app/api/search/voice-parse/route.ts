@@ -5,6 +5,9 @@ export interface VoiceParsedFilters {
   metroStation?: string; // matched exactly to one of availableMetroStations
   metroStationId?: string; // UUID from metro_stations table — use directly when available
   nearbyMetro?: boolean; // true when user expressed proximity ("yanında", "yaxınında")
+  lat?: number; // PostGIS proximity: latitude of metro station or landmark
+  lng?: number; // PostGIS proximity: longitude of metro station or landmark
+  radiusKm?: number; // PostGIS proximity radius in km
   roomType?: string; // room_type.translation_key (e.g. "room_type.meeting_room")
   participants?: number;
   maxHourlyPrice?: number;
@@ -73,6 +76,9 @@ async function backendVoiceParser(
     if (typeof data.metroStationId === 'string' && data.metroStationId)
       result.metroStationId = data.metroStationId;
     if (data.nearbyMetro === true) result.nearbyMetro = true;
+    if (typeof data.lat === 'number' && isFinite(data.lat)) result.lat = data.lat;
+    if (typeof data.lng === 'number' && isFinite(data.lng)) result.lng = data.lng;
+    if (typeof data.radiusKm === 'number' && data.radiusKm > 0) result.radiusKm = data.radiusKm;
     if (typeof data.roomType === 'string' && data.roomType)
       result.roomType = data.roomType;
     if (typeof data.participants === 'number' && data.participants > 0)
