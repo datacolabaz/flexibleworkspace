@@ -9,6 +9,16 @@ function authHeaders(accessToken?: string) {
   };
 }
 
+interface ApiError extends Error {
+  status: number;
+  code?: string;
+  details?: unknown;
+}
+
+interface BackendErrorBody {
+  error?: { message?: string; code?: string; details?: unknown };
+}
+
 async function fetchJson<T>(url: string, init: RequestInit): Promise<T> {
   const res = await fetch(url, init);
   if (!res.ok) {
@@ -18,11 +28,11 @@ async function fetchJson<T>(url: string, init: RequestInit): Promise<T> {
     } catch {
       body = {};
     }
-    const err = (body as any)?.error ?? {};
-    const e = new Error(err.message ?? `HTTP ${res.status}`);
-    (e as any).status = res.status;
-    (e as any).code = err.code;
-    (e as any).details = err.details;
+    const err = (body as BackendErrorBody)?.error ?? {};
+    const e = new Error(err.message ?? `HTTP ${res.status}`) as ApiError;
+    e.status = res.status;
+    e.code = err.code;
+    e.details = err.details;
     throw e;
   }
   if (res.status === 204) return undefined as unknown as T;
