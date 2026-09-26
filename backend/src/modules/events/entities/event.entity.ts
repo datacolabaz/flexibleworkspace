@@ -101,4 +101,12 @@ export class EventEntity {
 
   @OneToMany(() => EventRsvpEntity, (rsvp) => rsvp.event, { cascade: true })
   rsvps: EventRsvpEntity[];
+
+  /** Whether ticket sales are enabled for this event (default false — RSVP only). */
+  @Column({ name: 'tickets_enabled', type: 'boolean', default: false })
+  ticketsEnabled: boolean;
+
+  /** Optional cap on total ticket sales (across all ticket types). */
+  @Column({ name: 'max_attendees', type: 'int', nullable: true })
+  maxAttendees: number | null;
 }

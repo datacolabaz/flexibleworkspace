@@ -7,7 +7,7 @@ import { Link } from '@/lib/i18n/navigation';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { RsvpModal } from '@/components/features/events/RsvpModal';
-import type { EventRecord } from '@/lib/api-client/events';
+import type { EventRecord, TicketTypeRecord } from '@/lib/api-client/events';
 
 const STATUS_BADGE_VARIANT: Record<string, 'success' | 'warning' | 'error' | 'neutral'> = {
   rsvp_open: 'success',
@@ -39,6 +39,161 @@ function formatDateTime(iso: string) {
  * Public event detail page — client component because we need to show
  * the RSVP modal state. Data is fetched client-side from the BFF route.
  */
+// ── Ticket purchase section ───────────────────────────────────────────────
+
+function TicketSection({ eventId }: { eventId: string }) {
+  const tTickets = useTranslations('account.tickets');
+  const [ticketTypes, setTicketTypes] = useState<TicketTypeRecord[]>([]);
+  const [loadingTypes, setLoadingTypes] = useState(true);
+  const [purchasing, setPurchasing] = useState<string | null>(null);
+  const [successTicketId, setSuccessTicketId] = useState<string | null>(null);
+  const [successQr, setSuccessQr] = useState<string | null>(null);
+  const [showSuccessQr, setShowSuccessQr] = useState(false);
+  const [purchaseError, setPurchaseError] = useState<string | null>(null);
+
+  useEffect(() => {
+    async function loadTypes() {
+      try {
+        const res = await fetch(`/api/events/${eventId}/ticket-types`, { cache: 'no-store' });
+        if (res.ok) setTicketTypes(await res.json() as TicketTypeRecord[]);
+      } finally {
+        setLoadingTypes(false);
+      }
+    }
+    loadTypes();
+  }, [eventId]);
+
+  async function handleBuy(ticketType: TicketTypeRecord) {
+    setPurchaseError(null);
+    // Paid tickets — show coming soon
+    if (Number(ticketType.price) > 0) {
+      setPurchaseError(tTickets('paymentComingSoon'));
+      return;
+    }
+    setPurchasing(ticketType.id);
+    try {
+      const res = await fetch(`/api/ticket-types/${ticketType.id}/purchase`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      });
+      const data = await res.json() as {
+        paymentRequired?: boolean;
+        ticket?: { id: string; qrCode: string | null };
+        error?: { message: string };
+      };
+      if (!res.ok) {
+        if (res.status === 401) {
+          window.location.href = `/login?redirect=${encodeURIComponent(window.location.pathname)}`;
+          return;
+        }
+        throw new Error(data?.error?.message ?? tTickets('purchaseError'));
+      }
+      if (!data.paymentRequired && data.ticket) {
+        setSuccessTicketId(data.ticket.id);
+        setSuccessQr(data.ticket.qrCode ?? null);
+      }
+    } catch (err) {
+      setPurchaseError(err instanceof Error ? err.message : tTickets('purchaseError'));
+    } finally {
+      setPurchasing(null);
+    }
+  }
+
+  if (loadingTypes) return null;
+  if (ticketTypes.length === 0) return null;
+
+  return (
+    <div className="mt-5 border-t border-border pt-4">
+      <h3 className="mb-3 text-label font-semibold text-text-primary">{tTickets('ticketTypes')}</h3>
+
+      {purchaseError && (
+        <div className="mb-3 rounded-md bg-info-bg p-3 text-small text-info">
+          {purchaseError}
+        </div>
+      )}
+
+      <div className="space-y-3">
+        {ticketTypes.map((tt) => {
+          const isSoldOut = tt.quantityTotal !== null && tt.quantitySold >= tt.quantityTotal;
+          return (
+            <div
+              key={tt.id}
+              className="flex items-center justify-between rounded-md border border-border p-3"
+            >
+              <div className="min-w-0">
+                <p className="font-semibold text-text-primary text-body">{tt.name}</p>
+                <p className="text-small text-text-muted">
+                  {Number(tt.price) === 0
+                    ? tTickets('free')
+                    : `${tt.price} ${tt.currency}`}
+                  {tt.quantityTotal !== null && (
+                    <span className="ml-2">
+                      ({tt.quantitySold}/{tt.quantityTotal})
+                    </span>
+                  )}
+                </p>
+              </div>
+              <button
+                type="button"
+                disabled={isSoldOut || purchasing === tt.id}
+                onClick={() => handleBuy(tt)}
+                className={[
+                  'ml-3 shrink-0 rounded-md px-4 py-2 text-label font-semibold transition-colors',
+                  isSoldOut
+                    ? 'cursor-not-allowed bg-surface-elevated text-text-muted'
+                    : 'bg-primary text-white hover:opacity-90',
+                ].join(' ')}
+              >
+                {isSoldOut
+                  ? tTickets('soldOut')
+                  : purchasing === tt.id
+                  ? '…'
+                  : tTickets('buy')}
+              </button>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Purchase success */}
+      {successTicketId && (
+        <div className="mt-4 rounded-xl border border-success bg-success-bg p-4">
+          <p className="font-semibold text-success">{tTickets('purchaseSuccess')} ✓</p>
+          {successQr && (
+            <div className="mt-3">
+              <button
+                type="button"
+                onClick={() => setShowSuccessQr((v) => !v)}
+                className="text-small text-primary underline"
+              >
+                {showSuccessQr ? tTickets('hideQr') : tTickets('showQr')}
+              </button>
+              {showSuccessQr && (
+                <div className="mt-2 flex flex-col items-center gap-2">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(successQr)}`}
+                    alt="QR code"
+                    width={200}
+                    height={200}
+                    className="rounded-md"
+                  />
+                  <p className="text-small text-text-muted">
+                    {'Biletlərim → QR kodu bölməsindən də tapa bilərsiniz.'}
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Main page ─────────────────────────────────────────────────────────────
+
 export default function EventDetailPage() {
   const params = useParams<{ locale: string; slug: string }>();
   const t = useTranslations('eventDetail');
@@ -237,6 +392,9 @@ export default function EventDetailPage() {
                 >
                   {'Məkan tap →'}
                 </button>
+
+                {/* Ticket types section (shows when event has tickets enabled) */}
+                <TicketSection eventId={event.id} />
 
                 {/* Organizer */}
                 <div className="mt-5 border-t border-border pt-4">

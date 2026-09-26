@@ -102,6 +102,14 @@ export default async function AccountEventsPage({
                 >
                   {t('viewCta')}
                 </Link>
+                {(event.status === 'rsvp_open' || event.status === 'published') && (
+                  <Link
+                    href={`/account/events/${event.id}/check-in`}
+                    className="rounded-md border border-primary px-3 py-1.5 text-small font-semibold text-primary hover:bg-surface-elevated"
+                  >
+                    {'Check-in'}
+                  </Link>
+                )}
               </div>
             </li>
           ))}

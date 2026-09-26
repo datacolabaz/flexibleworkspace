@@ -128,6 +128,68 @@ export interface LinkVenueBody {
   endAt?: string;
 }
 
+// ── Ticket types ──────────────────────────────────────────────────────────
+
+export interface TicketTypeRecord {
+  id: string;
+  eventId: string;
+  name: string;
+  description: string | null;
+  price: number;
+  currency: string;
+  quantityTotal: number | null;
+  quantitySold: number;
+  isActive: boolean;
+  saleStartsAt: string | null;
+  saleEndsAt: string | null;
+  createdAt: string;
+}
+
+export interface TicketRecord {
+  id: string;
+  ticketTypeId: string;
+  eventId: string;
+  userId: string;
+  orderId: string | null;
+  status: string;
+  qrCode: string | null;
+  checkedInAt: string | null;
+  amountPaid: number;
+  currency: string;
+  buyerName: string | null;
+  buyerEmail: string | null;
+  createdAt: string;
+  updatedAt: string;
+  ticketType?: TicketTypeRecord;
+  event?: EventRecord;
+}
+
+export interface CreateTicketTypeBody {
+  name: string;
+  description?: string;
+  price: number;
+  currency?: string;
+  quantityTotal?: number | null;
+  isActive?: boolean;
+  saleStartsAt?: string;
+  saleEndsAt?: string;
+}
+
+export interface PurchaseTicketBody {
+  buyerName?: string;
+  buyerEmail?: string;
+}
+
+export type PurchaseTicketResult =
+  | { paymentRequired: false; ticket: TicketRecord }
+  | { paymentRequired: true; ticketId: string; amount: number; currency: string };
+
+export interface AttendeeListResult {
+  tickets: TicketRecord[];
+  checkedIn: number;
+  total: number;
+}
+
 // ── API functions ─────────────────────────────────────────────────────────
 
 export function createEvent(body: CreateEventBody, accessToken: string) {
@@ -199,6 +261,61 @@ export function linkVenue(eventId: string, body: LinkVenueBody, accessToken: str
     method: 'POST',
     headers: authHeaders(accessToken),
     body: JSON.stringify(body),
+    cache: 'no-store',
+  });
+}
+
+// ── Ticket API functions ───────────────────────────────────────────────────
+
+export function createTicketType(eventId: string, body: CreateTicketTypeBody, accessToken: string) {
+  return fetchJson<TicketTypeRecord>(`${BACKEND}/events/${eventId}/ticket-types`, {
+    method: 'POST',
+    headers: authHeaders(accessToken),
+    body: JSON.stringify(body),
+    cache: 'no-store',
+  });
+}
+
+export function getTicketTypes(eventId: string) {
+  return fetchJson<TicketTypeRecord[]>(`${BACKEND}/events/${eventId}/ticket-types`, {
+    method: 'GET',
+    headers: { 'Content-Type': 'application/json' },
+    cache: 'no-store',
+  });
+}
+
+export function purchaseTicket(ticketTypeId: string, body: PurchaseTicketBody, accessToken: string) {
+  return fetchJson<PurchaseTicketResult>(`${BACKEND}/ticket-types/${ticketTypeId}/purchase`, {
+    method: 'POST',
+    headers: authHeaders(accessToken),
+    body: JSON.stringify(body),
+    cache: 'no-store',
+  });
+}
+
+export function checkIn(qrCode: string, accessToken: string) {
+  return fetchJson<{ success: boolean; ticket: TicketRecord; attendeeName: string }>(
+    `${BACKEND}/tickets/${encodeURIComponent(qrCode)}/check-in`,
+    {
+      method: 'POST',
+      headers: authHeaders(accessToken),
+      cache: 'no-store',
+    },
+  );
+}
+
+export function getMyTickets(accessToken: string) {
+  return fetchJson<TicketRecord[]>(`${BACKEND}/tickets/me`, {
+    method: 'GET',
+    headers: authHeaders(accessToken),
+    cache: 'no-store',
+  });
+}
+
+export function getEventAttendees(eventId: string, accessToken: string) {
+  return fetchJson<AttendeeListResult>(`${BACKEND}/events/${eventId}/attendees`, {
+    method: 'GET',
+    headers: authHeaders(accessToken),
     cache: 'no-store',
   });
 }

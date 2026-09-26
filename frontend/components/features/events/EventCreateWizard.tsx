@@ -11,6 +11,12 @@ import type { EventRecord, EventFormat, EventVisibility } from '@/lib/api-client
 
 // ── Types ─────────────────────────────────────────────────────────────────
 
+interface TicketTypeInput {
+  name: string;
+  price: string;
+  quantityTotal: string; // '' = unlimited
+}
+
 interface WizardState {
   title: string;
   format: EventFormat | '';
@@ -26,6 +32,8 @@ interface WizardState {
   doorsOpenAt: string;
   venueOption: 'a' | 'b' | 'c';
   externalVenue: string;
+  ticketsEnabled: boolean;
+  ticketTypes: TicketTypeInput[];
 }
 
 const FORMATS: EventFormat[] = [
@@ -33,7 +41,7 @@ const FORMATS: EventFormat[] = [
   'panel', 'podkast', 'foto_video', 'diger',
 ];
 
-const TOTAL_STEPS = 5;
+const TOTAL_STEPS = 6;
 
 // ── Component ─────────────────────────────────────────────────────────────
 
@@ -71,6 +79,8 @@ export function EventCreateWizard() {
     doorsOpenAt: '',
     venueOption: 'c',
     externalVenue: '',
+    ticketsEnabled: false,
+    ticketTypes: [{ name: 'Pulsuz Giriş', price: '0', quantityTotal: '' }],
   });
 
   // ── Draft resume on mount ──────────────────────────────────────────────
@@ -142,9 +152,31 @@ export function EventCreateWizard() {
     };
   }, [hasData, step, state, draftId]);
 
-  function update(field: keyof WizardState, value: string) {
+  function update(field: keyof WizardState, value: string | boolean | TicketTypeInput[]) {
     setState((prev) => ({ ...prev, [field]: value }));
     setError(null);
+  }
+
+  function updateTicketType(index: number, field: keyof TicketTypeInput, value: string) {
+    setState((prev) => {
+      const types = [...prev.ticketTypes];
+      types[index] = { ...types[index], [field]: value };
+      return { ...prev, ticketTypes: types };
+    });
+  }
+
+  function addTicketType() {
+    setState((prev) => ({
+      ...prev,
+      ticketTypes: [...prev.ticketTypes, { name: '', price: '0', quantityTotal: '' }],
+    }));
+  }
+
+  function removeTicketType(index: number) {
+    setState((prev) => ({
+      ...prev,
+      ticketTypes: prev.ticketTypes.filter((_, i) => i !== index),
+    }));
   }
 
   // ── Resume draft ───────────────────────────────────────────────────────
@@ -166,6 +198,8 @@ export function EventCreateWizard() {
       doorsOpenAt: draft.doorsOpenAt ? draft.doorsOpenAt.slice(0, 16) : '',
       venueOption: 'c',
       externalVenue: '',
+      ticketsEnabled: false,
+      ticketTypes: [{ name: 'Pulsuz Giriş', price: '0', quantityTotal: '' }],
     });
     setResumePrompt(null);
   }
@@ -288,6 +322,26 @@ export function EventCreateWizard() {
       if (!res.ok) throw new Error((await res.json())?.error?.message ?? t('publishError'));
       const published = (await res.json()) as EventRecord;
       track(AnalyticsEvent.EventPublished, { event_id: published.id });
+
+      // Save ticket types if enabled
+      if (state.ticketsEnabled && state.ticketTypes.length > 0) {
+        await Promise.allSettled(
+          state.ticketTypes
+            .filter((tt) => tt.name.trim())
+            .map((tt) =>
+              fetch(`/api/events/${draftId}/ticket-types`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  name: tt.name.trim(),
+                  price: parseFloat(tt.price) || 0,
+                  quantityTotal: tt.quantityTotal ? parseInt(tt.quantityTotal, 10) : null,
+                }),
+              }),
+            ),
+        );
+      }
+
       setPublishedSlug(published.slug);
       setStep(TOTAL_STEPS + 1); // Success screen
     } catch (err) {
@@ -343,7 +397,7 @@ export function EventCreateWizard() {
   // ── Progress indicator ─────────────────────────────────────────────────
 
   const stepTitles = [
-    t('step1Title'), t('step2Title'), t('step3Title'), t('step4Title'), t('step5Title'),
+    t('step1Title'), t('step2Title'), t('step3Title'), t('step4Title'), t('step5Title'), t('step6Title'),
   ];
 
   return (
@@ -603,10 +657,98 @@ export function EventCreateWizard() {
         </div>
       )}
 
-      {/* ── Step 4: Preview ────────────────────────────────────────────── */}
+      {/* ── Step 4: Ticket configuration ──────────────────────────────── */}
       {step === 4 && (
-        <div className="space-y-4">
+        <div className="space-y-5">
           <h2 className="font-display text-h2 text-text-primary">{t('step4Title')}</h2>
+
+          {/* Enable toggle */}
+          <label className="flex cursor-pointer items-center gap-3">
+            <input
+              type="checkbox"
+              checked={state.ticketsEnabled}
+              onChange={(e) => update('ticketsEnabled', e.target.checked)}
+              className="h-4 w-4 rounded accent-primary"
+            />
+            <span className="text-body font-semibold text-text-primary">{'Bilet satışı aktiv et'}</span>
+          </label>
+
+          {state.ticketsEnabled && (
+            <div className="space-y-4">
+              {state.ticketTypes.map((tt, idx) => (
+                <div
+                  key={idx}
+                  className="rounded-md border border-border bg-surface-elevated p-4 space-y-3"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-label font-semibold text-text-primary">{'Bilet tipi '}{idx + 1}</span>
+                    {state.ticketTypes.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => removeTicketType(idx)}
+                        className="text-small text-error hover:underline"
+                      >
+                        {'Sil'}
+                      </button>
+                    )}
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-small font-semibold text-text-muted">{'Ad'}</label>
+                    <Input
+                      value={tt.name}
+                      onChange={(e) => updateTicketType(idx, 'name', e.target.value)}
+                      placeholder={'Pulsuz Giriş, Standard, VIP…'}
+                      maxLength={100}
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="mb-1 block text-small font-semibold text-text-muted">{'Qiymət (AZN)'}</label>
+                      <Input
+                        type="number"
+                        min={0}
+                        step={0.01}
+                        value={tt.price}
+                        onChange={(e) => updateTicketType(idx, 'price', e.target.value)}
+                        placeholder={'0'}
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-small font-semibold text-text-muted">{'Say (boş = məhdudiyyətsiz)'}</label>
+                      <Input
+                        type="number"
+                        min={1}
+                        value={tt.quantityTotal}
+                        onChange={(e) => updateTicketType(idx, 'quantityTotal', e.target.value)}
+                        placeholder={'∞'}
+                      />
+                    </div>
+                  </div>
+                </div>
+              ))}
+
+              <button
+                type="button"
+                onClick={addTicketType}
+                className="w-full rounded-md border border-dashed border-border py-2 text-label font-semibold text-text-secondary hover:bg-surface-elevated transition-colors"
+              >
+                {'+ Bilet tipi əlavə et'}
+              </button>
+            </div>
+          )}
+
+          {!state.ticketsEnabled && (
+            <p className="rounded-md bg-info-bg p-4 text-small text-info">
+              {'Bilet satışını aktiv etməsəniz, sadə RSVP sistemi istifadə olunacaq. İstənilən vaxt sonradan aktivləşdirə bilərsiniz.'}
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* ── Step 5: Preview ────────────────────────────────────────────── */}
+      {step === 5 && (
+        <div className="space-y-4">
+          <h2 className="font-display text-h2 text-text-primary">{t('step5Title')}</h2>
 
           {state.coverImage && (
             <div className="relative w-full aspect-video overflow-hidden rounded-md border border-border">
@@ -655,13 +797,18 @@ export function EventCreateWizard() {
         </div>
       )}
 
-      {/* ── Step 5: Publish ────────────────────────────────────────────── */}
-      {step === 5 && (
+      {/* ── Step 6: Publish ────────────────────────────────────────────── */}
+      {step === 6 && (
         <div className="space-y-6">
-          <h2 className="font-display text-h2 text-text-primary">{t('step5Title')}</h2>
+          <h2 className="font-display text-h2 text-text-primary">{t('step6Title')}</h2>
           <p className="text-body text-text-secondary">
             {'Aşağıdakı düyməyə basdıqda tədbir dərc ediləcək və qeydiyyat açılacaq.'}
           </p>
+          {state.ticketsEnabled && state.ticketTypes.filter((tt) => tt.name.trim()).length > 0 && (
+            <div className="rounded-md bg-info-bg p-3 text-small text-info">
+              {'✓ '}{state.ticketTypes.filter((t) => t.name.trim()).length}{' bilet tipi yaradılacaq.'}
+            </div>
+          )}
           <Button
             onClick={handlePublish}
             isLoading={isPublishing}
