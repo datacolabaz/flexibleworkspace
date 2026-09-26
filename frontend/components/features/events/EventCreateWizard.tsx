@@ -135,7 +135,6 @@ export function EventCreateWizard() {
 
   function handleResumeDraft(draft: EventRecord) {
     setDraftId(draft.id);
-    setDraftSlug(draft.slug);
     setState({
       title: draft.title ?? '',
       format: (draft.format as EventFormat) ?? '',
