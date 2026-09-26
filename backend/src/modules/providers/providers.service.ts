@@ -15,7 +15,6 @@ import {
 } from '../../common/constants/provider.enum';
 import { CreateProviderDto } from './dto/create-provider.dto';
 import { VerifyProviderDto } from './dto/verify-provider.dto';
-import { UpdateProviderDto } from './dto/update-provider.dto';
 import {
   DomainException,
   ResourceNotFoundException,
@@ -154,36 +153,6 @@ export class ProvidersService {
     return this.findById(callerProviderId);
   }
 
-  /** Self-service profile edit (PATCH providers/me) — see UpdateProviderDto. */
-  async updateMine(
-    callerProviderId: string | null,
-    dto: UpdateProviderDto,
-  ): Promise<ProviderEntity> {
-    const provider = await this.findMine(callerProviderId);
-    if (dto.taxId !== undefined) {
-      // Same fraud check as the document hash below, for the same reason:
-      // a VÖEN already sitting on a DIFFERENT provider is someone re-using
-      // a real business's tax ID to make a second account look legitimate.
-      // An empty/cleared VÖEN (falsy) is exempt — plenty of providers
-      // never fill it in, and that's fine.
-      if (dto.taxId) {
-        const existing = await this.providerRepo.findOne({
-          where: { taxId: dto.taxId },
-        });
-        if (existing && existing.id !== provider.id) {
-          throw new DomainException(
-            'DUPLICATE_TAX_ID',
-            'This VÖEN is already registered to another account.',
-            HttpStatus.CONFLICT,
-          );
-        }
-      }
-      provider.taxId = dto.taxId;
-    }
-    provider.updatedAt = new Date();
-    return this.providerRepo.save(provider);
-  }
-
   async listForAdmin(
     verificationStatus?: ProviderVerificationStatus,
   ): Promise<ProviderEntity[]> {
@@ -278,12 +247,23 @@ export class ProvidersService {
     return saved;
   }
 
-  async remove(providerId: string, adminUserId: string, reason: string): Promise<{ deleted: true }> {
+  async remove(
+    providerId: string,
+    adminUserId: string,
+    reason: string,
+  ): Promise<{ deleted: true }> {
     if (!reason?.trim() || reason.trim().length < 3) {
-      throw new DomainException('DELETE_REASON_REQUIRED', 'A deletion reason of at least 3 characters is required.', HttpStatus.BAD_REQUEST);
+      throw new DomainException(
+        'DELETE_REASON_REQUIRED',
+        'A deletion reason of at least 3 characters is required.',
+        HttpStatus.BAD_REQUEST,
+      );
     }
     const provider = await this.findById(providerId);
-    const before = { verificationStatus: provider.verificationStatus, deletedAt: null };
+    const before = {
+      verificationStatus: provider.verificationStatus,
+      deletedAt: null,
+    };
     provider.deletedAt = new Date();
     provider.updatedAt = new Date();
     await this.providerRepo.save(provider);
@@ -293,7 +273,10 @@ export class ProvidersService {
       entityType: 'Provider',
       entityId: providerId,
       beforeState: before,
-      afterState: { verificationStatus: provider.verificationStatus, deletedAt: provider.deletedAt.toISOString() },
+      afterState: {
+        verificationStatus: provider.verificationStatus,
+        deletedAt: provider.deletedAt.toISOString(),
+      },
       reason: reason.trim(),
     });
     return { deleted: true };

@@ -64,7 +64,10 @@ export class AdminListingsController {
 
   @Delete(':id')
   @RequirePermission(AdminPermission.LISTING_ARCHIVE)
-  @ApiOperation({ summary: 'Soft-delete a listing from the admin catalog with an audit reason' })
+  @ApiOperation({
+    summary:
+      'Soft-delete a listing from the admin catalog with an audit reason',
+  })
   async remove(
     @Param('id') id: string,
     @CurrentUser() user: AuthenticatedUser,

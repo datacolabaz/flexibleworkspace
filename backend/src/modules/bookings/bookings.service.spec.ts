@@ -68,7 +68,9 @@ describe('BookingsService.transition', () => {
           whereId = params.id;
           return builder;
         }),
-        getOne: jest.fn(async () => bookings.find((b) => b.id === whereId) ?? null),
+        getOne: jest.fn(
+          async () => bookings.find((b) => b.id === whereId) ?? null,
+        ),
       };
       return builder;
     }),

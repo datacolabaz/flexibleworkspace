@@ -14,14 +14,14 @@ export interface AiSearchResult {
 
 function cleanLocation(value: unknown): string | undefined {
   if (typeof value !== 'string') return undefined;
-  const cleaned = value
-    .replace(/\s*(?:da|də|de|do|du)$/iu, '')
-    .trim();
+  const cleaned = value.replace(/\s*(?:da|də|de|do|du)$/iu, '').trim();
   return cleaned || undefined;
 }
 
 function positiveInt(value: unknown): number | undefined {
-  return typeof value === 'number' && Number.isInteger(value) && value > 0 ? value : undefined;
+  return typeof value === 'number' && Number.isInteger(value) && value > 0
+    ? value
+    : undefined;
 }
 
 @Injectable()
@@ -32,8 +32,14 @@ export class AiSearchOrchestrator {
     private readonly taxonomyMapper: TaxonomyMapper,
   ) {}
 
-  async search(query: string, locale: 'az' | 'ru' | 'en'): Promise<AiSearchResult> {
-    const intent: SearchIntent = await this.aiSearchService.interpret(query, locale);
+  async search(
+    query: string,
+    locale: 'az' | 'ru' | 'en',
+  ): Promise<AiSearchResult> {
+    const intent: SearchIntent = await this.aiSearchService.interpret(
+      query,
+      locale,
+    );
     const raw = intent.filters;
 
     const filters: SearchQueryDto = {

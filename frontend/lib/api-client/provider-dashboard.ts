@@ -3,8 +3,8 @@ import 'server-only';
 /**
  * Raw-fetch client for the provider-side verification dashboard
  * (`/provider`), same pattern as `admin.ts` rather than the typed
- * openapi-fetch client in `client.ts`: `providers/me` (PATCH) and
- * `providers/me/verification-documents` (POST, multipart) aren't in the
+ * openapi-fetch client in `client.ts`: `providers/me/verification-documents`
+ * (POST, multipart) isn't in the
  * approved OpenAPI contract (docs/phase2/29_API_OPENAPI.yaml) yet — adding
  * them there and regenerating `schema.d.ts` is a separate follow-up, not
  * bundled into this minimal first version of the page.
@@ -34,7 +34,6 @@ export type MyProvider = {
   displayName: string;
   slug: string;
   category: string | null;
-  taxId: string | null;
   verificationStatus: MyProviderVerificationStatus;
   verificationDocuments: MyProviderVerificationDocument[];
   planTier: MyProviderPlanTier;
@@ -78,21 +77,6 @@ async function jsonOrThrow<T>(response: Response): Promise<T> {
 export async function getMyProvider(accessToken: string): Promise<MyProvider> {
   const response = await fetch(backendUrl('providers/me'), {
     headers: { Accept: 'application/json', Authorization: `Bearer ${accessToken}` },
-    cache: 'no-store',
-  });
-  return jsonOrThrow<MyProvider>(response);
-}
-
-/** `PATCH providers/me` — currently only `taxId` (UpdateProviderDto). */
-export async function updateMyProvider(accessToken: string, input: { taxId?: string }): Promise<MyProvider> {
-  const response = await fetch(backendUrl('providers/me'), {
-    method: 'PATCH',
-    headers: {
-      Accept: 'application/json',
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${accessToken}`,
-    },
-    body: JSON.stringify(input),
     cache: 'no-store',
   });
   return jsonOrThrow<MyProvider>(response);

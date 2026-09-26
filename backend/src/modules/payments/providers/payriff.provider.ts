@@ -76,9 +76,11 @@ export class PayriffPaymentProvider implements PaymentProvider {
    * `confirmViaLookup()` instead of relying on this returning true.
    */
   verifyWebhookSignature(
-    _rawPayload: Buffer | string,
-    _signatureHeader: string | undefined,
+    rawPayload: Buffer | string,
+    signatureHeader: string | undefined,
   ): boolean {
+    void rawPayload;
+    void signatureHeader;
     return false;
   }
 

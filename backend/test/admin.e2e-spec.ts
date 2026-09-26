@@ -13,7 +13,6 @@ import { AdminSearchService } from '../src/modules/admin/admin-search.service';
 import { AuditLogService } from '../src/modules/audit/audit-log.service';
 import { RoomsModule } from '../src/modules/rooms/rooms.module';
 import { AuthModule } from '../src/modules/auth/auth.module';
-import { RoomStatus } from '../src/common/constants/provider.enum';
 import {
   DomainException,
   ResourceNotFoundException,

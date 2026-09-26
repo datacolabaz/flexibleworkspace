@@ -193,10 +193,17 @@ export class AuthService {
     return this.issueTokenPair(user, roles);
   }
 
-  async loginWithAdminPassword(email: string, password: string): Promise<TokenPair> {
+  async loginWithAdminPassword(
+    email: string,
+    password: string,
+  ): Promise<TokenPair> {
     const normalizedEmail = email.trim().toLowerCase();
-    const user = await this.userRepo.findOne({ where: { email: normalizedEmail } });
-    const roles = user ? await this.roleRepo.find({ where: { userId: user.id } }) : [];
+    const user = await this.userRepo.findOne({
+      where: { email: normalizedEmail },
+    });
+    const roles = user
+      ? await this.roleRepo.find({ where: { userId: user.id } })
+      : [];
     const isAdmin = roles.some((role) => ADMIN_ROLE_NAMES.has(role.role));
     const passwordMatches = user?.passwordHash
       ? await bcrypt.compare(password, user.passwordHash)
@@ -235,13 +242,25 @@ export class AuthService {
       );
     }
 
-    let payload: { sub?: string; email?: string; email_verified?: boolean; name?: string } | undefined;
+    let payload:
+      | {
+          sub?: string;
+          email?: string;
+          email_verified?: boolean;
+          name?: string;
+        }
+      | undefined;
     try {
       const client = new OAuth2Client(clientId);
-      const ticket = await client.verifyIdToken({ idToken, audience: clientId });
+      const ticket = await client.verifyIdToken({
+        idToken,
+        audience: clientId,
+      });
       payload = ticket.getPayload();
     } catch (err) {
-      this.logger.warn(`Google ID token verification failed: ${(err as Error).message}`);
+      this.logger.warn(
+        `Google ID token verification failed: ${(err as Error).message}`,
+      );
       throw new DomainException(
         'OAUTH_TOKEN_INVALID',
         'Could not verify Google sign-in. Please try again.',
@@ -289,7 +308,9 @@ export class AuthService {
    */
   async loginWithFacebook(accessToken: string): Promise<TokenPair> {
     const appId = this.configService.get<string>('oauth.facebook.appId');
-    const appSecret = this.configService.get<string>('oauth.facebook.appSecret');
+    const appSecret = this.configService.get<string>(
+      'oauth.facebook.appSecret',
+    );
     if (!appId || !appSecret) {
       this.logger.error(
         'Facebook Sign-In is not configured (FACEBOOK_APP_ID/FACEBOOK_APP_SECRET missing) — refusing rather than silently failing.',
@@ -308,11 +329,17 @@ export class AuthService {
       const debugBody = (await debugResponse.json()) as {
         data?: { is_valid?: boolean; app_id?: string };
       };
-      if (!debugResponse.ok || !debugBody.data?.is_valid || debugBody.data.app_id !== appId) {
+      if (
+        !debugResponse.ok ||
+        !debugBody.data?.is_valid ||
+        debugBody.data.app_id !== appId
+      ) {
         throw new Error('token failed debug_token verification');
       }
     } catch (err) {
-      this.logger.warn(`Facebook token verification failed: ${(err as Error).message}`);
+      this.logger.warn(
+        `Facebook token verification failed: ${(err as Error).message}`,
+      );
       throw new DomainException(
         'OAUTH_TOKEN_INVALID',
         'Could not verify Facebook sign-in. Please try again.',
@@ -325,10 +352,13 @@ export class AuthService {
       const response = await fetch(
         `https://graph.facebook.com/me?fields=id,email,name&access_token=${encodeURIComponent(accessToken)}`,
       );
-      if (!response.ok) throw new Error(`Graph API returned ${response.status}`);
+      if (!response.ok)
+        throw new Error(`Graph API returned ${response.status}`);
       profile = (await response.json()) as typeof profile;
     } catch (err) {
-      this.logger.warn(`Facebook profile fetch failed: ${(err as Error).message}`);
+      this.logger.warn(
+        `Facebook profile fetch failed: ${(err as Error).message}`,
+      );
       throw new DomainException(
         'OAUTH_TOKEN_INVALID',
         'Could not verify Facebook sign-in. Please try again.',
@@ -424,7 +454,9 @@ export class AuthService {
           createdAt: now,
         }),
       );
-      this.logger.log(`Provisioned new account ${user.id} via ${provider} sign-in`);
+      this.logger.log(
+        `Provisioned new account ${user.id} via ${provider} sign-in`,
+      );
     }
 
     await this.oauthRepo.save(

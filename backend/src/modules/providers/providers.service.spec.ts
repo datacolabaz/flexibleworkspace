@@ -16,8 +16,6 @@ function makeProviderRepoDouble() {
     rows,
     findOne: jest.fn(async ({ where }: any) => {
       if (where?.id) return rows.find((r) => r.id === where.id) ?? null;
-      if (where?.taxId)
-        return rows.find((r) => r.taxId === where.taxId) ?? null;
       return null;
     }),
     save: jest.fn(async (entity: any) => {
@@ -209,30 +207,6 @@ describe('ProvidersService', () => {
       ).resolves.toBeDefined();
       const p6 = providerRepo.rows.find((r) => r.id === 'p6');
       expect(p6.verificationDocuments).toHaveLength(2);
-    });
-  });
-
-  describe('updateMine() — duplicate-VÖEN fraud check (2026-09-23)', () => {
-    it('rejects a VÖEN already registered to a different provider', async () => {
-      providerRepo.rows.push(makeProvider({ id: 'p7', taxId: '1234567' }));
-      providerRepo.rows.push(makeProvider({ id: 'p8' }));
-
-      await expect(
-        service.updateMine('p8', { taxId: '1234567' } as any),
-      ).rejects.toMatchObject({ code: 'DUPLICATE_TAX_ID' });
-    });
-
-    it('allows a provider to re-save its own existing VÖEN', async () => {
-      providerRepo.rows.push(makeProvider({ id: 'p9', taxId: '7654321' }));
-      await expect(
-        service.updateMine('p9', { taxId: '7654321' } as any),
-      ).resolves.toBeDefined();
-    });
-
-    it('allows clearing the VÖEN (falsy values are exempt from the duplicate check)', async () => {
-      providerRepo.rows.push(makeProvider({ id: 'p10', taxId: '1111111' }));
-      const saved = await service.updateMine('p10', { taxId: '' } as any);
-      expect(saved.taxId).toBe('');
     });
   });
 });

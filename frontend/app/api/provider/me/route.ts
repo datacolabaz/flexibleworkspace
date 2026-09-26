@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getMyProvider, updateMyProvider, ProviderApiError } from '@/lib/api-client/provider-dashboard';
+import { getMyProvider, ProviderApiError } from '@/lib/api-client/provider-dashboard';
 import { readSession } from '@/lib/auth/session';
 
 function errorResponse(error: unknown) {
@@ -25,19 +25,6 @@ export async function GET(request: NextRequest) {
   }
   try {
     return NextResponse.json(await getMyProvider(accessToken));
-  } catch (error) {
-    return errorResponse(error);
-  }
-}
-
-export async function PATCH(request: NextRequest) {
-  const accessToken = tokenOrNull(request);
-  if (!accessToken) {
-    return NextResponse.json({ error: { code: 'UNAUTHENTICATED', message: 'Sign in required.' } }, { status: 401 });
-  }
-  try {
-    const body = (await request.json()) as { taxId?: string };
-    return NextResponse.json(await updateMyProvider(accessToken, body));
   } catch (error) {
     return errorResponse(error);
   }

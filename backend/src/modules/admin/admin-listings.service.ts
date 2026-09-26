@@ -186,7 +186,11 @@ export class AdminListingsService {
     return saved;
   }
 
-  async removeRoom(roomId: string, adminUserId: string, reason: string): Promise<{ deleted: true }> {
+  async removeRoom(
+    roomId: string,
+    adminUserId: string,
+    reason: string,
+  ): Promise<{ deleted: true }> {
     if (!reason?.trim() || reason.trim().length < 3) {
       throw new DomainException(
         'DELETE_REASON_REQUIRED',
@@ -206,7 +210,11 @@ export class AdminListingsService {
       entityId: roomId,
       action: 'ADMIN_ARCHIVE',
       beforeState: { name: room.name, status: room.status, deletedAt: null },
-      afterState: { name: room.name, status: room.status, deletedAt: deletedAt.toISOString() },
+      afterState: {
+        name: room.name,
+        status: room.status,
+        deletedAt: deletedAt.toISOString(),
+      },
       reason: reason.trim(),
     });
     return { deleted: true };

@@ -17,7 +17,9 @@ export class AdminPricingController {
 
   @Get('default')
   @RequirePermission(AdminPermission.COMMISSION_READ)
-  @ApiOperation({ summary: 'Read platform default commission and minimum price' })
+  @ApiOperation({
+    summary: 'Read platform default commission and minimum price',
+  })
   getDefault() {
     return this.pricingService.getDefault();
   }
@@ -25,7 +27,10 @@ export class AdminPricingController {
   @Patch('default')
   @RequirePermission(AdminPermission.COMMISSION_UPDATE)
   @ApiOperation({ summary: 'Update platform default pricing rules' })
-  updateDefault(@CurrentUser() user: AuthenticatedUser, @Body() dto: UpdatePricingSettingDto) {
+  updateDefault(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: UpdatePricingSettingDto,
+  ) {
     return this.pricingService.updateDefault(user.userId, dto);
   }
 }

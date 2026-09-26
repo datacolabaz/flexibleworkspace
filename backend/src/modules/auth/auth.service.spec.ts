@@ -156,7 +156,6 @@ describe('AuthService', () => {
   describe('verifyOtp', () => {
     it('rejects a code that does not match the stored hash, and increments attempt_count', async () => {
       await service.requestOtp('bob@example.com');
-      const otp = otps[0];
 
       await expect(
         service.verifyOtp('bob@example.com', '000000'),
@@ -328,7 +327,10 @@ describe('AuthService', () => {
         createdAt: new Date(),
       } as UserRoleEntity);
 
-      const result = await service.loginWithAdminPassword(' ADMIN@EXAMPLE.COM ', 'correct-password-123');
+      const result = await service.loginWithAdminPassword(
+        ' ADMIN@EXAMPLE.COM ',
+        'correct-password-123',
+      );
 
       expect(result.accessToken).toBe('signed.jwt.token');
       expect(result.refreshToken).toEqual(expect.any(String));
@@ -339,7 +341,10 @@ describe('AuthService', () => {
       users[0].passwordHash = await bcrypt.hash('correct-password-123', 10);
 
       await expect(
-        service.loginWithAdminPassword('customer@example.com', 'correct-password-123'),
+        service.loginWithAdminPassword(
+          'customer@example.com',
+          'correct-password-123',
+        ),
       ).rejects.toMatchObject({ code: 'ADMIN_LOGIN_INVALID' });
     });
 
@@ -367,7 +372,10 @@ describe('AuthService', () => {
       } as UserRoleEntity);
 
       await expect(
-        service.loginWithAdminPassword('admin2@example.com', 'wrong-password-123'),
+        service.loginWithAdminPassword(
+          'admin2@example.com',
+          'wrong-password-123',
+        ),
       ).rejects.toMatchObject({ code: 'ADMIN_LOGIN_INVALID' });
     });
   });
@@ -423,7 +431,9 @@ describe('AuthService', () => {
         }),
       });
 
-      await expect(service.loginWithGoogle('fake-id-token')).rejects.toMatchObject({
+      await expect(
+        service.loginWithGoogle('fake-id-token'),
+      ).rejects.toMatchObject({
         code: 'OAUTH_EMAIL_NOT_VERIFIED',
       });
       expect(users).toHaveLength(0);
@@ -439,12 +449,18 @@ describe('AuthService', () => {
   });
 
   describe('loginWithFacebook', () => {
-    function mockGraphApi(profile: { id: string; email?: string; name?: string }) {
+    function mockGraphApi(profile: {
+      id: string;
+      email?: string;
+      name?: string;
+    }) {
       (global.fetch as jest.Mock).mockImplementation(async (url: string) => {
         if (url.includes('debug_token')) {
           return {
             ok: true,
-            json: async () => ({ data: { is_valid: true, app_id: 'test-fb-app-id' } }),
+            json: async () => ({
+              data: { is_valid: true, app_id: 'test-fb-app-id' },
+            }),
           };
         }
         return { ok: true, json: async () => profile };
@@ -468,10 +484,14 @@ describe('AuthService', () => {
     it('rejects a token whose app_id does not match ours (debug_token check)', async () => {
       (global.fetch as jest.Mock).mockResolvedValue({
         ok: true,
-        json: async () => ({ data: { is_valid: true, app_id: 'someone-elses-app' } }),
+        json: async () => ({
+          data: { is_valid: true, app_id: 'someone-elses-app' },
+        }),
       });
 
-      await expect(service.loginWithFacebook('foreign-token')).rejects.toMatchObject({
+      await expect(
+        service.loginWithFacebook('foreign-token'),
+      ).rejects.toMatchObject({
         code: 'OAUTH_TOKEN_INVALID',
       });
       expect(users).toHaveLength(0);
@@ -480,7 +500,9 @@ describe('AuthService', () => {
     it('rejects a profile with no email rather than creating an account without one', async () => {
       mockGraphApi({ id: 'fb-id-2' });
 
-      await expect(service.loginWithFacebook('fake-access-token')).rejects.toMatchObject({
+      await expect(
+        service.loginWithFacebook('fake-access-token'),
+      ).rejects.toMatchObject({
         code: 'OAUTH_EMAIL_REQUIRED',
       });
       expect(users).toHaveLength(0);

@@ -5,7 +5,6 @@ import { Alert } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { FormField } from '@/components/ui/FormField';
-import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 import type { MyProvider, MyProviderVerificationDocumentType } from '@/lib/api-client/provider-dashboard';
 
@@ -41,49 +40,11 @@ function formatDate(iso: string) {
 export function ProviderVerificationPanel({ initialProvider }: { initialProvider: MyProvider }) {
   const [provider, setProvider] = useState(initialProvider);
 
-  const [taxId, setTaxId] = useState(provider.taxId ?? '');
-  const [isSavingTaxId, setIsSavingTaxId] = useState(false);
-  const [taxIdError, setTaxIdError] = useState<string | undefined>();
-  const [taxIdSaved, setTaxIdSaved] = useState(false);
-
   const [documentType, setDocumentType] = useState<MyProviderVerificationDocumentType>('ID_DOCUMENT');
   const [file, setFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | undefined>();
   const [uploadSuccess, setUploadSuccess] = useState(false);
-
-  async function handleSaveTaxId(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setIsSavingTaxId(true);
-    setTaxIdError(undefined);
-    setTaxIdSaved(false);
-    try {
-      const response = await fetch('/api/provider/me', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ taxId: taxId.trim() }),
-      });
-      if (!response.ok) {
-        const body = (await response.json().catch(() => undefined)) as BffErrorBody | undefined;
-        // Backend rejects a VÖEN already registered to a different
-        // account (fraud check, 2026-09-23) — surface that plainly rather
-        // than the raw English DomainException message.
-        setTaxIdError(
-          body?.error?.code === 'DUPLICATE_TAX_ID'
-            ? 'Bu VÖEN artıq başqa hesabda qeydiyyatdan keçib.'
-            : (body?.error?.message ?? 'VÖEN yadda saxlanmadı. Yenidən cəhd edin.'),
-        );
-        return;
-      }
-      const updated = (await response.json()) as MyProvider;
-      setProvider(updated);
-      setTaxIdSaved(true);
-    } catch {
-      setTaxIdError('VÖEN yadda saxlanmadı. Yenidən cəhd edin.');
-    } finally {
-      setIsSavingTaxId(false);
-    }
-  }
 
   async function handleUpload(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -140,8 +101,7 @@ export function ProviderVerificationPanel({ initialProvider }: { initialProvider
         </div>
         {provider.verificationStatus === 'PENDING' && (
           <p className="text-small text-text-secondary">
-            Hesabınız yoxlanılır. Aşağıda VÖEN-i daxil edin və tələb olunan sənədləri yükləyin — komandamız onları
-            nəzərdən keçirəcək.
+            Hesabınız yoxlanılır. Tələb olunan sənədləri yükləyin — komandamız onları nəzərdən keçirəcək.
           </p>
         )}
         {provider.verificationStatus === 'REJECTED' && (
@@ -169,27 +129,6 @@ export function ProviderVerificationPanel({ initialProvider }: { initialProvider
             </a>
           </div>
         )}
-      </Card>
-
-      <Card className="flex flex-col gap-4 p-5">
-        <h3 className="font-display text-h4 text-text-primary">VÖEN</h3>
-        <form onSubmit={handleSaveTaxId} noValidate className="flex flex-col gap-4 sm:max-w-sm">
-          {taxIdError && <Alert variant="error">{taxIdError}</Alert>}
-          {taxIdSaved && <Alert variant="success">VÖEN yadda saxlanıldı.</Alert>}
-          <FormField id="provider-tax-id" label="Vergi ödəyicisinin eyniləşdirmə nömrəsi (VÖEN)">
-            <Input
-              id="provider-tax-id"
-              name="taxId"
-              type="text"
-              value={taxId}
-              disabled={isSavingTaxId}
-              onChange={(event) => setTaxId(event.target.value)}
-            />
-          </FormField>
-          <Button type="submit" isLoading={isSavingTaxId} className="self-start">
-            {isSavingTaxId ? 'Saxlanılır…' : 'Saxla'}
-          </Button>
-        </form>
       </Card>
 
       <Card className="flex flex-col gap-4 p-5">
