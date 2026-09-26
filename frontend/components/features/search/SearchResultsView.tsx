@@ -1,17 +1,20 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useTranslations } from 'next-intl';
+import React, { useEffect, useState } from 'react';
+import { useTranslations, useLocale } from 'next-intl';
 import { useSearchParams } from 'next/navigation';
 import { usePathname, useRouter } from '@/lib/i18n/navigation';
 import { Alert } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/Button';
+import { Select } from '@/components/ui/Select';
 import { RoomListingCard, type RoomSummary } from '@/components/features/rooms/RoomListingCard';
 import { RoomListingCardSkeleton } from '@/components/features/rooms/RoomListingCardSkeleton';
-import { SearchFilters } from './SearchFilters';
+import { SearchFilters, draftFromSearchParams } from './SearchFilters';
 import { SearchResultsMap } from './SearchResultsMap';
 import { AiSearchBox } from './AiSearchBox';
 import type { SearchRoomsResult } from '@/lib/api-client/rooms';
+
+const SORT_OPTIONS = ['relevance', 'price', 'distance', 'rating'] as const;
 
 interface MetroStation {
   id: string;
@@ -48,6 +51,9 @@ export function SearchResultsView() {
   const [state, setState] = useState<FetchState>({ status: 'loading' });
   const [hoveredRoomId, setHoveredRoomId] = useState<string | undefined>(undefined);
   const [mobileView, setMobileView] = useState<MobileView>('list');
+  // Desktop map toggle — map hidden by default for performance (Mapbox
+  // is not initialised until the user explicitly requests it).
+  const [showMap, setShowMap] = useState(false);
   // Which of the *current results* are already favorited by the signed-in
   // visitor — undefined for a signed-out visitor and for anyone before the
   // background check below resolves (RoomListingCard/BookmarkButton treat
@@ -174,12 +180,32 @@ export function SearchResultsView() {
       <SearchFilters metroStations={metroStations} />
 
       <div className="min-w-0 flex-1">
-        <div className="mb-4 flex items-center justify-between gap-3">
-          <h1 className="text-h3 font-display text-text-primary">{t('title')}</h1>
-          {state.status === 'success' && (
-            <p className="whitespace-nowrap text-small text-text-secondary">{t('resultsCount', { count: totalCount })}</p>
-          )}
+        {/* Results header: title, count, sort dropdown, desktop map toggle */}
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <h1 className="text-h3 font-display text-text-primary">{t('title')}</h1>
+            {state.status === 'success' && (
+              <p className="whitespace-nowrap text-small text-text-secondary">{t('resultsCount', { count: totalCount })}</p>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            {/* Sort dropdown — in header instead of sidebar */}
+            <SortControl />
+            {/* Desktop-only map toggle */}
+            <Button
+              variant="secondary"
+              size="sm"
+              className="hidden lg:inline-flex"
+              onClick={() => setShowMap((prev) => !prev)}
+              aria-pressed={showMap}
+            >
+              {showMap ? t('hideMap') : t('showMap')}
+            </Button>
+          </div>
         </div>
+
+        {/* Active filter chips */}
+        <ActiveFilterChips />
 
         {/* Mobile List/Map toggle — 08_DESIGN_SYSTEM.md §8.6: "List/Map
          * toggle" is the mobile binding for the desktop split view. */}
@@ -261,18 +287,156 @@ export function SearchResultsView() {
             )}
           </div>
 
-          <div className={['sticky top-20 h-[calc(100vh-6rem)] w-full lg:block lg:w-[420px]', mobileView === 'list' ? 'hidden' : 'block'].join(' ')}>
-            <SearchResultsMap
-              rooms={results}
-              highlightedRoomId={hoveredRoomId}
-              onMarkerHover={setHoveredRoomId}
-              onMarkerClick={setHoveredRoomId}
-              className="h-full w-full"
-            />
-          </div>
+          {/* Map — only mounted when needed for performance (Mapbox not
+              initialised until the user requests the map). On desktop,
+              controlled by showMap; on mobile, controlled by mobileView. */}
+          {(showMap || mobileView === 'map') && (
+            <div
+              className={[
+                'sticky top-20 h-[calc(100vh-6rem)] w-full lg:w-[420px]',
+                showMap && mobileView === 'map'
+                  ? '' // visible on both breakpoints
+                  : showMap && mobileView === 'list'
+                    ? 'hidden lg:block' // desktop only
+                    : 'block lg:hidden', // mobile only
+              ].join(' ')}
+            >
+              <SearchResultsMap
+                rooms={results}
+                highlightedRoomId={hoveredRoomId}
+                onMarkerHover={setHoveredRoomId}
+                onMarkerClick={setHoveredRoomId}
+                className="h-full w-full"
+              />
+            </div>
+          )}
         </div>
       </div>
       </div>
     </>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Sort control — lives in the results header, directly mutates the URL
+// `sort` param without touching other filter params.
+// ---------------------------------------------------------------------------
+function SortControl() {
+  const t = useTranslations('search');
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
+
+  const currentSort = searchParams.get('sort') ?? 'relevance';
+
+  function handleChange(e: React.ChangeEvent<HTMLSelectElement>) {
+    const qs = new URLSearchParams(searchParams.toString());
+    if (e.target.value === 'relevance') {
+      qs.delete('sort');
+    } else {
+      qs.set('sort', e.target.value);
+    }
+    // Changing sort resets to page 1.
+    qs.delete('page');
+    router.replace(qs.size > 0 ? `${pathname}?${qs.toString()}` : pathname);
+  }
+
+  const sortLabels: Record<string, string> = {
+    relevance: t('sortRelevance'),
+    price: t('sortPrice'),
+    distance: t('sortDistance'),
+    rating: t('sortRating'),
+  };
+
+  return (
+    <div className="flex items-center gap-1.5">
+      <span className="whitespace-nowrap text-small text-text-secondary">{t('sortPrefix')}</span>
+      <Select value={currentSort} onChange={handleChange} className="py-1 text-small">
+        {SORT_OPTIONS.map((sort) => (
+          <option key={sort} value={sort}>
+            {sortLabels[sort] ?? sort}
+          </option>
+        ))}
+      </Select>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Active filter chips — shown above the results list when any filter is
+// active, one chip per active param with an × to clear just that one.
+// ---------------------------------------------------------------------------
+function ActiveFilterChips() {
+  const t = useTranslations('search');
+  const locale = useLocale();
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
+
+  void locale; // available for future per-locale label formatting
+
+  const draft = draftFromSearchParams(searchParams);
+
+  const chips: { key: string; label: string }[] = [];
+
+  if (draft.city.trim()) chips.push({ key: 'city', label: draft.city.trim() });
+  if (draft.roomType) chips.push({ key: 'roomType', label: draft.roomType });
+  if (draft.date) chips.push({ key: 'date', label: draft.date });
+  if (draft.startTime) chips.push({ key: 'startTime', label: draft.startTime });
+  if (draft.durationMinutes) {
+    const mins = Number(draft.durationMinutes);
+    const label = mins < 60 ? `${mins} dəq` : mins % 60 === 0 ? `${mins / 60} saat` : `${(mins / 60).toFixed(1)} saat`;
+    chips.push({ key: 'durationMinutes', label });
+  }
+  if (draft.participants) chips.push({ key: 'participants', label: `${draft.participants} nəfər` });
+  if (draft.priceMax) chips.push({ key: 'priceMax', label: `≤${draft.priceMax} AZN` });
+  draft.amenities.forEach((amenity) => {
+    // Use the last segment of the translation key as a short label.
+    const short = amenity.split('.').pop() ?? amenity;
+    chips.push({ key: `amenity:${amenity}`, label: short });
+  });
+
+  if (chips.length === 0) return null;
+
+  function clearChip(key: string) {
+    const qs = new URLSearchParams(searchParams.toString());
+    if (key.startsWith('amenity:')) {
+      const amenityKey = key.slice('amenity:'.length);
+      const current = qs.get('amenities')?.split(',').filter(Boolean) ?? [];
+      const next = current.filter((a) => a !== amenityKey);
+      if (next.length > 0) qs.set('amenities', next.join(','));
+      else qs.delete('amenities');
+    } else {
+      qs.delete(key);
+    }
+    qs.delete('page');
+    router.replace(qs.size > 0 ? `${pathname}?${qs.toString()}` : pathname);
+  }
+
+  function clearAll() {
+    router.replace(pathname);
+  }
+
+  return (
+    <div className="mb-4 flex flex-wrap items-center gap-2" aria-label={t('activeFilterChips')}>
+      {chips.map((chip) => (
+        <button
+          key={chip.key}
+          type="button"
+          onClick={() => clearChip(chip.key)}
+          className="flex items-center gap-1 rounded-full border border-border bg-surface px-3 py-1 text-caption font-medium text-text-primary transition-colors hover:border-primary hover:text-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
+        >
+          {chip.label}
+          <span aria-hidden="true" className="ml-0.5 text-text-muted">×</span>
+        </button>
+      ))}
+      <button
+        type="button"
+        onClick={clearAll}
+        className="text-caption text-text-secondary underline-offset-2 hover:text-primary hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
+      >
+        {t('clearAllFilters')}
+      </button>
+    </div>
   );
 }

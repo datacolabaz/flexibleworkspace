@@ -1560,6 +1560,12 @@ function RoomMediaManager({ roomId, capabilities }: { roomId: string; capabiliti
   const [videoUploading, setVideoUploading] = useState(false);
   const [videoError, setVideoError] = useState<string | undefined>();
   const [videoBusy, setVideoBusy] = useState(false);
+  // Explicit ref ensures clicking the drop-zone always opens the native
+  // file dialog even in browsers where `<label htmlFor>` + `sr-only`
+  // positioning is unreliable (observed: Safari on macOS with some
+  // security policies suppressing the programmatic click from a label
+  // whose associated input has position:absolute width/height 1px).
+  const photoInputRef = useRef<HTMLInputElement>(null);
 
   const loadMedia = useCallback(async () => {
     try {
@@ -1876,13 +1882,19 @@ function RoomMediaManager({ roomId, capabilities }: { roomId: string; capabiliti
 
         {!photoLimitReached && (
           <label
-            htmlFor={`room-photo-input-${roomId}`}
             onDragOver={(event) => {
               event.preventDefault();
               setIsDraggingOver(true);
             }}
             onDragLeave={() => setIsDraggingOver(false)}
             onDrop={handleDrop}
+            onClick={() => {
+              // Explicit programmatic click fixes browsers (Safari/Chrome
+              // on macOS) where clicking a <label> whose sr-only input is
+              // positioned absolutely with 1×1px dimensions doesn't reliably
+              // open the native file-picker dialog.
+              if (!photoUploading) photoInputRef.current?.click();
+            }}
             className={`flex min-h-24 cursor-pointer flex-col items-center justify-center gap-1 rounded-md border-2 border-dashed px-4 py-5 text-center transition-colors ${
               isDraggingOver ? 'border-primary bg-primary/5' : 'border-border-strong hover:border-primary'
             }`}
@@ -1896,7 +1908,7 @@ function RoomMediaManager({ roomId, capabilities }: { roomId: string; capabiliti
               </>
             )}
             <input
-              id={`room-photo-input-${roomId}`}
+              ref={photoInputRef}
               type="file"
               accept="image/*"
               multiple

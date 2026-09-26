@@ -162,7 +162,12 @@
     "nextPage": "Növbəti",
     "pageLabel": "{page} / {totalPages} səhifə",
     "metroFilter": "Metro stansiyası",
-    "metroFilterAny": "İstənilən metro stansiyası"
+    "metroFilterAny": "İstənilən metro stansiyası",
+    "showMap": "Xəritədə göstər",
+    "hideMap": "Xəritəni gizlət",
+    "sortPrefix": "Sırala:",
+    "clearAllFilters": "Hamısını təmizlə",
+    "activeFilterChips": "Aktiv filtrlər"
   },
   "room": {
     "priceLabel": "Qiymət",

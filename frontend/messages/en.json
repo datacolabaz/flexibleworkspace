@@ -162,7 +162,12 @@
     "nextPage": "Next",
     "pageLabel": "Page {page} of {totalPages}",
     "metroFilter": "Metro station",
-    "metroFilterAny": "Any metro station"
+    "metroFilterAny": "Any metro station",
+    "showMap": "Show map",
+    "hideMap": "Hide map",
+    "sortPrefix": "Sort:",
+    "clearAllFilters": "Clear all",
+    "activeFilterChips": "Active filters"
   },
   "room": {
     "priceLabel": "Price",

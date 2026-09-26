@@ -58,6 +58,18 @@ export async function Header() {
     }
   }
 
+  // First name only — avoids overflow at the md breakpoint where the
+  // header is tightest. Initials (up to 2 chars) drive the avatar circle.
+  const firstName = displayName ? displayName.split(' ')[0] : null;
+  const initials = displayName
+    ? displayName
+        .split(' ')
+        .slice(0, 2)
+        .map((w) => w[0] ?? '')
+        .join('')
+        .toUpperCase()
+    : null;
+
   const navItems = [
     { href: '/', label: t('homeLink') },
     { href: '/search', label: t('spaces') },
@@ -67,7 +79,7 @@ export async function Header() {
   ];
 
   const loginHref = isAuthenticated ? '/account/bookings' : '/login';
-  const loginLabel = isAuthenticated ? (displayName ?? t('account')) : t('login');
+  const loginLabel = isAuthenticated ? (firstName ?? t('account')) : t('login');
 
   return (
     <>
@@ -114,9 +126,17 @@ export async function Header() {
             <ThemeToggle />
             <Link
               href={loginHref}
-              className="hidden min-h-11 max-w-[10rem] items-center truncate rounded-md bg-accent px-3 text-label font-semibold text-accent-on hover:bg-accent-hover sm:inline-flex lg:px-4"
+              className="hidden min-h-11 max-w-[10rem] items-center gap-2 rounded-md bg-accent px-3 text-label font-semibold text-accent-on hover:bg-accent-hover sm:inline-flex lg:px-4"
             >
-              {loginLabel}
+              {isAuthenticated && initials && (
+                <span
+                  aria-hidden="true"
+                  className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-accent-on/20 text-[0.6rem] font-bold leading-none"
+                >
+                  {initials}
+                </span>
+              )}
+              <span className="truncate">{loginLabel}</span>
             </Link>
             <MobileMenu
               navItems={navItems}

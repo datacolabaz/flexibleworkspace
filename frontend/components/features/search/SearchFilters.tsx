@@ -11,6 +11,18 @@ import { Select } from '@/components/ui/Select';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import { ROOM_TYPES, AMENITIES, AMENITY_CATEGORIES } from '@/lib/constants/taxonomy';
 
+// ---------------------------------------------------------------------------
+// Metro station name normalisation — strips line-2 suffixes so transfer
+// stations ("28 May" / "28 May (xətt 2)") are shown only once in the UI.
+// Does NOT affect DB records — display only.
+// ---------------------------------------------------------------------------
+function normalizeStationName(name: string): string {
+  return name
+    .replace(/\s*\(xətt\s*\d+\)\s*$/i, '') // remove trailing "(xətt N)"
+    .replace(/\s+2$/, '') // remove trailing " 2" (line-2 indicator)
+    .trim();
+}
+
 interface MetroStation {
   id: string;
   nameAz: string;
@@ -19,7 +31,6 @@ interface MetroStation {
 }
 
 const DURATION_OPTIONS = [30, 60, 90, 120, 180, 240, 360, 480] as const;
-const SORT_OPTIONS = ['relevance', 'price', 'distance', 'rating'] as const;
 
 interface FilterDraft {
   city: string;
@@ -30,7 +41,10 @@ interface FilterDraft {
   participants: string;
   priceMax: string;
   amenities: string[];
-  sort: string;
+  // sort is intentionally NOT in FilterDraft — it is managed by the
+  // SortControl in the results header so that sidebar Apply never resets
+  // a sort the user set from the header. sort is preserved through Apply
+  // because draftToQueryString reads the current URL sort param directly.
   metroStationId: string;
 }
 
@@ -43,7 +57,6 @@ const EMPTY_DRAFT: FilterDraft = {
   participants: '',
   priceMax: '',
   amenities: [],
-  sort: 'relevance',
   metroStationId: '',
 };
 
@@ -71,7 +84,6 @@ function draftFromSearchParams(params: URLSearchParams): FilterDraft {
     // form state.
     priceMax: params.get('priceMax') ? String(Math.round(Number(params.get('priceMax')) / 100)) : '',
     amenities: params.get('amenities')?.split(',').filter(Boolean) ?? [],
-    sort: params.get('sort') ?? 'relevance',
     metroStationId: params.get('metroStationId') ?? '',
   };
 }
@@ -175,7 +187,7 @@ function openNativePicker(input: HTMLInputElement | null): void {
   else input.click();
 }
 
-function draftToQueryString(draft: FilterDraft): string {
+function draftToQueryString(draft: FilterDraft, currentParams?: URLSearchParams): string {
   const qs = new URLSearchParams();
   if (draft.city.trim()) qs.set('city', draft.city.trim());
   if (draft.roomType) qs.set('roomType', draft.roomType);
@@ -185,8 +197,11 @@ function draftToQueryString(draft: FilterDraft): string {
   if (draft.participants) qs.set('participants', draft.participants);
   if (draft.priceMax) qs.set('priceMax', String(Math.round(Number(draft.priceMax) * 100)));
   if (draft.amenities.length > 0) qs.set('amenities', draft.amenities.join(','));
-  if (draft.sort && draft.sort !== 'relevance') qs.set('sort', draft.sort);
   if (draft.metroStationId) qs.set('metroStationId', draft.metroStationId);
+  // Preserve the current sort value from the URL so Apply never resets a
+  // sort the user set via the header SortControl.
+  const sort = currentParams?.get('sort');
+  if (sort && sort !== 'relevance') qs.set('sort', sort);
   // Filter changes are a new search — always land back on page 1.
   return qs.toString();
 }
@@ -203,6 +218,31 @@ function countActive(draft: FilterDraft): number {
   count += draft.amenities.length;
   if (draft.metroStationId) count += 1;
   return count;
+}
+
+// Simple CSS-only accordion toggle for amenity sub-groups.
+function AmenityGroupAccordion({
+  title,
+  children,
+}: {
+  title: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="border-t border-border first:border-t-0">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="flex w-full items-center justify-between py-2 text-left text-caption font-semibold uppercase tracking-wide text-text-muted transition-colors hover:text-text-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
+        aria-expanded={open}
+      >
+        <span>{title}</span>
+        <span aria-hidden="true" className="text-xs transition-transform duration-200" style={{ display: 'inline-block', transform: open ? 'rotate(180deg)' : 'rotate(0deg)' }}>▾</span>
+      </button>
+      {open && <div className="pb-2">{children}</div>}
+    </div>
+  );
 }
 
 function FilterFields({
@@ -251,11 +291,26 @@ function FilterFields({
             onChange={(e) => onChange({ ...draft, metroStationId: e.target.value })}
           >
             <option value="">{t('search.metroFilterAny')}</option>
-            {metroStations.map((station) => (
-              <option key={station.id} value={station.id}>
-                {locale.startsWith('en') ? station.nameEn : station.nameAz}
-              </option>
-            ))}
+            {/* Deduplicate transfer stations by normalised name — DB records
+                are intentionally not deleted; only the display is filtered. */}
+            {(() => {
+              const seen = new Set<string>();
+              return metroStations.filter((station) => {
+                const raw = locale.startsWith('en') ? station.nameEn : station.nameAz;
+                const normalized = normalizeStationName(raw);
+                if (seen.has(normalized)) return false;
+                seen.add(normalized);
+                return true;
+              });
+            })().map((station) => {
+              const raw = locale.startsWith('en') ? station.nameEn : station.nameAz;
+              const displayName = normalizeStationName(raw);
+              return (
+                <option key={station.id} value={station.id}>
+                  {displayName}
+                </option>
+              );
+            })}
           </Select>
         </div>
       )}
@@ -422,52 +477,76 @@ value={dateText}
         </div>
       </div>
 
-      <div className="flex flex-col gap-1.5">
-        <Label htmlFor="filter-sort">{t('search.sortLabel')}</Label>
-        <Select id="filter-sort" value={draft.sort} onChange={(e) => onChange({ ...draft, sort: e.target.value })}>
-          {SORT_OPTIONS.map((sort) => (
-            <option key={sort} value={sort}>
-              {t(`search.sort${sort.charAt(0).toUpperCase()}${sort.slice(1)}`)}
-            </option>
-          ))}
-        </Select>
-      </div>
+      {/* Sort is now in the results header (SortControl) — removed from
+          sidebar so Apply never resets a sort set from the header. */}
 
-      <fieldset className="flex flex-col gap-3">
-        <legend className="mb-1 text-label text-text-primary">{t('search.amenitiesLabel')}</legend>
-        {AMENITY_CATEGORIES.map((category) => (
-          <div key={category} className="flex flex-col gap-2">
-            <p className="text-caption font-semibold uppercase tracking-wide text-text-muted">
-              {t(`search.amenityCategory.${category}`)}
-            </p>
-            <div className="flex flex-col gap-1">
-              {AMENITIES.filter((a) => a.category === category).map((amenity) => {
-                const checked = draft.amenities.includes(amenity.translationKey);
-                return (
-                  <label
-                    key={amenity.key}
-                    className="flex min-h-11 items-center gap-2 text-body text-text-primary"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={checked}
-                      className="h-4 w-4 rounded-sm border-border-strong text-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-                      onChange={(e) =>
-                        onChange({
-                          ...draft,
-                          amenities: e.target.checked
-                            ? [...draft.amenities, amenity.translationKey]
-                            : draft.amenities.filter((key) => key !== amenity.translationKey),
-                        })
-                      }
-                    />
-                    {t(`taxonomy.amenity.${amenity.key}`)}
-                  </label>
-                );
-              })}
-            </div>
-          </div>
-        ))}
+      {/* Amenities — collapsed accordion for progressive disclosure */}
+      <fieldset className="flex flex-col gap-0">
+        <legend className="sr-only">{t('search.amenitiesLabel')}</legend>
+        <button
+          type="button"
+          onClick={() => {
+            // Toggle handled inside each AmenityGroupAccordion; this outer
+            // button is a visual label that acts as a section header — it
+            // intentionally does nothing itself so the structure stays clear.
+          }}
+          className="pointer-events-none flex w-full items-center justify-between py-1 text-label text-text-primary"
+          tabIndex={-1}
+          aria-hidden="true"
+        >
+          {t('search.amenitiesLabel')}
+          {draft.amenities.length > 0 && (
+            <span className="ml-1 text-caption font-semibold text-accent">({draft.amenities.length})</span>
+          )}
+        </button>
+        <div className="rounded-md border border-border bg-surface px-3">
+          {AMENITY_CATEGORIES.map((category) => {
+            const categoryAmenities = AMENITIES.filter((a) => a.category === category);
+            const selectedInCategory = categoryAmenities.filter((a) =>
+              draft.amenities.includes(a.translationKey),
+            ).length;
+            return (
+              <AmenityGroupAccordion
+                key={category}
+                title={
+                  <>
+                    {t(`search.amenityCategory.${category}`)}
+                    {selectedInCategory > 0 && (
+                      <span className="ml-1 text-accent">({selectedInCategory})</span>
+                    )}
+                  </>
+                }
+              >
+                <div className="flex flex-col gap-1">
+                  {categoryAmenities.map((amenity) => {
+                    const checked = draft.amenities.includes(amenity.translationKey);
+                    return (
+                      <label
+                        key={amenity.key}
+                        className="flex min-h-11 items-center gap-2 text-body text-text-primary"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          className="h-4 w-4 rounded-sm border-border-strong text-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                          onChange={(e) =>
+                            onChange({
+                              ...draft,
+                              amenities: e.target.checked
+                                ? [...draft.amenities, amenity.translationKey]
+                                : draft.amenities.filter((key) => key !== amenity.translationKey),
+                            })
+                          }
+                        />
+                        {t(`taxonomy.amenity.${amenity.key}`)}
+                      </label>
+                    );
+                  })}
+                </div>
+              </AmenityGroupAccordion>
+            );
+          })}
+        </div>
       </fieldset>
     </div>
   );
@@ -507,7 +586,9 @@ export function SearchFilters({ metroStations = [] }: { metroStations?: MetroSta
   }, [serializedParams]);
 
   function apply(draft: FilterDraft) {
-    const qs = draftToQueryString(draft);
+    // Pass current searchParams so Apply preserves the sort param set by
+    // the results-header SortControl.
+    const qs = draftToQueryString(draft, searchParams);
     router.replace(qs ? `${pathname}?${qs}` : pathname);
     setMobileOpen(false);
   }
@@ -525,7 +606,7 @@ export function SearchFilters({ metroStations = [] }: { metroStations?: MetroSta
     <>
       {/* Desktop: persistent sidebar (08_DESIGN_SYSTEM.md §8.6's Filters row). */}
       <aside className="hidden w-72 shrink-0 lg:block">
-        <div className="sticky top-20 rounded-lg border border-border bg-surface p-4 shadow-sm">
+        <div className="sticky top-20 max-h-[calc(100vh-80px)] overflow-y-auto rounded-lg border border-border bg-surface p-4 shadow-sm">
           <h2 className="mb-4 text-h4 font-display text-text-primary">{t('search.filtersTitle')}</h2>
           <FilterFields draft={desktopDraft} onChange={setDesktopDraft} metroStations={metroStations} />
           <div className="mt-5 flex gap-2">
