@@ -285,7 +285,7 @@ Qayda 4: Əmin olmadığın hər bir sahəni null qoy.`;
     const formData = new FormData();
     const ext = mimeType.includes('mp4') ? 'mp4' : 'webm';
     const filename = originalName || `voice.${ext}`;
-    const blob = new Blob([audioBuffer], { type: mimeType });
+    const blob = new Blob([new Uint8Array(audioBuffer)], { type: mimeType });
     formData.append('file', blob, filename);
     formData.append('model', 'whisper-1');
     formData.append('language', 'az');
