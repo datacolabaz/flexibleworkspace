@@ -169,7 +169,9 @@ export function VoiceSearchButton({
         }
 
         if (transcribeError && transcribeError !== 'empty_transcript') {
-          setErrorKey('voiceNetworkError');
+          // transcription_failed = backend/Whisper API error — NOT a network connectivity issue.
+          // Show a generic "couldn't understand" error so users aren't confused by "network error".
+          setErrorKey('voiceError');
           setVoiceState('error');
           setTimeout(() => setVoiceState('idle'), 3000);
           return;
@@ -183,19 +185,26 @@ export function VoiceSearchButton({
           return;
         }
 
-        // Step 2: Parse transcript → filters
-        const parseRes = await fetch('/api/search/voice-parse', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            transcript,
-            availableMetroStations: metroStations.map((s) => s.nameAz),
-            availableRoomTypes: roomTypes,
-          }),
-        });
-
-        if (!parseRes.ok) throw new Error('parse_failed');
-        const parsed = (await parseRes.json()) as VoiceParsedFilters;
+        // Step 2: Parse transcript → filters (failure is non-fatal: apply no extra filters)
+        let parsed: VoiceParsedFilters = {};
+        try {
+          const parseRes = await fetch('/api/search/voice-parse', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              transcript,
+              availableMetroStations: metroStations.map((s) => s.nameAz),
+              availableRoomTypes: roomTypes,
+            }),
+          });
+          if (parseRes.ok) {
+            parsed = (await parseRes.json()) as VoiceParsedFilters;
+          } else {
+            console.warn('[VoiceSearch] Parse returned HTTP', parseRes.status, '— continuing with no filters');
+          }
+        } catch (parseErr) {
+          console.warn('[VoiceSearch] Parse request threw — continuing with no filters:', parseErr);
+        }
 
         // Step 3: Merge parsed fields onto the current filter draft
         const next: FilterDraft = { ...currentDraft };
@@ -226,7 +235,11 @@ export function VoiceSearchButton({
         setTimeout(() => setVoiceState('idle'), 1500);
       } catch (err) {
         console.error('[VoiceSearch] Pipeline error:', err);
-        setErrorKey('voiceNetworkError');
+        // TypeError means fetch() couldn't reach the server (no internet, DNS failure, etc.)
+        // — that's a real network error.  Any other throw (e.g. JSON parse failure, our own
+        // Error("transcribe_failed")) is an API/service error, not a connectivity problem.
+        const isNetworkFailure = err instanceof TypeError;
+        setErrorKey(isNetworkFailure ? 'voiceNetworkError' : 'voiceError');
         setVoiceState('error');
         setTimeout(() => setVoiceState('idle'), 3000);
       }

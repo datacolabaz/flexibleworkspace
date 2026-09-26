@@ -170,8 +170,13 @@
     "activeFilterChips": "Active filters",
     "voiceSearch": "Voice search",
     "voiceListening": "Listening...",
+    "voiceRecording": "Speak now...",
+    "voiceCountdown": "{seconds}s",
     "voiceProcessing": "Processing...",
     "voiceError": "Could not understand. Please try again.",
+    "voicePermissionError": "Microphone permission required. Allow it in browser settings.",
+    "voiceNoSpeech": "No speech detected. Please try again.",
+    "voiceNetworkError": "Service unavailable. Please try again.",
     "voiceApplied": "Filters applied"
   },
   "room": {
