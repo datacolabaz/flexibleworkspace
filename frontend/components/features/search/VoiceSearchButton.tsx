@@ -23,6 +23,7 @@ interface VoiceParsedFilters {
 }
 
 type VoiceState = 'idle' | 'listening' | 'processing' | 'error';
+type VoiceErrorKey = 'voicePermissionError' | 'voiceNoSpeech' | 'voiceNetworkError' | 'voiceError';
 
 interface Props {
   metroStations: MetroStation[];
@@ -38,13 +39,16 @@ interface SpeechRecognitionInstance extends EventTarget {
   interimResults: boolean;
   maxAlternatives: number;
   onresult: ((this: SpeechRecognitionInstance, ev: SpeechRecognitionResultEvent) => void) | null;
-  onerror: ((this: SpeechRecognitionInstance, ev: Event) => void) | null;
+  onerror: ((this: SpeechRecognitionInstance, ev: SpeechRecognitionErrorEvent) => void) | null;
   onend: ((this: SpeechRecognitionInstance, ev: Event) => void) | null;
   start(): void;
   stop(): void;
 }
 interface SpeechRecognitionResultEvent extends Event {
   results: SpeechRecognitionResultList;
+}
+interface SpeechRecognitionErrorEvent extends Event {
+  error: string;
 }
 interface SpeechRecognitionConstructor {
   new (): SpeechRecognitionInstance;
@@ -63,6 +67,7 @@ function getSpeechRecognitionCtor(): SpeechRecognitionConstructor | undefined {
 export function VoiceSearchButton({ metroStations, roomTypes, currentDraft, onApply }: Props) {
   const t = useTranslations('search');
   const [voiceState, setVoiceState] = useState<VoiceState>('idle');
+  const [errorKey, setErrorKey] = useState<VoiceErrorKey>('voiceError');
   const [supported, setSupported] = useState(false);
   const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
 
@@ -125,8 +130,11 @@ export function VoiceSearchButton({ metroStations, roomTypes, currentDraft, onAp
     const recognition = new Ctor();
     recognitionRef.current = recognition;
 
-    // Prefer Azerbaijani, fall back to generic 'az' then 'en'.
-    recognition.lang = 'az-AZ';
+    // Use the browser/device locale for best recognition accuracy on iOS/Safari.
+    // This keeps transcription working broadly while the server-side parser
+    // handles Azerbaijani keyword matching regardless of the recognition language.
+    recognition.lang =
+      (typeof navigator !== 'undefined' && navigator.language) || 'ru-RU';
     recognition.continuous = false;
     recognition.interimResults = false;
     recognition.maxAlternatives = 1;
@@ -136,7 +144,17 @@ export function VoiceSearchButton({ metroStations, roomTypes, currentDraft, onAp
       if (transcript) void handleTranscript(transcript);
     };
 
-    recognition.onerror = () => {
+    recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
+      const code = event.error ?? '';
+      let key: VoiceErrorKey = 'voiceError';
+      if (code === 'not-allowed' || code === 'permission-denied') {
+        key = 'voicePermissionError';
+      } else if (code === 'no-speech') {
+        key = 'voiceNoSpeech';
+      } else if (code === 'network') {
+        key = 'voiceNetworkError';
+      }
+      setErrorKey(key);
       setVoiceState('error');
       setTimeout(() => setVoiceState('idle'), 3000);
     };
@@ -146,7 +164,14 @@ export function VoiceSearchButton({ metroStations, roomTypes, currentDraft, onAp
       setVoiceState((current) => (current === 'listening' ? 'idle' : current));
     };
 
-    recognition.start();
+    // recognition.start() can throw synchronously on HTTP (insecure context) or
+    // in unsupported environments. Catch it and hide the button cleanly.
+    try {
+      recognition.start();
+    } catch {
+      setSupported(false);
+      return;
+    }
     setVoiceState('listening');
   }
 
@@ -224,7 +249,7 @@ export function VoiceSearchButton({ metroStations, roomTypes, currentDraft, onAp
               : 'bg-surface-elevated text-text-secondary',
           ].join(' ')}
         >
-          {isError ? t('voiceError') : t('voiceListening')}
+          {isError ? t(errorKey) : t('voiceListening')}
         </span>
       )}
     </div>

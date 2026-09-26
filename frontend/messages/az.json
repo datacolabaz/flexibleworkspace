@@ -172,6 +172,9 @@
     "voiceListening": "Dinləyirəm...",
     "voiceProcessing": "Analiz edilir...",
     "voiceError": "Səsi başa düşmədim. Yenidən cəhd edin.",
+    "voicePermissionError": "Mikrofon icazəsi lazımdır. Brauzer ayarlarından icazə verin.",
+    "voiceNoSpeech": "Heç bir səs aşkarlanmadı. Yenidən cəhd edin.",
+    "voiceNetworkError": "Şəbəkə xətası. Yenidən cəhd edin.",
     "voiceApplied": "Filterlər tətbiq edildi"
   },
   "room": {
