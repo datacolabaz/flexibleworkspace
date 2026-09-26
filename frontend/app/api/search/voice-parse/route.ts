@@ -3,7 +3,9 @@ import { NextRequest, NextResponse } from 'next/server';
 export interface VoiceParsedFilters {
   city?: string;
   metroStation?: string; // matched exactly to one of availableMetroStations
-  roomType?: string; // matched exactly to one of availableRoomTypes
+  metroStationId?: string; // UUID from metro_stations table — use directly when available
+  nearbyMetro?: boolean; // true when user expressed proximity ("yanında", "yaxınında")
+  roomType?: string; // room_type.translation_key (e.g. "room_type.meeting_room")
   participants?: number;
   maxHourlyPrice?: number;
   date?: string; // ISO date string YYYY-MM-DD
@@ -68,6 +70,9 @@ async function backendVoiceParser(
     const result: VoiceParsedFilters = {};
     if (typeof data.metroStation === 'string' && data.metroStation)
       result.metroStation = data.metroStation;
+    if (typeof data.metroStationId === 'string' && data.metroStationId)
+      result.metroStationId = data.metroStationId;
+    if (data.nearbyMetro === true) result.nearbyMetro = true;
     if (typeof data.roomType === 'string' && data.roomType)
       result.roomType = data.roomType;
     if (typeof data.participants === 'number' && data.participants > 0)

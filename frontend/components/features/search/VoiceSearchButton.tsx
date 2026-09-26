@@ -14,6 +14,8 @@ interface MetroStation {
 interface VoiceParsedFilters {
   city?: string;
   metroStation?: string;
+  metroStationId?: string; // UUID — use directly when backend provides it
+  nearbyMetro?: boolean;
   roomType?: string;
   participants?: number;
   maxHourlyPrice?: number;
@@ -207,7 +209,12 @@ export function VoiceSearchButton({
         if (parsed.startTime) next.startTime = parsed.startTime;
         if (typeof parsed.durationMinutes === 'number')
           next.durationMinutes = String(parsed.durationMinutes);
-        if (parsed.metroStation) {
+        // Prefer the UUID returned directly by the backend AI parser (most
+        // reliable — already validated against the DB canonical list).
+        // Fall back to name-based lookup for the regex fallback parser path.
+        if (parsed.metroStationId) {
+          next.metroStationId = parsed.metroStationId;
+        } else if (parsed.metroStation) {
           const station = metroStations.find(
             (s) => s.nameAz === parsed.metroStation,
           );

@@ -3,9 +3,16 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { MetroStationEntity } from '../locations/entities/metro-station.entity';
 import { LocationCategoryEntity } from '../locations/entities/location-category.entity';
+import {
+  ROOM_TYPE_KEYS,
+  TaxonomyMapper,
+  normalizeTaxonomyText,
+} from './taxonomy.mapper';
 
 export type VoiceFilters = {
   metroStation?: string;
+  metroStationId?: string;
+  nearbyMetro?: boolean;
   roomType?: string;
   participants?: number;
   maxHourlyPrice?: number;
@@ -67,6 +74,26 @@ const SEARCH_INTENT_SCHEMA = {
   additionalProperties: false,
 };
 
+/**
+ * Human-readable Azerbaijani labels for each room-type translation key.
+ * Used only in the voiceParse() system prompt so GPT can pick the right key
+ * when the user speaks Azerbaijani. These do NOT need to be kept in the DB —
+ * they are a static prompt aid derived from the fixed taxonomy.
+ */
+const ROOM_TYPE_AZ_LABELS: Record<string, string> = {
+  'room_type.meeting_room': 'görüş/iclas otağı',
+  'room_type.coworking_desk': 'kovorkinq masası',
+  'room_type.private_office': 'şəxsi/xüsusi ofis',
+  'room_type.training_room': 'təlim otağı',
+  'room_type.classroom': 'sinif otağı, dərslik',
+  'room_type.workshop_space': 'emalatxana, workshop',
+  'room_type.seminar_room': 'seminar otağı',
+  'room_type.conference_room': 'konfrans otağı',
+  'room_type.podcast_studio': 'podkast studiyası',
+  'room_type.photo_video_studio': 'foto/video studiyası',
+  'room_type.event_space': 'tədbir məkanı, mərasim zalı',
+};
+
 @Injectable()
 export class AiSearchService {
   constructor(
@@ -74,6 +101,7 @@ export class AiSearchService {
     private readonly metroRepo: Repository<MetroStationEntity>,
     @InjectRepository(LocationCategoryEntity)
     private readonly categoryRepo: Repository<LocationCategoryEntity>,
+    private readonly taxonomyMapper: TaxonomyMapper,
   ) {}
 
   // ---------------------------------------------------------------------------
@@ -88,23 +116,30 @@ export class AiSearchService {
 
     if (!apiKey) return {};
 
-    // Fetch reference data from DB
-    const [stations, categories] = await Promise.all([
-      this.metroRepo.find({ where: { isActive: true }, select: ['nameAz'] }),
-      this.categoryRepo.find({ where: { isActive: true }, select: ['nameAz'] }),
-    ]);
+    // Fetch reference data from DB — select id too so we can return metroStationId.
+    const stations = await this.metroRepo.find({
+      where: { isActive: true },
+      select: ['id', 'nameAz'],
+    });
     const stationsList = stations.map((s) => s.nameAz).join(', ');
-    const categoriesList = categories.map((c) => c.nameAz).join(', ');
+
+    // Room types come from the canonical taxonomy (not location_categories) so
+    // the returned key is directly usable as a search filter.
+    const roomTypeList = ROOM_TYPE_KEYS.map((key) => {
+      const az = ROOM_TYPE_AZ_LABELS[key] ?? key;
+      return `${key} (${az})`;
+    }).join(', ');
 
     const systemPrompt = `Sən Spotva platforması üçün filter assistentisən. İstifadəçinin Azərbaycan dilindəki sorğusunu aşağıdakı filter strukturuna çevir.
 
 Mövcud metro stansiyaları: ${stationsList}
-Mövcud otaq/məkan kateqoriyaları: ${categoriesList}
+Mövcud otaq növləri (açar: Azərbaycan adı): ${roomTypeList}
 
 Yalnız aşağıdakı JSON formatında cavab ver, başqa heç nə yazma:
 {
-  "metroStation": "dəqiq stansiya adı siyahıdan" | null,
-  "roomType": "dəqiq kateqoriya adı siyahıdan" | null,
+  "metroStation": "dəqiq stansiya adı yuxarıdakı siyahıdan" | null,
+  "nearbyMetro": true | false,
+  "roomType": "room_type.xxx açarı yuxarıdakı siyahıdan" | null,
   "participants": number | null,
   "maxHourlyPrice": number | null,
   "date": "YYYY-MM-DD" | null,
@@ -112,7 +147,10 @@ Yalnız aşağıdakı JSON formatında cavab ver, başqa heç nə yazma:
   "durationMinutes": number | null
 }
 
-Qayda: Yalnız mövcud siyahıdakı dəqiq adları istifadə et. Əmin olmadığın sahəni null qoy.`;
+Qayda 1: metroStation üçün YALNIZ yuxarıdakı siyahıdakı dəqiq adlardan birini istifadə et. Siyahıda yoxdursa null qoy.
+Qayda 2: nearbyMetro — istifadəçi metro stansiyasına yaxınlığı ifadə edirsə ("yanında", "yaxınında", "yaxın", "ətrafında", "ətrafına", "yaxınlıqda", "metroya yaxın", "metrodan yaxın") true qoy. Yoxdursa false.
+Qayda 3: roomType üçün YALNIZ yuxarıdakı "room_type.xxx" açarlarından birini istifadə et. Siyahıda yoxdursa null qoy.
+Qayda 4: Əmin olmadığın hər bir sahəni null qoy.`;
 
     try {
       const res = await fetch(`${apiBase}/chat/completions`, {
@@ -147,10 +185,31 @@ Qayda: Yalnız mövcud siyahıdakı dəqiq adları istifadə et. Əmin olmadığ
       const parsed = JSON.parse(jsonStr) as Record<string, unknown>;
 
       const result: VoiceFilters = {};
-      if (typeof parsed.metroStation === 'string' && parsed.metroStation)
-        result.metroStation = parsed.metroStation;
-      if (typeof parsed.roomType === 'string' && parsed.roomType)
-        result.roomType = parsed.roomType;
+
+      // ---- Metro station: validate GPT output against canonical DB list ----
+      if (typeof parsed.metroStation === 'string' && parsed.metroStation) {
+        const stationNames = stations.map((s) => s.nameAz);
+        const canonical = this.findClosestMetroName(parsed.metroStation, stationNames);
+        if (canonical) {
+          result.metroStation = canonical;
+          const matched = stations.find((s) => s.nameAz === canonical);
+          if (matched) result.metroStationId = matched.id;
+        }
+      }
+
+      // ---- Nearby metro intent ----
+      if (parsed.nearbyMetro === true) result.nearbyMetro = true;
+
+      // ---- Room type: validate against canonical taxonomy keys ----
+      if (typeof parsed.roomType === 'string' && parsed.roomType) {
+        // Try direct translation key match first, then fall back to TaxonomyMapper aliases.
+        const directMatch = (ROOM_TYPE_KEYS as readonly string[]).includes(parsed.roomType)
+          ? (parsed.roomType as (typeof ROOM_TYPE_KEYS)[number])
+          : undefined;
+        const mapped = directMatch ?? this.taxonomyMapper.mapRoomType(parsed.roomType);
+        if (mapped) result.roomType = mapped;
+      }
+
       if (typeof parsed.participants === 'number' && parsed.participants > 0)
         result.participants = parsed.participants;
       if (typeof parsed.maxHourlyPrice === 'number' && parsed.maxHourlyPrice > 0)
@@ -166,6 +225,46 @@ Qayda: Yalnız mövcud siyahıdakı dəqiq adları istifadə et. Əmin olmadığ
     } catch {
       return {};
     }
+  }
+
+  /**
+   * Fuzzy-matches `input` against a list of canonical metro station names
+   * using Azerbaijani diacritic normalisation. Returns the canonical name if
+   * found, or null. Never invents names — always returns a member of
+   * `canonicals` or null.
+   */
+  private findClosestMetroName(
+    input: string,
+    canonicals: string[],
+  ): string | null {
+    if (!input || canonicals.length === 0) return null;
+
+    // 1. Exact match (fastest path, covers most correctly-spelled GPT output)
+    if (canonicals.includes(input)) return input;
+
+    const normInput = normalizeTaxonomyText(input);
+
+    // 2. Exact match after diacritic normalisation
+    const exact = canonicals.find((c) => normalizeTaxonomyText(c) === normInput);
+    if (exact) return exact;
+
+    // 3. Substring containment (handles "28 May" ↔ "28 May (xətt 2)")
+    const contains = canonicals.find((c) => {
+      const normC = normalizeTaxonomyText(c);
+      return normInput.includes(normC) || normC.includes(normInput);
+    });
+    if (contains) return contains;
+
+    // 4. Word-level overlap — any canonical word (≥4 chars) appears in input
+    const wordMatch = canonicals.find((c) => {
+      const words = normalizeTaxonomyText(c)
+        .split(/\s+/)
+        .filter((w) => w.length >= 4);
+      return words.some((w) => normInput.includes(w));
+    });
+    if (wordMatch) return wordMatch;
+
+    return null;
   }
 
   // ---------------------------------------------------------------------------
