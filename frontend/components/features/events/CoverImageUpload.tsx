@@ -106,6 +106,8 @@ export function CoverImageUpload({ eventId, value, onChange }: CoverImageUploadP
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  // Separate error state for the URL input (shown when image at the URL fails to load)
+  const [urlError, setUrlError] = useState<string | null>(null);
 
   /**
    * Holds a file that was selected while `eventId` was null.
@@ -114,8 +116,11 @@ export function CoverImageUpload({ eventId, value, onChange }: CoverImageUploadP
    */
   const pendingRef = useRef<{ file: File; preview: string } | null>(null);
 
-  // Derived: the URL currently shown as the cover (upload result > manual input)
-  const displayUrl = previewUrl ?? value;
+  // Derived: the URL currently shown as the cover (upload result > manual input).
+  // When the URL has a load error we suppress the displayUrl so the drop-zone
+  // shows instead of a broken image, while keeping `value` intact so the user
+  // can see and edit the URL they typed.
+  const displayUrl = previewUrl ?? (urlError ? '' : value);
 
   // ── Deferred upload: trigger when eventId becomes available ─────────────
 
@@ -146,6 +151,7 @@ export function CoverImageUpload({ eventId, value, onChange }: CoverImageUploadP
 
   function processFile(file: File) {
     setUploadError(null);
+    setUrlError(null); // clear any URL error when a file is selected
 
     if (!ALLOWED_MIME.includes(file.type)) {
       setUploadError(t('coverTypeError'));
@@ -237,6 +243,7 @@ export function CoverImageUpload({ eventId, value, onChange }: CoverImageUploadP
       pendingRef.current = null;
     }
     setPreviewUrl(null);
+    setUrlError(null);
     onChange('');
     setUploadError(null);
     if (fileInputRef.current) fileInputRef.current.value = '';
@@ -245,6 +252,7 @@ export function CoverImageUpload({ eventId, value, onChange }: CoverImageUploadP
   function handleUrlChange(e: React.ChangeEvent<HTMLInputElement>) {
     // Manual URL is the fallback when no file is uploaded
     if (!previewUrl) {
+      setUrlError(null); // clear error as user edits the URL
       onChange(e.target.value);
     }
   }
@@ -266,8 +274,16 @@ export function CoverImageUpload({ eventId, value, onChange }: CoverImageUploadP
               alt=""
               className="absolute inset-0 h-full w-full object-cover"
               onError={() => {
-                // Broken URL — clear it silently
-                if (!previewUrl) onChange('');
+                // URL-based image failed to load — show an error message and
+                // suppress the broken-image preview (displayUrl becomes '' via
+                // the urlError branch in the derived value above).
+                // We deliberately do NOT call onChange('') so the typed URL
+                // remains in the input for the user to correct.
+                if (!previewUrl) setUrlError(t('coverUrlError'));
+              }}
+              onLoad={() => {
+                // Image loaded successfully — clear any previous URL error
+                if (!previewUrl) setUrlError(null);
               }}
             />
             {uploading && (
@@ -327,6 +343,9 @@ export function CoverImageUpload({ eventId, value, onChange }: CoverImageUploadP
       {/* URL fallback — only shown / editable when no file upload has been done */}
       {!previewUrl && (
         <div>
+          <p className="my-1 text-center text-small text-text-muted">
+            {'və ya'}
+          </p>
           <label className="mb-1 block text-small font-semibold text-text-muted">
             {t('coverUploadUrlLabel')}
           </label>
@@ -337,6 +356,9 @@ export function CoverImageUpload({ eventId, value, onChange }: CoverImageUploadP
             placeholder="https://…"
             className="w-full rounded-md border border-border bg-surface px-3 py-2 text-body text-text-primary focus:outline focus:outline-2 focus:outline-primary"
           />
+          {urlError && (
+            <p className="mt-1 text-small text-error">{urlError}</p>
+          )}
         </div>
       )}
 

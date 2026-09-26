@@ -76,20 +76,36 @@ export function EventCreateWizard() {
   // ── Draft resume on mount ──────────────────────────────────────────────
 
   useEffect(() => {
+    // Use an AbortController so the request is cleaned up if the component
+    // unmounts before the fetch completes (avoids state-update-on-unmounted-
+    // component warnings and prevents a stale response from showing a resume
+    // prompt after the user has already navigated away).
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5_000); // 5-s guard
+
     async function checkForDraft() {
       try {
-        const res = await fetch('/api/events/me', { cache: 'no-store' });
-        if (!res.ok) return;
+        const res = await fetch('/api/events/me', {
+          cache: 'no-store',
+          signal: controller.signal,
+        });
+        if (!res.ok) return; // 401 (no session), 502 (backend down), etc.
         const events = await res.json() as EventRecord[];
         const existingDraft = events.find((e) => e.status === 'draft');
         if (existingDraft) {
           setResumePrompt(existingDraft);
         }
       } catch {
-        // Non-critical — ignore silently
+        // Non-critical — network error, timeout, or AbortError: ignore silently.
+        // This check is best-effort; the user can still create a new event.
       }
     }
     checkForDraft();
+
+    return () => {
+      clearTimeout(timeoutId);
+      controller.abort();
+    };
   }, []);
 
   // ── Unsaved changes warning ────────────────────────────────────────────

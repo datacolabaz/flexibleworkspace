@@ -1004,7 +1004,8 @@
     "coverUploadUrlLabel": "Tədbir şəkli URL-i — istəyə bağlı",
     "coverUploadError": "Şəkil yükləmək alınmadı.",
     "coverTypeError": "Bu fayl formatı dəstəklənmir. JPG, PNG və ya WebP istifadə edin.",
-    "coverSizeError": "Fayl ölçüsü çox böyükdür. Məks. 5MB."
+    "coverSizeError": "Fayl ölçüsü çox böyükdür. Məks. 5MB.",
+    "coverUrlError": "Şəkil linki düzgün deyil."
   },
   "eventDetail": {
     "rsvpButtonLabel": "Pulsuz qeydiyyat",
