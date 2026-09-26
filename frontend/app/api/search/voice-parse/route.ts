@@ -18,9 +18,8 @@ interface VoiceParseRequest {
 }
 
 // ---------------------------------------------------------------------------
-// Normalisation helper — strips Azerbaijani diacritics and punctuation so
-// that 'içəri şəhər' and 'İçərişəhər' both reduce to 'icerisehер' and can
-// be substring-matched.
+// Normalisation helper — maps Azerbaijani diacritics to ASCII equivalents.
+// NOTE: spaces are intentionally preserved so word-level matching works.
 // ---------------------------------------------------------------------------
 function normalize(s: string): string {
   return s
@@ -32,8 +31,7 @@ function normalize(s: string): string {
     .replace(/ı/g, 'i')
     .replace(/ö/g, 'o')
     .replace(/ü/g, 'u')
-    .replace(/İ/g, 'i')
-    .replace(/[^a-z0-9]/g, '');
+    .replace(/İ/g, 'i');
 }
 
 // ---------------------------------------------------------------------------
@@ -154,7 +152,9 @@ Qayda: metroStation yalnız mövcud siyahıdan seçilə bilər. roomType yalnız
 }
 
 // ---------------------------------------------------------------------------
-// Priority 2: Backend /ai/search/interpret endpoint
+// Priority 2: Backend AI endpoint — tries /ai/search/interpret first,
+// falls back to /ai/search (both confirmed in ai-search.controller.ts).
+// Note: /ai/search/parse does NOT exist in the backend.
 // ---------------------------------------------------------------------------
 async function backendAiParser(
   transcript: string,
@@ -164,18 +164,29 @@ async function backendAiParser(
   const backendUrl = process.env.BACKEND_API_URL;
   if (!backendUrl) return null;
 
-  try {
-    const res = await fetch(
-      `${backendUrl.replace(/\/$/, '')}/ai/search/interpret`,
-      {
+  const base = backendUrl.replace(/\/$/, '');
+  const body = JSON.stringify({ query: transcript, locale: 'az' });
+  const headers = { Accept: 'application/json', 'Content-Type': 'application/json' };
+
+  // Try /ai/search/interpret first, then /ai/search as fallback
+  let res: Response | null = null;
+  for (const path of ['/ai/search/interpret', '/ai/search']) {
+    try {
+      const r = await fetch(`${base}${path}`, {
         method: 'POST',
-        headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query: transcript, locale: 'az' }),
+        headers,
+        body,
         cache: 'no-store',
         signal: AbortSignal.timeout(6000),
-      },
-    );
-    if (!res.ok) return null;
+      });
+      if (r.ok) { res = r; break; }
+    } catch {
+      // try next endpoint
+    }
+  }
+  if (!res) return null;
+
+  try {
 
     // Backend returns SearchIntent — extract what we need.
     const data = (await res.json()) as {
@@ -292,13 +303,40 @@ function regexFallbackParser(
 }
 
 // ---------------------------------------------------------------------------
-// Fuzzy matching helpers (normalization-based)
+// Fuzzy matching helpers (normalization-based, word-level)
 // ---------------------------------------------------------------------------
 
 /**
- * Matches metro station names using diacritic-normalized substring matching.
- * Handles 'içəri şəhərdə' → normalize → 'iceriseherde' containing 'icerisehер'.
+ * Returns true if the transcript plausibly refers to the given station name.
+ *
+ * Strategy (in order):
+ *  1. Compact station name (spaces removed) contained in transcript.
+ *     e.g. 'elmlerdecoworking' ⊃ 'nizami' → true  (handles run-together speech)
+ *  2. Station name with spaces contained in transcript.
+ *  3. Word-level: any significant word (≥4 chars) from the station name is
+ *     found in the transcript.
+ *     e.g. 'elmler' (from 'Elmlər Akademiyası') ∈ 'elmlerde coworking' → true
+ *  4. Prefix match for compound station names written as one word.
+ *     e.g. transcript 'iceri seherde' → compact 'iceriseherde', which starts
+ *     with the first 5 chars of 'iceriseher' ('iceri') → true.
  */
+function matchesStation(normTranscript: string, normStation: string): boolean {
+  const compactStation = normStation.replace(/\s+/g, '');
+  const compactTranscript = normTranscript.replace(/\s+/g, '');
+
+  // 1. Compact station in compact transcript
+  if (compactStation.length > 1 && compactTranscript.includes(compactStation)) return true;
+  // 2. Station (with spaces) contained in transcript
+  if (normStation.length > 1 && normTranscript.includes(normStation)) return true;
+  // 3. Word-level: any significant word from station in transcript
+  const stationWords = normStation.split(/\s+/).filter((w) => w.length >= 4);
+  if (stationWords.some((word) => normTranscript.includes(word))) return true;
+  // 4. First-5-chars prefix of compact station in compact transcript
+  if (compactStation.length >= 5 && compactTranscript.includes(compactStation.substring(0, 5))) return true;
+
+  return false;
+}
+
 function fuzzyMatchStation(
   transcript: string,
   availableMetroStations: string[],
@@ -309,9 +347,10 @@ function fuzzyMatchStation(
 
   for (const station of availableMetroStations) {
     const normStation = normalize(station);
-    if (normStation.length > 1 && normTranscript.includes(normStation) && normStation.length > bestLen) {
+    const compactLen = normStation.replace(/\s+/g, '').length;
+    if (compactLen > 1 && matchesStation(normTranscript, normStation) && compactLen > bestLen) {
       best = station;
-      bestLen = normStation.length;
+      bestLen = compactLen;
     }
   }
   return best;
@@ -353,14 +392,22 @@ function fuzzyMatchRoomType(
     }
   }
 
-  // 2. Direct normalized substring match against available room types
+  // 2. Normalized substring or word-level match against available room types
   let best: string | undefined;
   let bestLen = 0;
   for (const rt of availableRoomTypes) {
     const normRt = normalize(rt);
-    if (normRt.length > 1 && normTranscript.includes(normRt) && normRt.length > bestLen) {
+    const compactRt = normRt.replace(/\s+/g, '');
+    let matched = false;
+    if (compactRt.length > 1 && normTranscript.replace(/\s+/g, '').includes(compactRt)) matched = true;
+    else if (normRt.length > 1 && normTranscript.includes(normRt)) matched = true;
+    else {
+      const rtWords = normRt.split(/\s+/).filter((w) => w.length >= 4);
+      if (rtWords.some((word) => normTranscript.includes(word))) matched = true;
+    }
+    if (matched && compactRt.length > bestLen) {
       best = rt;
-      bestLen = normRt.length;
+      bestLen = compactRt.length;
     }
   }
   return best;
