@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { BookingsController } from './bookings.controller';
 import { BookingsService } from './bookings.service';
 import { AvailabilityService } from './availability.service';
+import { PromoService } from '../promo/promo.service';
 import { DomainException } from '../../common/exceptions/domain.exception';
 import type { AuthenticatedUser } from '../../common/guards/jwt-auth.guard';
 
@@ -38,6 +39,7 @@ describe('BookingsController.getOne', () => {
       providers: [
         { provide: BookingsService, useValue: { findById: findByIdMock } },
         { provide: AvailabilityService, useValue: {} },
+        { provide: PromoService, useValue: {} },
       ],
     }).compile();
 

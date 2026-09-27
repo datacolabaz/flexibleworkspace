@@ -12,6 +12,9 @@ import { ReferralTrackingService } from '../partners/referral-tracking.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { ProvidersService } from '../providers/providers.service';
 import { ConfigService } from '@nestjs/config';
+import { PromoService } from '../promo/promo.service';
+import { BookingAttributionService } from './booking-attribution.service';
+import { RlsContextService } from '../../database/rls-context.service';
 import {
   BookingMode,
   BookingStatus,
@@ -168,6 +171,9 @@ describe('BookingsService.transition', () => {
         { provide: ReferralTrackingService, useValue: {} },
         { provide: NotificationsService, useValue: { send: jest.fn() } },
         { provide: ProvidersService, useValue: {} },
+        { provide: PromoService, useValue: {} },
+        { provide: BookingAttributionService, useValue: { snapshot: jest.fn() } },
+        { provide: RlsContextService, useValue: { applyToQueryRunner: jest.fn() } },
       ],
     }).compile();
 

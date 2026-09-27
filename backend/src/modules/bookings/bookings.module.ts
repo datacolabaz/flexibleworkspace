@@ -8,6 +8,7 @@ import { AvailabilityService } from './availability.service';
 import { BookingsTasks } from './bookings.tasks';
 import { BookingEntity } from './entities/booking.entity';
 import { BookingItemEntity } from './entities/booking-item.entity';
+import { BookingAttributionEntity } from './entities/booking-attribution.entity';
 import { RoomsModule } from '../rooms/rooms.module';
 import { AuthModule } from '../auth/auth.module';
 import { PartnersModule } from '../partners/partners.module';
@@ -19,12 +20,14 @@ import { BlockedPeriodEntity } from '../rooms/entities/blocked-period.entity';
 import { HolidayEntity } from '../rooms/entities/holiday.entity';
 import { AppUserEntity } from '../auth/entities/app-user.entity';
 import { PromoModule } from '../promo/promo.module';
+import { BookingAttributionService } from './booking-attribution.service';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([
       BookingEntity,
       BookingItemEntity,
+      BookingAttributionEntity,
       RoomEntity,
       AvailabilityRuleEntity,
       BlockedPeriodEntity,
@@ -40,7 +43,7 @@ import { PromoModule } from '../promo/promo.module';
     PromoModule, // Task 4 — promo code validation and referral qualification
   ],
   controllers: [BookingsController],
-  providers: [BookingsService, AvailabilityService, BookingsTasks],
-  exports: [BookingsService, AvailabilityService, TypeOrmModule],
+  providers: [BookingsService, AvailabilityService, BookingsTasks, BookingAttributionService],
+  exports: [BookingsService, AvailabilityService, BookingAttributionService, TypeOrmModule],
 })
 export class BookingsModule {}

@@ -25,6 +25,7 @@ import { AuthenticatedUser } from '../../common/guards/jwt-auth.guard';
 import { RoleName } from '../../common/constants/roles.enum';
 import { BookingStatus } from '../../common/constants/booking.enum';
 import { REFERRAL_ATTRIBUTION_COOKIE_NAME } from '../../common/constants/partner.enum';
+import { OWN_REFERRAL_COOKIE_NAME } from '../../common/constants/attribution.enum';
 import { currentProviderId } from '../../common/utils/current-provider.util';
 import { DomainException } from '../../common/exceptions/domain.exception';
 
@@ -75,10 +76,13 @@ export class BookingsController {
     const attributionToken =
       (req.cookies?.[REFERRAL_ATTRIBUTION_COOKIE_NAME] as string | undefined) ??
       null;
+    const ownReferralToken =
+      (req.cookies?.[OWN_REFERRAL_COOKIE_NAME] as string | undefined) ?? null;
     return this.bookingsService.create(
       user?.userId ?? null,
       dto,
       attributionToken,
+      ownReferralToken,
     );
   }
 
