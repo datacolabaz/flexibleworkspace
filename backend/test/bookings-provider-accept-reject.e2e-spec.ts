@@ -27,7 +27,8 @@ import {
  * bookings — the actual code path a Phase 1A deployment runs, not a raw-SQL
  * shortcut.
  */
-process.env.PAYMENTS_ENABLED = 'false';
+process.env.BOOKING_MODE = 'REQUEST_BASED';
+process.env.PAYMENTS_ENABLED = 'true';
 
 const TestAppModule = Test.createTestingModule({
   imports: [
@@ -145,6 +146,7 @@ describe('Provider accept/reject (real Postgres — REQUEST_BASED bookings)', ()
   }, 30_000);
 
   afterAll(async () => {
+    delete process.env.BOOKING_MODE;
     delete process.env.PAYMENTS_ENABLED;
     const roomIds = [roomId, suspendedRoomId];
     await dataSource.query(
@@ -200,27 +202,27 @@ describe('Provider accept/reject (real Postgres — REQUEST_BASED bookings)', ()
     } as any);
   }
 
-  it('create() produces a REQUEST_BASED booking when PAYMENTS_ENABLED=false', async () => {
+  it('create() produces a REQUEST_BASED booking by default', async () => {
     const booking = await makePendingBooking('mode-check');
     expect(booking.mode).toBe('REQUEST_BASED');
     expect(booking.status).toBe(BookingStatus.PENDING);
   });
 
-  it('accepts a PENDING booking: status -> CONFIRMED, booking_item kept in lockstep', async () => {
+  it('accepts a PENDING booking: status -> PAYMENT_PENDING, not CONFIRMED', async () => {
     const booking = await makePendingBooking('accept-ok');
     const accepted = await bookingsService.acceptBooking(
       providerId,
       booking.id,
       'Görüşürük!',
     );
-    expect(accepted.status).toBe(BookingStatus.CONFIRMED);
-    expect(accepted.confirmedAt).not.toBeNull();
+    expect(accepted.status).toBe(BookingStatus.PAYMENT_PENDING);
+    expect(accepted.confirmedAt).toBeNull();
 
     const [item] = await dataSource.query(
       `SELECT status FROM booking_item WHERE booking_id = $1`,
       [booking.id],
     );
-    expect(item.status).toBe(BookingStatus.CONFIRMED);
+    expect(item.status).toBe(BookingStatus.PAYMENT_PENDING);
   });
 
   it('rejects a PENDING booking: status -> REJECTED, rejection fields recorded', async () => {
@@ -363,7 +365,7 @@ describe('Provider accept/reject (real Postgres — REQUEST_BASED bookings)', ()
     const fulfilled = results.filter((r) => r.status === 'fulfilled');
     expect(fulfilled).toHaveLength(1);
     const final = await bookingsService.findById(booking.id);
-    expect([BookingStatus.CONFIRMED, BookingStatus.REJECTED]).toContain(
+    expect([BookingStatus.PAYMENT_PENDING, BookingStatus.REJECTED]).toContain(
       final.status,
     );
   });
@@ -386,7 +388,7 @@ describe('Provider accept/reject (real Postgres — REQUEST_BASED bookings)', ()
     // Whichever won, the sweep itself must not have thrown, and the booking
     // must have landed in exactly one terminal-for-this-race status.
     expect(typeof expiredCount).toBe('number');
-    expect([BookingStatus.CONFIRMED, BookingStatus.EXPIRED]).toContain(
+    expect([BookingStatus.PAYMENT_PENDING, BookingStatus.EXPIRED]).toContain(
       final.status,
     );
     // The loser (whichever it was) surfaces its own exception, not a crash.
@@ -413,7 +415,7 @@ describe('Provider accept/reject (real Postgres — REQUEST_BASED bookings)', ()
 
     const final1 = await bookingsService.findById(b1.id);
     const final2 = await bookingsService.findById(b2.id);
-    expect(final1.status).toBe(BookingStatus.CONFIRMED); // untouched by the sweep
+    expect(final1.status).toBe(BookingStatus.PAYMENT_PENDING);
     expect(final2.status).toBe(BookingStatus.EXPIRED); // still swept normally
   });
 });

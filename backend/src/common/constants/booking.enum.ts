@@ -20,8 +20,9 @@ export enum BookingStatus {
 /**
  * Which transition table a booking's status changes are validated against
  * (bookings.service.ts). PAYMENT_BASED is the existing, unchanged flow;
- * REQUEST_BASED is the new no-payment "request → provider accepts/rejects"
- * flow (Phase 1A). Mirrors `booking.mode` in 28_DATABASE_DDL.sql.
+ * REQUEST_BASED is request → provider accept/reject → customer payment →
+ * confirm. PAYMENT_BASED is the legacy pay-first / auto-confirm flow.
+ * Mirrors `booking.mode` in 28_DATABASE_DDL.sql.
  */
 export enum BookingMode {
   REQUEST_BASED = 'REQUEST_BASED',
@@ -65,44 +66,40 @@ export const BOOKING_TRANSITIONS: Record<BookingStatus, BookingStatus[]> = {
 };
 
 /**
- * The REQUEST_BASED state machine (Phase 1A / T2 planning doc, "Phase 1A —
- * Tapşırıq Bölgüsü", Qrup B). Governs `booking.mode === BookingMode.REQUEST_BASED`
- * only; BOOKING_TRANSITIONS above is untouched and keeps governing
- * PAYMENT_BASED exactly as before.
+ * REQUEST_BASED: PENDING = pending_provider_review, PAYMENT_PENDING =
+ * awaiting_payment after accept. Confirm only after successful payment.
  *
  * DRAFT -> PENDING is listed for schema completeness (BookingEntity's
  * column default is DRAFT) but is never actually reached in application
  * code today: BookingsService.create() inserts a new booking row directly
- * as PENDING (no DRAFT row is ever persisted). No DRAFT -> CANCELLED_BY_USER
- * edge exists — an abandoned, never-submitted request has no row to cancel.
- *
- * CONFIRMED -> CANCELLED_BY_PROVIDER has no cancellation-reason/actor
- * column to record yet (BookingEntity has none, and neither does the
- * existing PAYMENT_BASED cancellation path in refunds.service.ts /
- * payments.service.ts) — tracked as a follow-up gap for the task that
- * builds the actual confirm/reject/cancel endpoints, not solved here.
+ * as PENDING (no DRAFT row is ever persisted).
  */
 export const REQUEST_BASED_TRANSITIONS: Record<BookingStatus, BookingStatus[]> =
   {
     [BookingStatus.DRAFT]: [BookingStatus.PENDING],
     [BookingStatus.PENDING]: [
-      BookingStatus.CONFIRMED,
+      BookingStatus.PAYMENT_PENDING,
       BookingStatus.REJECTED,
       BookingStatus.EXPIRED,
       BookingStatus.CANCELLED_BY_USER,
     ],
-    [BookingStatus.PAYMENT_PENDING]: [],
+    [BookingStatus.PAYMENT_PENDING]: [
+      BookingStatus.CONFIRMED,
+      BookingStatus.EXPIRED,
+      BookingStatus.CANCELLED_BY_USER,
+    ],
     [BookingStatus.CONFIRMED]: [
       BookingStatus.COMPLETED,
       BookingStatus.NO_SHOW,
+      BookingStatus.CANCELLED,
       BookingStatus.CANCELLED_BY_USER,
       BookingStatus.CANCELLED_BY_PROVIDER,
     ],
     [BookingStatus.COMPLETED]: [],
-    [BookingStatus.CANCELLED]: [],
+    [BookingStatus.CANCELLED]: [BookingStatus.REFUND_PENDING],
     [BookingStatus.EXPIRED]: [],
     [BookingStatus.NO_SHOW]: [],
-    [BookingStatus.REFUND_PENDING]: [],
+    [BookingStatus.REFUND_PENDING]: [BookingStatus.REFUNDED],
     [BookingStatus.REFUNDED]: [],
     [BookingStatus.REJECTED]: [],
     [BookingStatus.CANCELLED_BY_USER]: [],

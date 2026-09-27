@@ -156,6 +156,7 @@ describe('BookingsService.transition', () => {
             transaction: jest.fn(async (cb: (m: unknown) => unknown) =>
               cb(fakeManager),
             ),
+            query: jest.fn(async () => []),
           },
         },
         { provide: getRepositoryToken(BookingEntity), useValue: bookingRepo },
@@ -172,8 +173,14 @@ describe('BookingsService.transition', () => {
         { provide: NotificationsService, useValue: { send: jest.fn() } },
         { provide: ProvidersService, useValue: {} },
         { provide: PromoService, useValue: {} },
-        { provide: BookingAttributionService, useValue: { snapshot: jest.fn() } },
-        { provide: RlsContextService, useValue: { applyToQueryRunner: jest.fn() } },
+        {
+          provide: BookingAttributionService,
+          useValue: { snapshot: jest.fn() },
+        },
+        {
+          provide: RlsContextService,
+          useValue: { applyToQueryRunner: jest.fn() },
+        },
       ],
     }).compile();
 
@@ -251,7 +258,7 @@ describe('BookingsService.transition', () => {
     });
 
     it.each([
-      BookingStatus.CONFIRMED,
+      BookingStatus.PAYMENT_PENDING,
       BookingStatus.REJECTED,
       BookingStatus.EXPIRED,
       BookingStatus.CANCELLED_BY_USER,
@@ -259,6 +266,23 @@ describe('BookingsService.transition', () => {
       const b = seedBooking(BookingMode.REQUEST_BASED, BookingStatus.PENDING);
       const result = await service.transition(b.id, to);
       expect(result.status).toBe(to);
+    });
+
+    it('rejects PENDING -> CONFIRMED (payment must happen first)', async () => {
+      const b = seedBooking(BookingMode.REQUEST_BASED, BookingStatus.PENDING);
+      await expect(
+        service.transition(b.id, BookingStatus.CONFIRMED),
+      ).rejects.toBeInstanceOf(InvalidBookingStateTransitionException);
+    });
+
+    it('PAYMENT_PENDING -> CONFIRMED succeeds after accept', async () => {
+      const b = seedBooking(
+        BookingMode.REQUEST_BASED,
+        BookingStatus.PAYMENT_PENDING,
+      );
+      const result = await service.transition(b.id, BookingStatus.CONFIRMED);
+      expect(result.status).toBe(BookingStatus.CONFIRMED);
+      expect(result.confirmedAt).toBeInstanceOf(Date);
     });
 
     it.each([
@@ -332,15 +356,18 @@ describe('BookingsService.transition', () => {
       ).rejects.toBeInstanceOf(InvalidBookingStateTransitionException);
     });
 
-    it('rejects a cross-mode edge: REQUEST_BASED booking cannot reach PAYMENT_PENDING', async () => {
+    it('allows PENDING -> PAYMENT_PENDING (awaiting payment after accept)', async () => {
       const b = seedBooking(BookingMode.REQUEST_BASED, BookingStatus.PENDING);
-      await expect(
-        service.transition(b.id, BookingStatus.PAYMENT_PENDING),
-      ).rejects.toBeInstanceOf(InvalidBookingStateTransitionException);
+      const result = await service.transition(
+        b.id,
+        BookingStatus.PAYMENT_PENDING,
+      );
+      expect(result.status).toBe(BookingStatus.PAYMENT_PENDING);
     });
 
     it('keeps booking_item.status in lockstep with the booking', async () => {
       const b = seedBooking(BookingMode.REQUEST_BASED, BookingStatus.PENDING);
+      await service.transition(b.id, BookingStatus.PAYMENT_PENDING);
       await service.transition(b.id, BookingStatus.CONFIRMED);
       const item = bookingItems.find((i) => i.bookingId === b.id);
       expect(item?.status).toBe(BookingStatus.CONFIRMED);
@@ -355,9 +382,13 @@ describe('BookingsService.transition', () => {
       BookingMode.REQUEST_BASED,
       BookingStatus.PENDING,
     );
-    expect(pending.status).toBe(BookingStatus.PENDING);
-    const confirmed = await service.transition(
+    const awaiting = await service.transition(
       pending.id,
+      BookingStatus.PAYMENT_PENDING,
+    );
+    expect(awaiting.status).toBe(BookingStatus.PAYMENT_PENDING);
+    const confirmed = await service.transition(
+      awaiting.id,
       BookingStatus.CONFIRMED,
     );
     expect(confirmed.status).toBe(BookingStatus.CONFIRMED);

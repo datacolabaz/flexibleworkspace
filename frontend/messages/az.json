@@ -312,10 +312,15 @@
     "promoCodeInvalid": "Bu promosyon kodu mövcud deyil və ya müddəti bitib.",
     "promoCodeApplied": "Promosyon kodu tətbiq edildi",
     "priceSubtotal": "Ara cəm",
-    "submitCta": "Ödənişə keç",
-    "submittingCta": "Rezervasiya edilir…",
+    "submitCta": "Sorğu göndər",
+    "submittingCta": "Göndərilir…",
     "retryPaymentCta": "Ödənişi yenidən cəhd edin",
     "requestSubmitted": "Rezervasiya sorğunuz göndərildi. Məkan sahibinin təsdiqi gözlənilir.",
+    "whatsappCta": "WhatsApp ilə əlaqə saxla",
+    "acceptedPayTitle": "Rezervasiya sorğunuz qəbul edildi.",
+    "acceptedPayMessage": "Ödənişi tamamlayaraq rezervasiyanı təsdiqləyin.",
+    "acceptedPayCta": "Ödənişə keç",
+    "paymentFailedRetry": "Ödəniş alınmadı. Zəhmət olmasa yenidən cəhd edin.",
     "backToRoom": "Otağa qayıt",
     "errors": {
       "slotUnavailable": "Təəssüf ki, bu vaxt aralığını artıq başqası rezerv etdi. Zəhmət olmasa başqa vaxt seçin.",
@@ -423,7 +428,7 @@
       "emptyCta": "Məkan tap",
       "statusLabel": {
         "DRAFT": "Qaralama",
-        "PENDING": "Ödəniş gözlənilir",
+        "PENDING": "Təsdiq gözlənilir",
         "PAYMENT_PENDING": "Ödəniş gözlənilir",
         "CONFIRMED": "Təsdiqləndi",
         "COMPLETED": "Tamamlandı",
@@ -431,11 +436,15 @@
         "EXPIRED": "Vaxtı bitdi",
         "NO_SHOW": "Gəlinmədi",
         "REFUND_PENDING": "Geri qaytarma gözlənilir",
-        "REFUNDED": "Geri qaytarıldı"
+        "REFUNDED": "Geri qaytarıldı",
+        "REJECTED": "Rədd edildi",
+        "CANCELLED_BY_USER": "Siz ləğv etdiniz",
+        "CANCELLED_BY_PROVIDER": "Məkan ləğv etdi"
       },
       "roomUnavailable": "Bu məkan artıq siyahıda deyil",
       "moreSpaces": "+{count} məkan daha",
       "completePaymentCta": "Ödənişi tamamla",
+      "whatsappCta": "WhatsApp ilə əlaqə saxla",
       "totalLabel": "Cəmi",
       "loadErrorTitle": "Rezervasiyalarınız yüklənmədi",
       "loadErrorMessage": "Zəhmət olmasa yenidən cəhd edin."

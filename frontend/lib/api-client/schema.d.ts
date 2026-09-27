@@ -2504,7 +2504,7 @@ export interface components {
             /** Format: uuid */
             customerUserId?: string;
             /** @enum {string} */
-            status?: "DRAFT" | "PENDING" | "PAYMENT_PENDING" | "CONFIRMED" | "COMPLETED" | "CANCELLED" | "EXPIRED" | "NO_SHOW" | "REFUND_PENDING" | "REFUNDED";
+            status?: "DRAFT" | "PENDING" | "PAYMENT_PENDING" | "CONFIRMED" | "COMPLETED" | "CANCELLED" | "EXPIRED" | "NO_SHOW" | "REFUND_PENDING" | "REFUNDED" | "REJECTED" | "CANCELLED_BY_USER" | "CANCELLED_BY_PROVIDER";
             /** @enum {string} */
             mode?: "REQUEST_BASED" | "PAYMENT_BASED";
             /** @example AZN */
@@ -2521,6 +2521,8 @@ export interface components {
             holdExpiresAt?: string | null;
             /** Format: date-time */
             createdAt?: string;
+            lastPaymentStatus?: string | null;
+            whatsappUrl?: string | null;
             items?: {
                 /** Format: uuid */
                 id?: string;

@@ -70,7 +70,7 @@ describe('BookingForm', () => {
     const fetchMock = fetch as unknown as ReturnType<typeof vi.fn>;
     renderForm();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Continue to payment' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Send request' }));
 
     expect(await screen.findByText('Enter an email or phone number so we can reach you.')).toBeInTheDocument();
     expect(fetchMock).not.toHaveBeenCalled();
@@ -88,7 +88,7 @@ describe('BookingForm', () => {
 
     renderForm();
     fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'guest@example.com' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Continue to payment' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Send request' }));
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
     expect(fetchMock.mock.calls[0][0]).toBe('/api/bookings');
@@ -112,7 +112,7 @@ describe('BookingForm', () => {
 
     renderForm();
     fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'guest@example.com' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Continue to payment' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Send request' }));
 
     expect(
       await screen.findByText("Your booking request was sent. It is waiting for the provider's confirmation."),
@@ -133,7 +133,7 @@ describe('BookingForm', () => {
 
     renderForm();
     fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'guest@example.com' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Continue to payment' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Send request' }));
 
     expect(
       await screen.findByText('Sorry, this time slot was just booked by someone else. Please choose another time.'),
@@ -152,7 +152,7 @@ describe('BookingForm', () => {
       );
 
     renderForm({ isAuthenticated: true });
-    fireEvent.click(screen.getByRole('button', { name: 'Continue to payment' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Send request' }));
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
     const bookingBody = JSON.parse(fetchMock.mock.calls[0][1].body);

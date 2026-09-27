@@ -41,16 +41,21 @@ export type ProviderBooking = {
   totalAmount: string;
   purpose: string | null;
   participantsCount: number | null;
+  holdExpiresAt?: string | null;
   createdAt: string;
   updatedAt: string;
   confirmedAt: string | null;
   cancelledAt: string | null;
   completedAt: string | null;
   items: ProviderBookingItem[];
-  /** Signed ledger sums in minor units; null until commission is posted. */
   ledgerGrossAmount?: string | null;
   ledgerPlatformFeeAmount?: string | null;
   ledgerProviderNetAmount?: string | null;
+  customerDisplayName?: string | null;
+  customerEmail?: string | null;
+  customerPhone?: string | null;
+  roomName?: string | null;
+  locationName?: string | null;
 };
 
 export type ProviderPayoutBalance = {
@@ -116,4 +121,41 @@ export async function listProviderPayouts(accessToken: string): Promise<Provider
     cache: 'no-store',
   });
   return jsonOrThrow<ProviderPayout[]>(response);
+}
+
+export async function acceptProviderBooking(
+  accessToken: string,
+  bookingId: string,
+  providerNote?: string,
+): Promise<ProviderBooking> {
+  const response = await fetch(backendUrl(`provider/bookings/${bookingId}/accept`), {
+    method: 'PATCH',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      Accept: 'application/json',
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(providerNote ? { providerNote } : {}),
+    cache: 'no-store',
+  });
+  return jsonOrThrow<ProviderBooking>(response);
+}
+
+export async function rejectProviderBooking(
+  accessToken: string,
+  bookingId: string,
+  reason: string,
+  note?: string,
+): Promise<ProviderBooking> {
+  const response = await fetch(backendUrl(`provider/bookings/${bookingId}/reject`), {
+    method: 'PATCH',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      Accept: 'application/json',
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ reason, note }),
+    cache: 'no-store',
+  });
+  return jsonOrThrow<ProviderBooking>(response);
 }

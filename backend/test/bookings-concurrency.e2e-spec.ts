@@ -1,3 +1,5 @@
+process.env.BOOKING_MODE = 'PAYMENT_BASED';
+
 import { Test, TestingModule } from '@nestjs/testing';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule, getDataSourceToken } from '@nestjs/typeorm';

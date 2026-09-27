@@ -175,8 +175,7 @@ export class BookingsController {
   }
 
   /**
-   * T4 — REQUEST_BASED only (BookingsService.acceptBooking enforces this,
-   * along with ownership and provider-verification checks).
+   * REQUEST_BASED: PENDING (provider review) -> PAYMENT_PENDING (awaiting payment).
    */
   @Patch('provider/bookings/:bookingId/accept')
   @Roles(RoleName.PROVIDER_OWNER, RoleName.PROVIDER_STAFF)

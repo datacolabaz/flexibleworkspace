@@ -101,6 +101,15 @@ export class ProviderEntity {
   })
   logoStorageKey: string | null;
 
+  /** Optional business WhatsApp; used only for post-confirm wa.me deep-links. */
+  @Column({
+    name: 'whatsapp_phone',
+    type: 'varchar',
+    length: 32,
+    nullable: true,
+  })
+  whatsappPhone: string | null;
+
   @Column({ name: 'created_at', type: 'timestamptz' })
   createdAt: Date;
 

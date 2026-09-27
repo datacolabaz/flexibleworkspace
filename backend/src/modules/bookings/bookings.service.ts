@@ -24,6 +24,11 @@ import {
   BookingStatus,
   REQUEST_BASED_TRANSITIONS,
 } from '../../common/constants/booking.enum';
+import { PaymentStatus } from '../../common/constants/payment.enum';
+import {
+  buildWhatsAppDeepLink,
+  formatConfirmedBookingWhatsAppText,
+} from './whatsapp-deeplink';
 import { RoomStatus } from '../../common/constants/provider.enum';
 import {
   BookingModeNotSupportedException,
@@ -138,21 +143,26 @@ export class BookingsService {
     let promoCodeId: string | null = null;
     let promoDiscountAmount = 0;
     if (dto.promoCode) {
-      const result = await this.promoService.validatePromoCode(dto.promoCode, subtotal);
+      const result = await this.promoService.validatePromoCode(
+        dto.promoCode,
+        subtotal,
+      );
       promoCodeId = result.promoCodeId;
       promoDiscountAmount = result.discountAmount;
     }
     const totalAmount = Math.max(0, subtotal - promoDiscountAmount);
 
-    // T4 — which mode this NEW booking gets, and thus which hold window it
-    // gets (see configuration.ts's `booking.paymentsEnabled` doc comment for
-    // why this must be set explicitly rather than left to the DB column
-    // default). Never reinterprets an existing booking's mode.
-    const paymentsEnabled =
-      this.configService.get<boolean>('booking.paymentsEnabled') ?? true;
-    const mode = paymentsEnabled
-      ? BookingMode.PAYMENT_BASED
-      : BookingMode.REQUEST_BASED;
+    // BOOKING_MODE decides new rows; PAYMENTS_ENABLED stays true so
+    // REQUEST_BASED still charges after provider accept. Legacy pay-first
+    // is BOOKING_MODE=PAYMENT_BASED or AUTO_CONFIRM.
+    const configuredMode =
+      this.configService.get<
+        'REQUEST_BASED' | 'PAYMENT_BASED' | 'AUTO_CONFIRM'
+      >('booking.mode') ?? 'REQUEST_BASED';
+    const mode =
+      configuredMode === 'PAYMENT_BASED' || configuredMode === 'AUTO_CONFIRM'
+        ? BookingMode.PAYMENT_BASED
+        : BookingMode.REQUEST_BASED;
     const holdMinutes =
       mode === BookingMode.REQUEST_BASED
         ? (this.configService.get<number>('booking.requestBasedHoldMinutes') ??
@@ -172,7 +182,8 @@ export class BookingsService {
       if (Number(eventCount[0]?.count) > 0) {
         resolvedAttributionEventId = dto.attributionEventId;
         // Default attribution source when coming from an event page
-        if (!resolvedAttributionSource) resolvedAttributionSource = 'spotva_event';
+        if (!resolvedAttributionSource)
+          resolvedAttributionSource = 'spotva_event';
       }
     }
 
@@ -256,21 +267,37 @@ export class BookingsService {
       // Task 4 — increment uses_count after successful commit (best-effort;
       // a failure here does not roll back the booking).
       if (promoCodeId) {
-        await this.promoService.applyPromoToBooking(promoCodeId).catch((err) =>
-          this.logger.warn(`Failed to increment promo uses_count for ${promoCodeId}: ${err}`),
-        );
+        await this.promoService
+          .applyPromoToBooking(promoCodeId)
+          .catch((err) =>
+            this.logger.warn(
+              `Failed to increment promo uses_count for ${promoCodeId}: ${err}`,
+            ),
+          );
       }
 
       // Task 4 — auto-qualify any pending referral for this customer on their
       // first confirmed booking (best-effort; never throws).
       if (resolvedCustomerId) {
-        const pendingReferral = await this.promoService.findPendingReferral(resolvedCustomerId).catch(() => null);
+        const pendingReferral = await this.promoService
+          .findPendingReferral(resolvedCustomerId)
+          .catch(() => null);
         if (pendingReferral) {
-          await this.promoService.qualifyReferral(pendingReferral.id, savedBooking.id).catch((err) =>
-            this.logger.warn(`Failed to qualify referral ${pendingReferral.id}: ${err}`),
-          );
+          await this.promoService
+            .qualifyReferral(pendingReferral.id, savedBooking.id)
+            .catch((err) =>
+              this.logger.warn(
+                `Failed to qualify referral ${pendingReferral.id}: ${err}`,
+              ),
+            );
         }
       }
+
+      void this.notifyAfterCreate(savedBooking, providerId).catch((err) =>
+        this.logger.warn(
+          `Create-booking notification failed for ${savedBooking.id}: ${(err as Error).message}`,
+        ),
+      );
 
       return savedBooking;
     } catch (err: any) {
@@ -294,6 +321,7 @@ export class BookingsService {
     });
     if (!booking || booking.deletedAt)
       throw new ResourceNotFoundException('Booking');
+    await this.attachCustomerViewFields(booking);
     return booking;
   }
 
@@ -334,7 +362,11 @@ export class BookingsService {
       });
     }
 
-    return qb.orderBy('b.created_at', 'DESC').getMany();
+    const bookings = await qb.orderBy('b.created_at', 'DESC').getMany();
+    for (const booking of bookings) {
+      await this.attachCustomerViewFields(booking);
+    }
+    return bookings;
   }
 
   /**
@@ -382,7 +414,11 @@ export class BookingsService {
     extra?: Partial<
       Pick<
         BookingEntity,
-        'rejectionReason' | 'rejectionNote' | 'rejectedAt' | 'rejectedByUserId'
+        | 'rejectionReason'
+        | 'rejectionNote'
+        | 'rejectedAt'
+        | 'rejectedByUserId'
+        | 'holdExpiresAt'
       >
     >,
   ): Promise<BookingEntity> {
@@ -407,7 +443,11 @@ export class BookingsService {
     extra?: Partial<
       Pick<
         BookingEntity,
-        'rejectionReason' | 'rejectionNote' | 'rejectedAt' | 'rejectedByUserId'
+        | 'rejectionReason'
+        | 'rejectionNote'
+        | 'rejectedAt'
+        | 'rejectedByUserId'
+        | 'holdExpiresAt'
       >
     >,
   ): Promise<BookingEntity> {
@@ -467,6 +507,11 @@ export class BookingsService {
         try {
           await this.transition(booking.id, BookingStatus.EXPIRED);
           expired += 1;
+          void this.notifyHoldExpired(booking).catch((err) =>
+            this.logger.warn(
+              `Hold-expiry notification failed for ${booking.id}: ${(err as Error).message}`,
+            ),
+          );
         } catch (err) {
           if (err instanceof InvalidBookingStateTransitionException) {
             this.logger.log(
@@ -604,9 +649,7 @@ export class BookingsService {
        GROUP BY booking_id`,
       [ids, providerId],
     );
-    const ledgerByBooking = new Map(
-      ledgerRows.map((r) => [r.bookingId, r]),
-    );
+    const ledgerByBooking = new Map(ledgerRows.map((r) => [r.bookingId, r]));
     for (const booking of ordered) {
       const ledger = ledgerByBooking.get(booking.id);
       Object.assign(booking, {
@@ -615,59 +658,13 @@ export class BookingsService {
         ledgerProviderNetAmount: ledger?.net ?? null,
       });
     }
+    await this.attachProviderViewFields(ordered);
     return ordered;
   }
 
   /**
-   * T4 — fire-and-forget customer notification for an accept/reject
-   * decision (17_NOTIFICATION_ARCHITECTURE.md §17.5: never allowed to fail
-   * the business operation that triggered it — NotificationsService.send()
-   * itself already never throws, this is just the call-site wiring). Sent
-   * AFTER the transition's own DB write has already committed.
-   */
-  private async notifyCustomer(
-    booking: BookingEntity,
-    kind: 'accepted' | 'rejected',
-    extra?: { rejectionReason?: BookingRejectionReason; providerNote?: string },
-  ): Promise<void> {
-    const customer = await this.appUserRepo.findOne({
-      where: { id: booking.customerUserId },
-    });
-    if (!customer) return;
-    const identifier = customer.email || customer.phone;
-    if (!identifier) return;
-
-    const isEmail = NotificationsService.isEmail(identifier);
-    const subject =
-      kind === 'accepted'
-        ? 'FlexSpace — Rezervasiya təsdiqləndi'
-        : 'FlexSpace — Rezervasiya rədd edildi';
-    const noteHtml = extra?.providerNote ? `<p>${extra.providerNote}</p>` : '';
-    const reasonHtml = extra?.rejectionReason
-      ? `<p>Səbəb: ${extra.rejectionReason}</p>`
-      : '';
-    const body =
-      kind === 'accepted'
-        ? `<p>Rezervasiyanız (${booking.id}) provider tərəfindən təsdiqləndi.</p>${noteHtml}`
-        : `<p>Rezervasiyanız (${booking.id}) provider tərəfindən rədd edildi.</p>${reasonHtml}`;
-
-    await this.notificationsService.send({
-      userId: customer.id,
-      channel: isEmail ? 'EMAIL' : 'SMS',
-      templateKey:
-        kind === 'accepted' ? 'booking.accepted' : 'booking.rejected',
-      locale: customer.locale || 'az',
-      recipient: identifier,
-      subject: isEmail ? subject : null,
-      body,
-      payload: { bookingId: booking.id },
-    });
-  }
-
-  /**
-   * T4 — PATCH provider/bookings/:bookingId/accept. PENDING -> CONFIRMED,
-   * REQUEST_BASED only (assertProviderCanActOnBooking / transition()'s own
-   * transition-table check both enforce this).
+   * T4 — PATCH provider/bookings/:bookingId/accept. PENDING -> PAYMENT_PENDING
+   * (awaiting_payment). Confirm happens only after payment webhook.
    */
   async acceptBooking(
     callerProviderId: string,
@@ -680,17 +677,29 @@ export class BookingsService {
       booking,
       'accept',
     );
+    await this.assertSlotStillAvailableForBooking(booking);
 
-    const confirmed = await this.transition(bookingId, BookingStatus.CONFIRMED);
-    await this.notifyCustomer(confirmed, 'accepted', { providerNote });
-    return confirmed;
+    const paymentHoldMinutes =
+      this.configService.get<number>('booking.holdMinutes') ?? 15;
+    const accepted = await this.transition(
+      bookingId,
+      BookingStatus.PAYMENT_PENDING,
+      undefined,
+      {
+        holdExpiresAt: new Date(Date.now() + paymentHoldMinutes * 60_000),
+      },
+    );
+    void this.notifyCustomer(accepted, 'accepted', { providerNote }).catch(
+      (err) =>
+        this.logger.warn(
+          `Accept notification failed for ${bookingId}: ${(err as Error).message}`,
+        ),
+    );
+    return accepted;
   }
 
   /**
-   * T4 — PATCH provider/bookings/:bookingId/reject. PENDING -> REJECTED,
-   * REQUEST_BASED only, recording who rejected it and why (rejection_reason/
-   * rejection_note/rejected_at/rejected_by_user_id — transition()'s `extra`
-   * param sets these atomically with the status change, under the same lock).
+   * T4 — PATCH provider/bookings/:bookingId/reject. PENDING -> REJECTED.
    */
   async rejectBooking(
     callerProviderId: string,
@@ -717,9 +726,275 @@ export class BookingsService {
         rejectedByUserId: callerUserId,
       },
     );
-    await this.notifyCustomer(rejected, 'rejected', {
+    void this.notifyCustomer(rejected, 'rejected', {
       rejectionReason: reason,
-    });
+    }).catch((err) =>
+      this.logger.warn(
+        `Reject notification failed for ${bookingId}: ${(err as Error).message}`,
+      ),
+    );
     return rejected;
+  }
+
+  async notifyPaymentSucceeded(booking: BookingEntity): Promise<void> {
+    await this.notifyParty(booking.customerUserId, {
+      templateKey: 'booking.payment_succeeded',
+      subject: 'Spotva — Ödəniş uğurlu oldu',
+      body: `<p>Ödənişiniz qəbul olundu. Rezervasiyanız (#${booking.id.slice(0, 8).toUpperCase()}) təsdiqləndi.</p>`,
+    });
+    const ownerId = await this.resolveOwningProviderOwnerUserId(booking.id);
+    if (ownerId) {
+      await this.notifyParty(ownerId, {
+        templateKey: 'booking.customer_paid',
+        subject: 'Spotva — Müştəri ödəniş etdi',
+        body: `<p>Rezervasiya #${booking.id.slice(0, 8).toUpperCase()} üçün ödəniş tamamlandı.</p>`,
+      });
+    }
+  }
+
+  async notifyBookingCancelled(booking: BookingEntity): Promise<void> {
+    const ownerId = await this.resolveOwningProviderOwnerUserId(booking.id);
+    if (ownerId) {
+      await this.notifyParty(ownerId, {
+        templateKey: 'booking.cancelled',
+        subject: 'Spotva — Rezervasiya ləğv edildi',
+        body: `<p>Rezervasiya #${booking.id.slice(0, 8).toUpperCase()} ləğv edildi.</p>`,
+      });
+    }
+  }
+
+  private async assertSlotStillAvailableForBooking(
+    booking: BookingEntity,
+  ): Promise<void> {
+    const items = booking.items?.length
+      ? booking.items
+      : await this.bookingItemRepo.find({ where: { bookingId: booking.id } });
+    for (const item of items) {
+      const [room] = await this.dataSource.query(
+        `SELECT status FROM room WHERE id = $1 AND deleted_at IS NULL`,
+        [item.roomId],
+      );
+      if (!room || room.status !== RoomStatus.ACTIVE) {
+        throw new SlotUnavailableException({ reason: 'ROOM_NOT_ACTIVE' });
+      }
+      const [overlap] = await this.dataSource.query(
+        `SELECT bi.id
+         FROM booking_item bi
+         WHERE bi.room_id = $1
+           AND bi.booking_id <> $2
+           AND bi.status IN ('PENDING','PAYMENT_PENDING','CONFIRMED')
+           AND bi.start_at < $4 AND bi.end_at > $3
+         LIMIT 1`,
+        [item.roomId, booking.id, item.startAt, item.endAt],
+      );
+      if (overlap) {
+        throw new SlotUnavailableException({ reason: 'SLOT_UNAVAILABLE' });
+      }
+      const [blocked] = await this.dataSource.query(
+        `SELECT id FROM blocked_period
+         WHERE room_id = $1 AND start_at < $3 AND end_at > $2
+         LIMIT 1`,
+        [item.roomId, item.startAt, item.endAt],
+      );
+      if (blocked) {
+        throw new SlotUnavailableException({ reason: 'SLOT_UNAVAILABLE' });
+      }
+    }
+  }
+
+  private async attachCustomerViewFields(
+    booking: BookingEntity,
+  ): Promise<void> {
+    const [payment] = await this.dataSource.query(
+      `SELECT status FROM payment
+       WHERE booking_id = $1
+       ORDER BY CASE status WHEN 'CAPTURED' THEN 0 WHEN 'FAILED' THEN 1 ELSE 2 END, created_at DESC
+       LIMIT 1`,
+      [booking.id],
+    );
+    const lastPaymentStatus: string | null = payment?.status ?? null;
+    Object.assign(booking, { lastPaymentStatus });
+
+    const paid =
+      booking.status === BookingStatus.CONFIRMED &&
+      lastPaymentStatus === PaymentStatus.CAPTURED;
+    if (!paid) {
+      Object.assign(booking, { whatsappUrl: null });
+      return;
+    }
+
+    try {
+      const [meta] = await this.dataSource.query(
+        `SELECT COALESCE(p.whatsapp_phone, owner.phone) AS "whatsappPhone",
+                l.name AS "locationName",
+                bi.start_at AS "startAt"
+         FROM booking_item bi
+         JOIN room r ON r.id = bi.room_id
+         JOIN location l ON l.id = r.location_id
+         JOIN provider p ON p.id = l.provider_id
+         JOIN app_user owner ON owner.id = p.owner_user_id
+         WHERE bi.booking_id = $1
+         LIMIT 1`,
+        [booking.id],
+      );
+      if (!meta?.whatsappPhone) {
+        Object.assign(booking, { whatsappUrl: null });
+        return;
+      }
+      const code = booking.id.slice(0, 8).toUpperCase();
+      const text = formatConfirmedBookingWhatsAppText({
+        locationName: meta.locationName ?? 'məkan',
+        startAt: new Date(meta.startAt),
+        bookingCode: code,
+      });
+      Object.assign(booking, {
+        whatsappUrl: buildWhatsAppDeepLink(meta.whatsappPhone, text),
+      });
+    } catch (err) {
+      this.logger.warn(
+        `WhatsApp lookup skipped for ${booking.id}: ${(err as Error).message}`,
+      );
+      Object.assign(booking, { whatsappUrl: null });
+    }
+  }
+
+  private async attachProviderViewFields(
+    bookings: BookingEntity[],
+  ): Promise<void> {
+    if (bookings.length === 0) return;
+    const ids = bookings.map((b) => b.id);
+    const rows: {
+      bookingId: string;
+      displayName: string | null;
+      email: string | null;
+      phone: string | null;
+      roomName: string;
+      locationName: string;
+    }[] = await this.dataSource.query(
+      `SELECT DISTINCT ON (b.id)
+              b.id AS "bookingId",
+              u.display_name AS "displayName",
+              u.email,
+              u.phone,
+              r.name AS "roomName",
+              l.name AS "locationName"
+       FROM booking b
+       JOIN app_user u ON u.id = b.customer_user_id
+       JOIN booking_item bi ON bi.booking_id = b.id
+       JOIN room r ON r.id = bi.room_id
+       JOIN location l ON l.id = r.location_id
+       WHERE b.id = ANY($1::uuid[])
+       ORDER BY b.id, bi.start_at`,
+      [ids],
+    );
+    const byId = new Map(rows.map((r) => [r.bookingId, r]));
+    for (const booking of bookings) {
+      const row = byId.get(booking.id);
+      const showPhone = booking.status !== BookingStatus.PENDING;
+      Object.assign(booking, {
+        customerDisplayName: row?.displayName ?? null,
+        customerEmail: row?.email ?? null,
+        customerPhone: showPhone ? (row?.phone ?? null) : null,
+        roomName: row?.roomName ?? null,
+        locationName: row?.locationName ?? null,
+      });
+    }
+  }
+
+  private async notifyAfterCreate(
+    booking: BookingEntity,
+    providerId: string | null,
+  ): Promise<void> {
+    await this.notifyParty(booking.customerUserId, {
+      templateKey: 'booking.request_submitted',
+      subject: 'Spotva — Sorğunuz göndərildi',
+      body: `<p>Rezervasiya sorğunuz (#${booking.id.slice(0, 8).toUpperCase()}) göndərildi. Məkan sahibinin cavabı gözlənilir.</p>`,
+    });
+    if (!providerId) return;
+    const [owner] = await this.dataSource.query(
+      `SELECT owner_user_id AS "ownerUserId" FROM provider WHERE id = $1`,
+      [providerId],
+    );
+    if (owner?.ownerUserId) {
+      await this.notifyParty(owner.ownerUserId, {
+        templateKey: 'booking.new_request',
+        subject: 'Spotva — Yeni rezervasiya sorğusu',
+        body: `<p>Yeni rezervasiya sorğusu gəldi (#${booking.id.slice(0, 8).toUpperCase()}).</p>`,
+      });
+    }
+  }
+
+  private async notifyHoldExpired(booking: BookingEntity): Promise<void> {
+    await this.notifyParty(booking.customerUserId, {
+      templateKey: 'booking.hold_expired',
+      subject: 'Spotva — Sorğunun vaxtı bitdi',
+      body: `<p>Rezervasiya sorğunuzun (#${booking.id.slice(0, 8).toUpperCase()}) gözləmə müddəti bitdi.</p>`,
+    });
+  }
+
+  private async notifyCustomer(
+    booking: BookingEntity,
+    kind: 'accepted' | 'rejected',
+    extra?: { rejectionReason?: BookingRejectionReason; providerNote?: string },
+  ): Promise<void> {
+    const noteHtml = extra?.providerNote ? `<p>${extra.providerNote}</p>` : '';
+    const reasonHtml = extra?.rejectionReason
+      ? `<p>Səbəb: ${extra.rejectionReason}</p>`
+      : '';
+    if (kind === 'accepted') {
+      await this.notifyParty(booking.customerUserId, {
+        templateKey: 'booking.accepted',
+        subject: 'Spotva — Sorğunuz qəbul edildi',
+        body: `<p>Rezervasiya sorğunuz qəbul edildi. Ödənişi tamamlayaraq rezervasiyanı təsdiqləyin. (#${booking.id.slice(0, 8).toUpperCase()})</p>${noteHtml}`,
+      });
+      await this.notifyParty(booking.customerUserId, {
+        templateKey: 'booking.payment_pending',
+        subject: 'Spotva — Ödəniş gözlənilir',
+        body: `<p>Rezervasiyanızı təsdiqləmək üçün ödənişi tamamlayın.</p>`,
+      });
+      return;
+    }
+    await this.notifyParty(booking.customerUserId, {
+      templateKey: 'booking.rejected',
+      subject: 'Spotva — Sorğu rədd edildi',
+      body: `<p>Rezervasiya sorğunuz rədd edildi. (#${booking.id.slice(0, 8).toUpperCase()})</p>${reasonHtml}`,
+    });
+  }
+
+  private async notifyParty(
+    userId: string,
+    content: { templateKey: string; subject: string; body: string },
+  ): Promise<void> {
+    const user = await this.appUserRepo.findOne({ where: { id: userId } });
+    if (!user) return;
+    const identifier = user.email || user.phone;
+    if (!identifier) return;
+    const isEmail = NotificationsService.isEmail(identifier);
+    await this.notificationsService.send({
+      userId: user.id,
+      channel: isEmail ? 'EMAIL' : 'SMS',
+      templateKey: content.templateKey,
+      locale: user.locale || 'az',
+      recipient: identifier,
+      subject: isEmail ? content.subject : null,
+      body: content.body,
+      payload: {},
+    });
+  }
+
+  private async resolveOwningProviderOwnerUserId(
+    bookingId: string,
+  ): Promise<string | null> {
+    const [row] = await this.dataSource.query(
+      `SELECT p.owner_user_id AS "ownerUserId"
+       FROM booking_item bi
+       JOIN room r ON r.id = bi.room_id
+       JOIN location l ON l.id = r.location_id
+       JOIN provider p ON p.id = l.provider_id
+       WHERE bi.booking_id = $1
+       LIMIT 1`,
+      [bookingId],
+    );
+    return row?.ownerUserId ?? null;
   }
 }

@@ -1,3 +1,10 @@
+function resolveBookingMode(
+  raw: string | undefined,
+): 'REQUEST_BASED' | 'PAYMENT_BASED' | 'AUTO_CONFIRM' {
+  if (raw === 'PAYMENT_BASED' || raw === 'AUTO_CONFIRM') return raw;
+  return 'REQUEST_BASED';
+}
+
 export interface AppConfig {
   nodeEnv: string;
   port: number;
@@ -106,28 +113,12 @@ export interface AppConfig {
   booking: {
     holdMinutes: number;
     serviceFeePercentage: number;
-    // T4 (Phase 1A — Request-Based Booking, provider accept/reject) —
-    // decides which mode a NEWLY created booking gets when create() doesn't
-    // set one explicitly. Defaults to true (PAYMENT_BASED), preserving the
-    // existing checkout-everywhere behavior for any deployment that hasn't
-    // opted into the no-payment flow. This NEVER reinterprets an
-    // already-created booking's mode — only booking.mode column's own value
-    // (read at transition() time) governs an existing row.
-    //
-    // NOTE: T1's migration (1700000000017-BookingMode.ts) set the
-    // `mode` column's DB-level default to REQUEST_BASED, intending
-    // create() to be updated to set it explicitly — which hadn't happened
-    // yet when this config flag was added. Confirmed by a full e2e run:
-    // leaving create() on the bare DB default broke the existing
-    // PAYMENT_BASED checkout flow (PENDING -> PAYMENT_PENDING is not a
-    // legal REQUEST_BASED_TRANSITIONS edge), failing payments/partners/
-    // payouts/reviews/bookings-concurrency e2e suites. create() below now
-    // always sets `mode` explicitly from this flag, so the DB column
-    // default is no longer read for any booking the app itself creates.
+    // Default REQUEST_BASED (request → accept → pay → confirm). Legacy
+    // pay-first is BOOKING_MODE=PAYMENT_BASED or AUTO_CONFIRM. Existing
+    // rows keep their own `booking.mode`. PAYMENTS_ENABLED stays true in
+    // the request-first default so checkout still runs after accept.
+    mode: 'REQUEST_BASED' | 'PAYMENT_BASED' | 'AUTO_CONFIRM';
     paymentsEnabled: boolean;
-    // Hold window for a PENDING REQUEST_BASED booking, giving the provider
-    // real time to accept/reject (vs. holdMinutes' short PAYMENT_BASED
-    // checkout window, above).
     requestBasedHoldMinutes: number;
   };
   commission: { platformDefaultPercentage: number };
@@ -278,9 +269,7 @@ export default (): AppConfig => ({
   },
   booking: {
     holdMinutes: parseInt(process.env.BOOKING_HOLD_MINUTES || '15', 10),
-    // Default true so an unset value preserves the pre-T1 checkout-everywhere
-    // behavior; a Phase 1A go-to-market deployment sets this to false to
-    // make REQUEST_BASED the default for every NEW booking.
+    mode: resolveBookingMode(process.env.BOOKING_MODE),
     paymentsEnabled: process.env.PAYMENTS_ENABLED !== 'false',
     requestBasedHoldMinutes: parseInt(
       process.env.REQUEST_BASED_HOLD_MINUTES || '120',

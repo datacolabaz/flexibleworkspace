@@ -26,7 +26,6 @@ import {
 import { NotificationsService } from '../notifications/notifications.service';
 import { AppUserEntity } from '../auth/entities/app-user.entity';
 import {
-  BookingModeNotSupportedException,
   DomainException,
   ResourceNotFoundException,
 } from '../../common/exceptions/domain.exception';
@@ -89,14 +88,20 @@ export class PaymentsService {
       throw new ResourceNotFoundException('Booking');
     }
 
-    if (
-      ![BookingStatus.PENDING, BookingStatus.PAYMENT_PENDING].includes(
+    const requestBasedPayable =
+      booking.mode === BookingMode.REQUEST_BASED &&
+      booking.status === BookingStatus.PAYMENT_PENDING;
+    const paymentBasedPayable =
+      booking.mode === BookingMode.PAYMENT_BASED &&
+      [BookingStatus.PENDING, BookingStatus.PAYMENT_PENDING].includes(
         booking.status,
-      )
-    ) {
+      );
+    if (!requestBasedPayable && !paymentBasedPayable) {
       throw new DomainException(
         'BOOKING_NOT_PAYABLE',
-        `Booking is ${booking.status} and cannot be paid for.`,
+        booking.mode === BookingMode.REQUEST_BASED
+          ? 'Payment is only available after the provider accepts this request.'
+          : `Booking is ${booking.status} and cannot be paid for.`,
         HttpStatus.CONFLICT,
       );
     }
@@ -250,16 +255,12 @@ export class PaymentsService {
           where: { id: payment.bookingId },
         });
         if (!bookingBefore) throw new ResourceNotFoundException('Booking');
-        // T4 defense-in-depth — PENDING -> CONFIRMED is a legal edge in
-        // BOTH transition tables (REQUEST_BASED_TRANSITIONS allows it for
-        // the provider-accept path), so transition() alone can't tell a
-        // misdirected payment-gateway webhook for a REQUEST_BASED booking
-        // (should never happen — checkout is only ever initiated for
-        // PAYMENT_BASED bookings — but a webhook is untrusted external
-        // input, so this is checked explicitly rather than assumed) apart
-        // from a legitimate PAYMENT_BASED confirmation.
-        if (bookingBefore.mode !== BookingMode.PAYMENT_BASED) {
-          throw new BookingModeNotSupportedException('payment');
+        if (bookingBefore.status !== BookingStatus.PAYMENT_PENDING) {
+          throw new DomainException(
+            'BOOKING_NOT_PAYABLE',
+            `Booking is ${bookingBefore.status} and cannot be confirmed by payment.`,
+            HttpStatus.CONFLICT,
+          );
         }
         bookingIdForNotification = bookingBefore.id;
 
@@ -322,26 +323,14 @@ export class PaymentsService {
       const booking = await this.bookingRepo.findOne({
         where: { id: bookingIdForNotification },
       });
-      const customer = booking
-        ? await this.appUserRepo.findOne({
-            where: { id: booking.customerUserId },
-          })
-        : null;
-      const recipient = customer?.email || customer?.phone;
-      if (booking && customer && recipient) {
-        // Fire-and-forget from the DB transaction's point of view —
-        // NotificationsService never throws (§17.5) and a delivery failure
-        // must never undo a financial state change already committed.
-        await this.notificationsService.send({
-          userId: booking.customerUserId,
-          channel: NotificationsService.isEmail(recipient) ? 'EMAIL' : 'SMS',
-          templateKey: 'booking.confirmed',
-          locale: customer.locale || 'az',
-          recipient,
-          subject: 'FlexSpace — Rezervasiyanız təsdiqləndi',
-          body: `<p>Rezervasiyanız (#${booking.id}) təsdiqləndi.</p>`,
-          payload: { bookingId: booking.id },
-        });
+      if (booking) {
+        void this.bookingsService
+          .notifyPaymentSucceeded(booking)
+          .catch((err) =>
+            this.logger.warn(
+              `Payment-success notification failed for ${booking.id}: ${(err as Error).message}`,
+            ),
+          );
       }
     }
   }

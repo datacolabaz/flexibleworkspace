@@ -1,3 +1,4 @@
+import { WhatsAppContactButton } from '@/components/features/booking/WhatsAppContactButton';
 import { getTranslations } from 'next-intl/server';
 import { Link } from '@/lib/i18n/navigation';
 import { Badge, type BadgeVariant } from '@/components/ui/Badge';
@@ -22,6 +23,12 @@ export interface BookingListItemProps {
 // unlikely to drift independently.
 const PAYABLE_STATUSES = new Set(['PENDING', 'PAYMENT_PENDING']);
 
+function isPayable(booking: AccountBooking): boolean {
+  const status = booking.status ?? 'DRAFT';
+  if (booking.mode === 'REQUEST_BASED') return status === 'PAYMENT_PENDING';
+  return PAYABLE_STATUSES.has(status);
+}
+
 const STATUS_VARIANT: Record<string, BadgeVariant> = {
   CONFIRMED: 'success',
   COMPLETED: 'success',
@@ -31,6 +38,9 @@ const STATUS_VARIANT: Record<string, BadgeVariant> = {
   CANCELLED: 'error',
   EXPIRED: 'error',
   NO_SHOW: 'error',
+  REJECTED: 'error',
+  CANCELLED_BY_USER: 'error',
+  CANCELLED_BY_PROVIDER: 'error',
   DRAFT: 'neutral',
   REFUNDED: 'neutral',
 };
@@ -103,7 +113,7 @@ export async function BookingListItem({ booking, room, locale }: BookingListItem
               {t('totalLabel')}: {totalLabel}
             </p>
           )}
-          {PAYABLE_STATUSES.has(status) && booking.id && (
+          {isPayable(booking) && booking.id && (
             // A plain <a>, not the i18n-aware `Link` above — `/booking/*`
             // is deliberately NOT locale-prefixed (middleware.ts excludes
             // it; its exact shape is dictated by the payment provider's
@@ -115,6 +125,13 @@ export async function BookingListItem({ booking, room, locale }: BookingListItem
             >
               {t('completePaymentCta')}
             </a>
+          )}
+          {booking.status === 'CONFIRMED' && booking.whatsappUrl && (
+            <WhatsAppContactButton
+              href={booking.whatsappUrl}
+              label={t('whatsappCta')}
+              bookingId={booking.id}
+            />
           )}
         </div>
       </div>

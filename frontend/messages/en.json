@@ -312,10 +312,15 @@
     "promoCodeInvalid": "This promo code is invalid or has expired.",
     "promoCodeApplied": "Promo code applied",
     "priceSubtotal": "Subtotal",
-    "submitCta": "Continue to payment",
-    "submittingCta": "Booking…",
+    "submitCta": "Send request",
+    "submittingCta": "Sending…",
     "retryPaymentCta": "Try payment again",
     "requestSubmitted": "Your booking request was sent. It is waiting for the provider's confirmation.",
+    "whatsappCta": "Contact via WhatsApp",
+    "acceptedPayTitle": "Your booking request was accepted.",
+    "acceptedPayMessage": "Complete payment to confirm the reservation.",
+    "acceptedPayCta": "Continue to payment",
+    "paymentFailedRetry": "Payment was not received. Please try again.",
     "backToRoom": "Back to room",
     "errors": {
       "slotUnavailable": "Sorry, this time slot was just booked by someone else. Please choose another time.",
@@ -423,7 +428,7 @@
       "emptyCta": "Find a space",
       "statusLabel": {
         "DRAFT": "Draft",
-        "PENDING": "Awaiting payment",
+        "PENDING": "Awaiting provider",
         "PAYMENT_PENDING": "Awaiting payment",
         "CONFIRMED": "Confirmed",
         "COMPLETED": "Completed",
@@ -431,11 +436,15 @@
         "EXPIRED": "Expired",
         "NO_SHOW": "No-show",
         "REFUND_PENDING": "Refund pending",
-        "REFUNDED": "Refunded"
+        "REFUNDED": "Refunded",
+        "REJECTED": "Rejected",
+        "CANCELLED_BY_USER": "Cancelled by you",
+        "CANCELLED_BY_PROVIDER": "Cancelled by venue"
       },
       "roomUnavailable": "This space is no longer listed",
       "moreSpaces": "+{count} more space",
       "completePaymentCta": "Complete payment",
+      "whatsappCta": "Contact via WhatsApp",
       "totalLabel": "Total",
       "loadErrorTitle": "Couldn't load your bookings",
       "loadErrorMessage": "Please try again."

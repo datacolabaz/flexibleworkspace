@@ -6,6 +6,7 @@ import { Link } from '@/lib/i18n/navigation';
 import { Alert } from '@/components/ui/Alert';
 import { Spinner } from '@/components/ui/Spinner';
 import { Card } from '@/components/ui/Card';
+import { WhatsAppContactButton } from '@/components/features/booking/WhatsAppContactButton';
 import { formatMoney } from '@/lib/format/money';
 import type { BookingSummary } from '@/lib/api-client/bookings';
 
@@ -22,7 +23,16 @@ type ViewState =
 
 const POLL_INTERVAL_MS = 3000;
 const SLOW_AFTER_MS = 20000;
-const TERMINAL_NOT_CONFIRMED = new Set(['CANCELLED', 'EXPIRED', 'NO_SHOW', 'REFUND_PENDING', 'REFUNDED']);
+const TERMINAL_NOT_CONFIRMED = new Set([
+  'CANCELLED',
+  'EXPIRED',
+  'NO_SHOW',
+  'REFUND_PENDING',
+  'REFUNDED',
+  'REJECTED',
+  'CANCELLED_BY_USER',
+  'CANCELLED_BY_PROVIDER',
+]);
 const CONFIRMED_LIKE = new Set(['CONFIRMED', 'COMPLETED']);
 
 /**
@@ -39,6 +49,7 @@ const CONFIRMED_LIKE = new Set(['CONFIRMED', 'COMPLETED']);
  */
 export function BookingConfirmingView({ bookingId }: BookingConfirmingViewProps) {
   const t = useTranslations('booking.confirming');
+  const tBooking = useTranslations('booking');
   const locale = useLocale();
   const [state, setState] = useState<ViewState>({ kind: 'polling', slow: false });
   const startedAtRef = useRef(Date.now());
@@ -127,6 +138,13 @@ export function BookingConfirmingView({ bookingId }: BookingConfirmingViewProps)
             </div>
           )}
         </dl>
+        {booking.whatsappUrl && (
+          <WhatsAppContactButton
+            href={booking.whatsappUrl}
+            label={tBooking('whatsappCta')}
+            bookingId={booking.id}
+          />
+        )}
         <Link
           href="/"
           locale={locale}

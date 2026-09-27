@@ -15,12 +15,18 @@ export interface BookingFailedViewProps {
 
 type LoadState =
   | { kind: 'loading' }
-  | { kind: 'payable'; roomId?: string }
+  | { kind: 'payable'; roomId?: string; accepted?: boolean; paymentFailed?: boolean }
   | { kind: 'expired'; roomId?: string }
   | { kind: 'notFound' }
   | { kind: 'error' };
 
 const PAYABLE_STATUSES = new Set(['PENDING', 'PAYMENT_PENDING']);
+
+function isPayable(booking: BookingSummary): boolean {
+  const status = booking.status ?? '';
+  if (booking.mode === 'REQUEST_BASED') return status === 'PAYMENT_PENDING';
+  return PAYABLE_STATUSES.has(status);
+}
 
 /**
  * `payments.errorUrlTemplate`'s redirect target — reached when the hosted
@@ -35,6 +41,7 @@ const PAYABLE_STATUSES = new Set(['PENDING', 'PAYMENT_PENDING']);
  */
 export function BookingFailedView({ bookingId }: BookingFailedViewProps) {
   const t = useTranslations('booking.failed');
+  const tBooking = useTranslations('booking');
   const locale = useLocale();
   const [state, setState] = useState<LoadState>({ kind: 'loading' });
   const [isRetrying, setIsRetrying] = useState(false);
@@ -55,8 +62,15 @@ export function BookingFailedView({ bookingId }: BookingFailedViewProps) {
         }
         const booking = (await res.json()) as BookingSummary;
         const roomId = booking.items?.[0]?.roomId;
-        if (PAYABLE_STATUSES.has(booking.status ?? '')) {
-          setState({ kind: 'payable', roomId });
+        if (isPayable(booking)) {
+          setState({
+            kind: 'payable',
+            roomId,
+            accepted:
+              booking.mode === 'REQUEST_BASED' &&
+              booking.lastPaymentStatus !== 'FAILED',
+            paymentFailed: booking.lastPaymentStatus === 'FAILED',
+          });
         } else {
           setState({ kind: 'expired', roomId });
         }
@@ -150,11 +164,23 @@ export function BookingFailedView({ bookingId }: BookingFailedViewProps) {
 
   return (
     <Card className="flex flex-col gap-4 text-center">
-      <h1 className="font-display text-h3 text-text-primary">{t('title')}</h1>
-      <p className="text-body text-text-secondary">{t('message')}</p>
+      <h1 className="font-display text-h3 text-text-primary">
+        {state.kind === 'payable' && state.accepted ? tBooking('acceptedPayTitle') : t('title')}
+      </h1>
+      <p className="text-body text-text-secondary">
+        {state.kind === 'payable' && state.accepted
+          ? tBooking('acceptedPayMessage')
+          : state.kind === 'payable' && state.paymentFailed
+            ? tBooking('paymentFailedRetry')
+            : t('message')}
+      </p>
       {retryError && <Alert variant="error">{retryError}</Alert>}
       <Button variant="primary" fullWidth isLoading={isRetrying} onClick={retryPayment}>
-        {isRetrying ? t('retryingCta') : t('retryCta')}
+        {isRetrying
+          ? t('retryingCta')
+          : state.kind === 'payable' && state.accepted
+            ? tBooking('acceptedPayCta')
+            : t('retryCta')}
       </Button>
       {homeLink}
     </Card>

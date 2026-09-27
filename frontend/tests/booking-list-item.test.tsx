@@ -87,7 +87,7 @@ describe('BookingListItem', () => {
   });
 
   it('shows a "Complete payment" link to the non-locale-prefixed /booking/{id}/failed page for a payable status', async () => {
-    await renderItem(makeBooking({ status: 'PENDING' }), baseRoom);
+    await renderItem(makeBooking({ status: 'PENDING', mode: 'PAYMENT_BASED' }), baseRoom);
     const cta = screen.getByRole('link', { name: 'Complete payment' });
     expect(cta).toHaveAttribute('href', '/booking/booking-1/failed');
   });
@@ -95,6 +95,24 @@ describe('BookingListItem', () => {
   it('does not show a payment CTA for a confirmed booking', async () => {
     await renderItem(makeBooking({ status: 'CONFIRMED' }), baseRoom);
     expect(screen.queryByRole('link', { name: 'Complete payment' })).not.toBeInTheDocument();
+  });
+
+  it('does not show a payment CTA for a REQUEST_BASED pending request', async () => {
+    await renderItem(makeBooking({ status: 'PENDING', mode: 'REQUEST_BASED' }), baseRoom);
+    expect(screen.queryByRole('link', { name: 'Complete payment' })).not.toBeInTheDocument();
+  });
+
+  it('shows WhatsApp only when confirmed and a deep link is present', async () => {
+    await renderItem(makeBooking({ status: 'CONFIRMED', whatsappUrl: 'https://wa.me/994501234567?text=hi' }), baseRoom);
+    expect(screen.getByRole('link', { name: 'Contact via WhatsApp' })).toHaveAttribute(
+      'href',
+      'https://wa.me/994501234567?text=hi',
+    );
+  });
+
+  it('hides WhatsApp before payment succeeds', async () => {
+    await renderItem(makeBooking({ status: 'PAYMENT_PENDING', mode: 'REQUEST_BASED' }), baseRoom);
+    expect(screen.queryByRole('link', { name: 'Contact via WhatsApp' })).not.toBeInTheDocument();
   });
 
   it('shows a "+N more" note when the booking has more than one item', async () => {
