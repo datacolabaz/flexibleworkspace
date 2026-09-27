@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react';
 import { Alert } from '@/components/ui/Alert';
-import { Badge } from '@/components/ui/Badge';
 import { Card } from '@/components/ui/Card';
 import { Skeleton } from '@/components/ui/Skeleton';
 import type { ProviderBooking, ProviderBookingStatus } from '@/lib/api-client/provider-bookings';
@@ -67,20 +66,10 @@ function durationMinutes(startAt: string, endAt: string): string {
   return m === 0 ? `${h} saat` : `${h} saat ${m} dəq`;
 }
 
-/** Compute provider net = gross - platform commission (approximated as gross - serviceFee) */
-function providerNet(booking: ProviderBooking): number {
-  // grossAmount is what the room price is (before service fee); serviceFeeAmount is platform's cut.
-  // provider net = gross - platform_commission. Since we don't have commission stored on booking,
-  // we use: provider_net ≈ gross_amount (the room price; provider pays commission separately).
-  // More precisely: total_amount = gross + serviceFee; provider gets gross - commission.
-  // As a best approximation from available data: provider_net = totalAmount - serviceFeeAmount * 2
-  // (since serviceFee ≈ commission in most configs). Show gross as conservative display.
-  return Number(booking.grossAmount);
-}
-
-function commission(booking: ProviderBooking): number {
-  // Best approximation: commission ≈ serviceFeeAmount (platform's cut)
-  return Number(booking.serviceFeeAmount);
+/** Amounts from append-only ledger_entry; null means no ledger yet. */
+function ledgerAmount(value: string | number | null | undefined): number | null {
+  if (value == null || value === '') return null;
+  return Number(value);
 }
 
 // ── Skeleton ──────────────────────────────────────────────────────────────────
@@ -105,6 +94,9 @@ function BookingSkeleton() {
 
 function BookingRow({ booking }: { booking: ProviderBooking }) {
   const item = booking.items[0];
+  const gross = ledgerAmount(booking.ledgerGrossAmount);
+  const fee = ledgerAmount(booking.ledgerPlatformFeeAmount);
+  const net = ledgerAmount(booking.ledgerProviderNetAmount);
 
   return (
     <li className="flex flex-col gap-3 rounded-md border border-border p-4">
@@ -153,15 +145,17 @@ function BookingRow({ booking }: { booking: ProviderBooking }) {
         </div>
         <div>
           <dt className="text-caption text-text-muted">Gross məbləğ</dt>
-          <dd className="text-text-primary font-medium">{formatAzn(booking.grossAmount)}</dd>
+          <dd className="text-text-primary font-medium">
+            {gross != null ? formatAzn(gross) : formatAzn(booking.grossAmount)}
+          </dd>
         </div>
         <div>
           <dt className="text-caption text-text-muted">Spotva komissiyası</dt>
-          <dd className="text-text-secondary">{formatAzn(commission(booking))}</dd>
+          <dd className="text-text-secondary">{fee != null ? formatAzn(fee) : '—'}</dd>
         </div>
         <div>
           <dt className="text-caption text-text-muted">Provider neti</dt>
-          <dd className="text-success font-medium">{formatAzn(providerNet(booking))}</dd>
+          <dd className="text-success font-medium">{net != null ? formatAzn(net) : '—'}</dd>
         </div>
         <div>
           <dt className="text-caption text-text-muted">Bron tarixi</dt>
