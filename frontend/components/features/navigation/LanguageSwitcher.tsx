@@ -32,14 +32,14 @@ export function LanguageSwitcher() {
       <label htmlFor="language-switcher" className="sr-only">
         {t('language')}
       </label>
-      {/* Short codes only (Az / En / Ru) so the control cannot grow into
-       * nav links or AccountMenu. Full names stay on option aria-labels. */}
+      {/* Short codes (AZ / EN / RU). Width must fit 2–3 letters plus the
+       * native chevron — never truncate/overflow-hidden, which clips to "A". */}
       <Select
         id="language-switcher"
         value={selected}
         onChange={handleChange}
         aria-label={`${t('language')}: ${selectedFullName}`}
-        className="w-[4.25rem] max-w-[4.25rem] truncate px-2 pr-6"
+        className="min-w-[4.75rem] w-auto max-w-none overflow-visible whitespace-nowrap !px-2 !pr-8 !text-sm"
       >
         {SWITCHABLE_LOCALES.map((loc) => (
           <option key={loc} value={loc} aria-label={LOCALE_LABELS[loc]} title={LOCALE_LABELS[loc]}>

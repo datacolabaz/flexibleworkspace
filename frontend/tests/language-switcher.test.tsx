@@ -27,11 +27,11 @@ describe('LanguageSwitcher', () => {
     replaceMock.mockClear();
   });
 
-  it('lists only az, en and ru as short labels, with full names on aria-label', () => {
+  it('lists only az, en and ru as uppercase short labels, with full names on aria-label', () => {
     renderSwitcher();
     const select = languageSelect();
     const optionLabels = Array.from(select.options).map((option) => option.textContent);
-    expect(optionLabels).toEqual(['Az', 'En', 'Ru']);
+    expect(optionLabels).toEqual(['AZ', 'EN', 'RU']);
     expect(select.options[0]).toHaveAttribute('aria-label', 'Azərbaycanca');
     expect(select.options[1]).toHaveAttribute('aria-label', 'English');
     expect(select.options[2]).toHaveAttribute('aria-label', 'Русский');
@@ -48,11 +48,13 @@ describe('LanguageSwitcher', () => {
     expect(replaceMock).toHaveBeenCalledWith('/login', { locale: 'ru' });
   });
 
-  it('keeps the language select compact so it cannot grow into neighbouring header controls', () => {
+  it('keeps short codes fully visible: min-width for 2–3 letters plus chevron, no clipping', () => {
     renderSwitcher();
     const select = languageSelect();
-    expect(select.className).toMatch(/max-w-\[4\.25rem\]/);
+    expect(select.className).toMatch(/min-w-\[4\.75rem\]/);
+    expect(select.className).toMatch(/!text-sm/);
+    expect(select.className).not.toMatch(/\btruncate\b/);
+    expect(select.className).not.toMatch(/overflow-hidden/);
     expect(select.className).not.toMatch(/sm:max-w-\[8\.5rem\]/);
-    expect(select.className).not.toMatch(/lg:max-w-none/);
   });
 });

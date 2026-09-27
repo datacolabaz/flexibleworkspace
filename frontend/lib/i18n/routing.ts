@@ -33,7 +33,7 @@ export const LOCALE_LABELS: Record<AppLocale, string> = {
 
 /** Navbar language control only — full names stay on `LOCALE_LABELS` (profile, aria). */
 export const LOCALE_SHORT_LABELS: Record<(typeof SWITCHABLE_LOCALES)[number], string> = {
-  az: 'Az',
-  en: 'En',
-  ru: 'Ru',
+  az: 'AZ',
+  en: 'EN',
+  ru: 'RU',
 };
