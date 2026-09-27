@@ -49,24 +49,15 @@ export class PayriffPaymentProvider implements PaymentProvider {
     successUrl: string;
     errorUrl: string;
   }): Promise<CheckoutSession> {
+    void params;
     if (this.isConfigured()) {
       throw new Error(
         'PAYRIFF_LIVE_API_NOT_IMPLEMENTED — REQUIRES USER ACTION.',
       );
     }
-    if (process.env.NODE_ENV === 'production') {
-      throw new Error(
-        'PAYRIFF_NOT_CONFIGURED — REQUIRES USER ACTION (13_PAYMENT_ARCHITECTURE.md §13.4).',
-      );
-    }
-    const externalReference = `dev-payriff-${randomUUID()}`;
-    this.logger.warn(
-      `[DEV] Payriff not configured — returning a fake checkout session for ${params.ourReference}.`,
+    throw new Error(
+      'PAYRIFF_NOT_CONFIGURED — REQUIRES USER ACTION (13_PAYMENT_ARCHITECTURE.md §13.4). Staging/test checkout uses FakePaymentProvider instead.',
     );
-    return {
-      checkoutUrl: `${params.successUrl}?dev_fake_checkout=true&ref=${externalReference}`,
-      externalReference,
-    };
   }
 
   /**

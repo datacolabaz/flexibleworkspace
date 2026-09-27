@@ -1,3 +1,5 @@
+import { isFakePaymentsEnabled } from './fake-payments.gate';
+
 export interface AppConfig {
   nodeEnv: string;
   port: number;
@@ -39,6 +41,9 @@ export interface AppConfig {
     primaryProvider: 'EPOINT' | 'PAYRIFF';
     epoint: { merchantId: string; secretKey: string; apiBaseUrl: string };
     payriff: { publicKey: string; secretKey: string; apiBaseUrl: string };
+    /** Staging/test only. Always false when NODE_ENV=production. */
+    fakePaymentsEnabled: boolean;
+    fake: { secret: string };
     // 13_PAYMENT_ARCHITECTURE.md §13.3 step 2 — where the hosted checkout
     // redirects the browser back to. No dedicated frontend-URL config
     // existed yet (frontend isn't built until P4-9/10), so this reuses
@@ -224,6 +229,13 @@ export default (): AppConfig => ({
       publicKey: process.env.PAYRIFF_PUBLIC_KEY || '',
       secretKey: process.env.PAYRIFF_SECRET_KEY || '',
       apiBaseUrl: process.env.PAYRIFF_API_BASE_URL || 'https://api.payriff.com',
+    },
+    fakePaymentsEnabled: isFakePaymentsEnabled(
+      process.env.NODE_ENV,
+      process.env.FAKE_PAYMENTS,
+    ),
+    fake: {
+      secret: process.env.FAKE_PAYMENTS_SECRET || '',
     },
     successUrlTemplate:
       process.env.PAYMENT_SUCCESS_URL_TEMPLATE ||

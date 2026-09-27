@@ -20,13 +20,23 @@ export async function generateMetadata(): Promise<Metadata> {
  */
 export default async function BookingConfirmingPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ bookingId: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { bookingId } = await params;
+  const query = await searchParams;
+  const fakeCompleteFlag = query.fake_complete === '1';
+  const paymentId = typeof query.paymentId === 'string' ? query.paymentId : undefined;
+  const signature = typeof query.sig === 'string' ? query.sig : undefined;
+  const fakeComplete =
+    fakeCompleteFlag && paymentId && signature
+      ? { paymentId, signature }
+      : undefined;
   return (
     <main className="mx-auto flex min-h-[calc(100vh-4rem)] max-w-md flex-col justify-center gap-6 px-4 py-12">
-      <BookingConfirmingView bookingId={bookingId} />
+      <BookingConfirmingView bookingId={bookingId} fakeComplete={fakeComplete} />
     </main>
   );
 }

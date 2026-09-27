@@ -8,6 +8,7 @@ import configuration from '../src/config/configuration';
 import { DatabaseModule } from '../src/database/database.module';
 import { PaymentsModule } from '../src/modules/payments/payments.module';
 import { PaymentsService } from '../src/modules/payments/payments.service';
+import { FakePaymentProvider } from '../src/modules/payments/providers/fake.provider';
 import { RefundsService } from '../src/modules/payments/refunds.service';
 import { BookingsModule } from '../src/modules/bookings/bookings.module';
 import { BookingsService } from '../src/modules/bookings/bookings.service';
@@ -23,18 +24,10 @@ import { DomainException } from '../src/common/exceptions/domain.exception';
  * the point is whether the actual SQL/transaction/idempotency-constraint
  * behavior is correct).
  *
- * Uses the PAYRIFF adapter in its dev/uncredentialed simulation mode
- * (no EPOINT_SECRET_KEY/PAYRIFF credentials are configured here) rather
- * than EPOINT, because with no live gateway credentials configured,
- * EpointPaymentProvider's checkout/refund calls correctly throw
- * "LIVE_API_NOT_IMPLEMENTED" (13_PAYMENT_ARCHITECTURE.md — REQUIRES USER
- * ACTION, not guessed at), while its dev-fallback exists specifically for
- * this: exercising every piece of OUR OWN logic (idempotent webhook
- * processing, commission resolution, ledger math, refund proration, the
- * tiered admin-approval gate) without depending on unbuilt live HTTP
- * integrations. EpointPaymentProvider.verifyWebhookSignature's real
- * HMAC-SHA1 logic is covered separately in payment-providers.spec.ts,
- * where it can be tested in isolation with a fixed secret.
+ * Uses FakePaymentProvider for checkout when NODE_ENV=test (no merchant
+ * keys). Payriff webhook tests still exercise handleWebhook via the
+ * Payriff adapter's non-production confirmViaLookup simulation. Epoint
+ * HMAC verification is covered in payment-providers.spec.ts.
  */
 const TestAppModule = Test.createTestingModule({
   imports: [
@@ -72,6 +65,7 @@ describe('Payments (real Postgres — checkout, webhook, ledger, refund)', () =>
   let app: Awaited<ReturnType<typeof TestAppModule.compile>>;
   let dataSource: DataSource;
   let paymentsService: PaymentsService;
+  let fakeProvider: FakePaymentProvider;
   let refundsService: RefundsService;
   let bookingsService: BookingsService;
 
@@ -88,6 +82,7 @@ describe('Payments (real Postgres — checkout, webhook, ledger, refund)', () =>
     app = await TestAppModule.compile();
     dataSource = app.get(getDataSourceToken());
     paymentsService = app.get(PaymentsService);
+    fakeProvider = app.get(FakePaymentProvider);
     refundsService = app.get(RefundsService);
     bookingsService = app.get(BookingsService);
 
@@ -236,7 +231,8 @@ describe('Payments (real Postgres — checkout, webhook, ledger, refund)', () =>
       provider: 'PAYRIFF' as any,
     });
 
-    expect(session.checkoutUrl).toContain('dev_fake_checkout=true');
+    expect(session.checkoutUrl).toContain('fake_complete=1');
+    expect(session.checkoutUrl).toContain(`paymentId=${session.paymentId}`);
     expect(session.paymentId).toBeTruthy();
 
     const [updated] = await dataSource.query(
@@ -628,6 +624,147 @@ describe('Payments (real Postgres — checkout, webhook, ledger, refund)', () =>
       expect(entry!.refunds[0].reason).toBe(
         'Testing payment history refund nesting',
       );
+    });
+  });
+
+  describe('FakePaymentAdapter (staging/test complete path)', () => {
+    it('rejects fake-complete while the booking is still PENDING', async () => {
+      const booking = await makeBooking('fake-pending', 48);
+      await dataSource.query(
+        `UPDATE booking SET status = 'PENDING' WHERE id = $1`,
+        [booking.id],
+      );
+      await dataSource.query(
+        `UPDATE booking_item SET status = 'PENDING' WHERE booking_id = $1`,
+        [booking.id],
+      );
+      const session = await dataSource.query(
+        `INSERT INTO payment (booking_id, provider_adapter, status, external_reference, created_at, updated_at)
+         VALUES ($1, 'EPOINT', 'INITIATED', $2, now(), now()) RETURNING id`,
+        [booking.id, `fake-pending-ref-${Date.now()}`],
+      );
+      const paymentId = session[0].id;
+      await expect(
+        paymentsService.completeFakePayment(
+          paymentId,
+          fakeProvider.signPaymentId(paymentId),
+        ),
+      ).rejects.toMatchObject({ code: 'BOOKING_NOT_PAYABLE' });
+    });
+
+    it('accept → PAYMENT_PENDING, checkout allowed, fake success → CONFIRMED + CAPTURED, WhatsApp only then', async () => {
+      const booking = await makeBooking('fake-accept-pay', 52);
+      await dataSource.query(
+        `UPDATE booking SET mode = 'REQUEST_BASED', status = 'PENDING' WHERE id = $1`,
+        [booking.id],
+      );
+      await dataSource.query(
+        `UPDATE booking_item SET status = 'PENDING' WHERE booking_id = $1`,
+        [booking.id],
+      );
+      await dataSource.query(
+        `UPDATE app_user SET phone = '+994501112233' WHERE id = $1`,
+        [ownerUserId],
+      );
+
+      const accepted = await bookingsService.acceptBooking(
+        providerId,
+        booking.id,
+      );
+      expect(accepted.status).toBe(BookingStatus.PAYMENT_PENDING);
+      expect(accepted.whatsappUrl).toBeFalsy();
+
+      const session = await paymentsService.createCheckoutSession(null, {
+        bookingId: booking.id,
+        provider: 'EPOINT' as any,
+      });
+      expect(session.checkoutUrl).toContain('fake_complete=1');
+
+      const beforePay = await bookingsService.findById(booking.id);
+      expect(beforePay.status).toBe(BookingStatus.PAYMENT_PENDING);
+      expect(beforePay.whatsappUrl).toBeFalsy();
+
+      const result = await paymentsService.completeFakePayment(
+        session.paymentId,
+        fakeProvider.signPaymentId(session.paymentId),
+      );
+      expect(result.bookingStatus).toBe(BookingStatus.CONFIRMED);
+      expect(result.paymentStatus).toBe('CAPTURED');
+
+      const [paymentRow] = await dataSource.query(
+        `SELECT status FROM payment WHERE id = $1`,
+        [session.paymentId],
+      );
+      expect(paymentRow.status).toBe('CAPTURED');
+
+      const loaded = await bookingsService.findById(booking.id);
+      expect(loaded.status).toBe(BookingStatus.CONFIRMED);
+      expect(loaded.whatsappUrl).toBe('https://wa.me/994501112233');
+
+      const entries = await dataSource.query(
+        `SELECT entry_type, amount, referral_source FROM ledger_entry WHERE booking_id = $1`,
+        [booking.id],
+      );
+      expect(entries.length).toBeGreaterThan(0);
+      expect(
+        entries.every((e: { referral_source: string }) =>
+          String(e.referral_source).startsWith('fake:'),
+        ),
+      ).toBe(true);
+      const processing = entries.find(
+        (e: { entry_type: string }) => e.entry_type === 'PROCESSING_FEE',
+      );
+      expect(Number(processing.amount)).toBe(0);
+    });
+
+    it('rejects fake-complete on REJECTED and EXPIRED bookings', async () => {
+      const rejected = await makeBooking('fake-rejected', 58);
+      const expired = await makeBooking('fake-expired', 60);
+      for (const row of [
+        { booking: rejected, status: 'REJECTED' },
+        { booking: expired, status: 'EXPIRED' },
+      ]) {
+        await dataSource.query(`UPDATE booking SET status = $2 WHERE id = $1`, [
+          row.booking.id,
+          row.status,
+        ]);
+        const session = await dataSource.query(
+          `INSERT INTO payment (booking_id, provider_adapter, status, external_reference, created_at, updated_at)
+           VALUES ($1, 'EPOINT', 'INITIATED', $2, now(), now()) RETURNING id`,
+          [row.booking.id, `fake-${row.status}-${Date.now()}`],
+        );
+        await expect(
+          paymentsService.completeFakePayment(
+            session[0].id,
+            fakeProvider.signPaymentId(session[0].id),
+          ),
+        ).rejects.toMatchObject({ code: 'BOOKING_NOT_PAYABLE' });
+      }
+    });
+
+    it('duplicate fake-complete is idempotent and does not double commission', async () => {
+      const booking = await makeBooking('fake-idempotent', 64);
+      const session = await paymentsService.createCheckoutSession(null, {
+        bookingId: booking.id,
+        provider: 'EPOINT' as any,
+      });
+      const sig = fakeProvider.signPaymentId(session.paymentId);
+      await paymentsService.completeFakePayment(session.paymentId, sig);
+      const firstCount = await dataSource.query(
+        `SELECT count(*)::int AS c FROM ledger_entry WHERE booking_id = $1`,
+        [booking.id],
+      );
+      const second = await paymentsService.completeFakePayment(
+        session.paymentId,
+        sig,
+      );
+      expect(second.idempotent).toBe(true);
+      const secondCount = await dataSource.query(
+        `SELECT count(*)::int AS c FROM ledger_entry WHERE booking_id = $1`,
+        [booking.id],
+      );
+      expect(secondCount[0].c).toBe(firstCount[0].c);
+      expect(firstCount[0].c).toBeGreaterThan(0);
     });
   });
 });

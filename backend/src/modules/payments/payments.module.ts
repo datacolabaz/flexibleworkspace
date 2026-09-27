@@ -7,6 +7,7 @@ import { RefundsService } from './refunds.service';
 import { CommissionService } from './commission.service';
 import { EpointPaymentProvider } from './providers/epoint.provider';
 import { PayriffPaymentProvider } from './providers/payriff.provider';
+import { FakePaymentProvider } from './providers/fake.provider';
 import { PaymentEntity } from './entities/payment.entity';
 import { PaymentTransactionEntity } from './entities/payment-transaction.entity';
 import { RefundEntity } from './entities/refund.entity';
@@ -44,6 +45,7 @@ import { AuditModule } from '../audit/audit.module';
     CommissionService,
     EpointPaymentProvider,
     PayriffPaymentProvider,
+    FakePaymentProvider,
   ],
   exports: [PaymentsService, RefundsService, CommissionService],
 })

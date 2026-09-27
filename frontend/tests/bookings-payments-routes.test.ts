@@ -183,6 +183,28 @@ describe('BFF booking + payment routes', () => {
     });
   });
 
+  describe('POST /api/payments/[paymentId]/fake-complete', () => {
+    it('proxies to the backend fake-complete endpoint', async () => {
+      const fetchMock = fetch as unknown as ReturnType<typeof vi.fn>;
+      fetchMock.mockResolvedValueOnce(
+        new Response(JSON.stringify({ paymentStatus: 'CAPTURED', bookingStatus: 'CONFIRMED' }), { status: 200 }),
+      );
+
+      const { POST } = await import('../app/api/payments/[paymentId]/fake-complete/route');
+      const response = await POST(
+        req('/api/payments/payment-1/fake-complete', {
+          method: 'POST',
+          body: JSON.stringify({ signature: 'sig' }),
+        }),
+        { params: Promise.resolve({ paymentId: 'payment-1' }) },
+      );
+
+      expect(response.status).toBe(200);
+      const outboundRequest = fetchMock.mock.calls[0][0] as string;
+      expect(outboundRequest).toContain('/payments/payment-1/fake-complete');
+    });
+  });
+
   describe('PATCH /api/provider/bookings/[bookingId]/accept', () => {
     it('returns 401 with no session cookie', async () => {
       const fetchMock = fetch as unknown as ReturnType<typeof vi.fn>;

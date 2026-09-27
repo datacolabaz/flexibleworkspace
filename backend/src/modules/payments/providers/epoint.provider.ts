@@ -54,23 +54,11 @@ export class EpointPaymentProvider implements PaymentProvider {
     successUrl: string;
     errorUrl: string;
   }): Promise<CheckoutSession> {
+    void params;
     if (!this.isConfigured()) {
-      if (process.env.NODE_ENV === 'production') {
-        throw new Error(
-          'EPOINT_NOT_CONFIGURED — Epoint merchant credentials are missing (REQUIRES USER ACTION, 13_PAYMENT_ARCHITECTURE.md §13.4). Refusing to fabricate a checkout session in production.',
-        );
-      }
-      // Development/test only — a deterministic fake checkout URL so the
-      // rest of the booking->payment->webhook flow is fully exercisable
-      // without live Epoint credentials, matching SmsChannel's dev-mode pattern.
-      const externalReference = `dev-epoint-${randomUUID()}`;
-      this.logger.warn(
-        `[DEV] Epoint not configured — returning a fake checkout session for ${params.ourReference} (external ref ${externalReference}).`,
+      throw new Error(
+        'EPOINT_NOT_CONFIGURED — Epoint merchant credentials are missing (REQUIRES USER ACTION, 13_PAYMENT_ARCHITECTURE.md §13.4). Refusing to fabricate a checkout session. Staging/test checkout uses FakePaymentProvider instead.',
       );
-      return {
-        checkoutUrl: `${params.successUrl}?dev_fake_checkout=true&ref=${externalReference}`,
-        externalReference,
-      };
     }
 
     // REQUIRES USER ACTION: real Epoint API call goes here once credentials

@@ -30,7 +30,7 @@ export interface RefundResult {
  * to PaymentsService/RefundsService.
  */
 export interface PaymentProvider {
-  readonly name: 'EPOINT' | 'PAYRIFF';
+  readonly name: 'EPOINT' | 'PAYRIFF' | 'FAKE';
 
   createCheckoutSession(params: {
     ourReference: string;

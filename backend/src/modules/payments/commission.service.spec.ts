@@ -49,4 +49,31 @@ describe('CommissionService', () => {
     expect(byType[LedgerEntryType.PROVIDER_NET]).toBe(8500);
     expect(result.entries.every((e) => e.bookingId === 'booking-1')).toBe(true);
   });
+
+  it('tags fake adapter ledger rows and charges no gateway processing fee', async () => {
+    manager.query
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([]);
+
+    const result = await service.buildLedgerEntriesForConfirmedBooking(
+      manager as unknown as EntityManager,
+      {
+        bookingId: 'booking-fake',
+        providerId: 'provider-1',
+        roomTypeId: 'room-type-1',
+        grossAmount: 10000,
+        currency: 'AZN',
+        paymentAdapter: 'FAKE' as any,
+        ledgerSourceTag: 'fake:staging',
+      },
+    );
+
+    const processing = result.entries.find(
+      (e) => e.entryType === LedgerEntryType.PROCESSING_FEE,
+    );
+    expect(Number(processing?.amount)).toBe(0);
+    expect(result.entries.every((e) => e.referralSource === 'fake:staging')).toBe(
+      true,
+    );
+  });
 });

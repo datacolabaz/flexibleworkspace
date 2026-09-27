@@ -410,6 +410,33 @@ paths:
         "200": { description: Acknowledged }
         "400": { description: "Invalid signature — rejected, no state change" }
 
+  /payments/{paymentId}/fake-complete:
+    post:
+      tags: [Payments]
+      summary: STAGING ONLY — complete a FakePaymentAdapter checkout (404 in production)
+      security: []
+      parameters:
+        - name: paymentId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: sig
+          in: query
+          required: false
+          schema: { type: string }
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                signature: { type: string }
+      responses:
+        "200": { description: Payment captured and booking confirmed (idempotent) }
+        "404": { description: Unknown payment, or fake payments disabled }
+        "409": { description: Booking is not PAYMENT_PENDING }
+
   /refunds:
     post:
       tags: [Payments]

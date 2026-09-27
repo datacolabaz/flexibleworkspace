@@ -141,3 +141,29 @@ describe('PayriffPaymentProvider.verifyWebhookSignature (always false by design 
     expect(provider.verifyWebhookSignature(payload, undefined)).toBe(false);
   });
 });
+
+describe('Epoint/Payriff checkout never fabricates a session', () => {
+  const sessionParams = {
+    ourReference: 'pay-1',
+    amount: 1000,
+    currency: 'AZN',
+    successUrl: 'https://example.test/ok',
+    errorUrl: 'https://example.test/err',
+  };
+
+  it('Epoint throws when unconfigured (including non-production) and never returns a fake checkout URL', async () => {
+    const provider = new EpointPaymentProvider(new FakeConfigService({}) as any);
+    await expect(provider.createCheckoutSession(sessionParams)).rejects.toThrow(
+      /EPOINT_NOT_CONFIGURED/,
+    );
+  });
+
+  it('Payriff throws when unconfigured (including non-production) and never returns a fake checkout URL', async () => {
+    const provider = new PayriffPaymentProvider(
+      new FakeConfigService({}) as any,
+    );
+    await expect(provider.createCheckoutSession(sessionParams)).rejects.toThrow(
+      /PAYRIFF_NOT_CONFIGURED/,
+    );
+  });
+});

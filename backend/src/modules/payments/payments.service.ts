@@ -10,7 +10,11 @@ import { CommissionService } from './commission.service';
 import { CreateCheckoutDto } from './dto/create-checkout.dto';
 import { EpointPaymentProvider } from './providers/epoint.provider';
 import { PayriffPaymentProvider } from './providers/payriff.provider';
-import { PaymentProvider } from './providers/payment-provider.interface';
+import { FakePaymentProvider } from './providers/fake.provider';
+import {
+  NormalizedPaymentEvent,
+  PaymentProvider,
+} from './providers/payment-provider.interface';
 import {
   PaymentAdapterName,
   PaymentStatus,
@@ -51,9 +55,15 @@ export class PaymentsService {
     private readonly notificationsService: NotificationsService,
     private readonly epointProvider: EpointPaymentProvider,
     private readonly payriffProvider: PayriffPaymentProvider,
+    private readonly fakeProvider: FakePaymentProvider,
   ) {}
 
+  private fakePaymentsEnabled(): boolean {
+    return this.configService.get<boolean>('payments.fakePaymentsEnabled') === true;
+  }
+
   private resolveProvider(name: PaymentAdapterName): PaymentProvider {
+    if (name === PaymentAdapterName.FAKE) return this.fakeProvider;
     if (name === PaymentAdapterName.EPOINT) return this.epointProvider;
     if (name === PaymentAdapterName.PAYRIFF) return this.payriffProvider;
     throw new DomainException(
@@ -103,7 +113,9 @@ export class PaymentsService {
       );
     }
 
-    const provider = this.resolveProvider(dto.provider);
+    const provider = this.fakePaymentsEnabled()
+      ? this.fakeProvider
+      : this.resolveProvider(dto.provider);
 
     // Idempotency: reuse an existing not-yet-resolved Payment for this
     // booking+adapter rather than creating a new row every time the
@@ -144,6 +156,84 @@ export class PaymentsService {
     await this.paymentRepo.save(payment);
 
     return { checkoutUrl: session.checkoutUrl, paymentId: payment.id };
+  }
+
+  /**
+   * Staging/test server-side success path. The browser redirect is not
+   * authoritative — this method (HMAC-signed) is. Production always 404s.
+   */
+  async completeFakePayment(
+    paymentId: string,
+    signature: string | undefined,
+  ): Promise<{
+    paymentId: string;
+    paymentStatus: PaymentStatus;
+    bookingStatus: BookingStatus;
+    idempotent: boolean;
+  }> {
+    if (!this.fakePaymentsEnabled()) {
+      throw new ResourceNotFoundException('Payment');
+    }
+    if (!this.fakeProvider.verifyCompleteSignature(paymentId, signature)) {
+      throw new DomainException(
+        'INVALID_SIGNATURE',
+        'Fake payment signature verification failed.',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    const payment = await this.paymentRepo.findOne({ where: { id: paymentId } });
+    if (!payment) throw new ResourceNotFoundException('Payment');
+
+    const booking = await this.bookingRepo.findOne({
+      where: { id: payment.bookingId },
+    });
+    if (!booking || booking.deletedAt) {
+      throw new ResourceNotFoundException('Booking');
+    }
+
+    if (
+      payment.status === PaymentStatus.CAPTURED &&
+      booking.status === BookingStatus.CONFIRMED
+    ) {
+      return {
+        paymentId: payment.id,
+        paymentStatus: payment.status,
+        bookingStatus: booking.status,
+        idempotent: true,
+      };
+    }
+
+    if (booking.status !== BookingStatus.PAYMENT_PENDING) {
+      throw new DomainException(
+        'BOOKING_NOT_PAYABLE',
+        `Booking is ${booking.status} and cannot be paid for.`,
+        HttpStatus.CONFLICT,
+      );
+    }
+
+    const event = this.fakeProvider.buildChargeSucceededEvent({
+      paymentId: payment.id,
+      amountMinorUnits: Number(booking.totalAmount),
+      currency: booking.currency,
+    });
+    const nodeEnv = this.configService.get<string>('nodeEnv') || 'staging';
+    await this.persistProviderEvent(payment, event, PaymentAdapterName.FAKE, {
+      ledgerSourceTag: `fake:${nodeEnv}`,
+    });
+
+    const [updatedBooking] = await this.bookingRepo.find({
+      where: { id: booking.id },
+    });
+    const [updatedPayment] = await this.paymentRepo.find({
+      where: { id: payment.id },
+    });
+    return {
+      paymentId: payment.id,
+      paymentStatus: updatedPayment?.status ?? PaymentStatus.CAPTURED,
+      bookingStatus: updatedBooking?.status ?? BookingStatus.CONFIRMED,
+      idempotent: false,
+    };
   }
 
   /**
@@ -200,6 +290,19 @@ export class PaymentsService {
       );
     }
 
+    await this.persistProviderEvent(payment, event, providerName);
+  }
+
+  /**
+   * Shared capture/fail/ledger write for real webhooks and the staging
+   * fake-complete path. Duplicate `external_reference` is a no-op.
+   */
+  private async persistProviderEvent(
+    payment: PaymentEntity,
+    event: NormalizedPaymentEvent,
+    paymentAdapterForLedger: PaymentAdapterName,
+    opts: { ledgerSourceTag?: string | null } = {},
+  ): Promise<void> {
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
     await queryRunner.startTransaction();
@@ -271,7 +374,8 @@ export class PaymentsService {
                   roomTypeId: roomRow.room_type_id,
                   grossAmount: Number(confirmed.totalAmount),
                   currency: confirmed.currency,
-                  paymentAdapter: providerName,
+                  paymentAdapter: paymentAdapterForLedger,
+                  ledgerSourceTag: opts.ledgerSourceTag ?? null,
                 },
               );
             await queryRunner.manager.save(
@@ -315,30 +419,36 @@ export class PaymentsService {
     }
 
     if (bookingIdForNotification) {
-      const booking = await this.bookingRepo.findOne({
-        where: { id: bookingIdForNotification },
+      await this.notifyBookingConfirmed(bookingIdForNotification);
+    }
+  }
+
+  private async notifyBookingConfirmed(
+    bookingIdForNotification: string,
+  ): Promise<void> {
+    const booking = await this.bookingRepo.findOne({
+      where: { id: bookingIdForNotification },
+    });
+    const customer = booking
+      ? await this.appUserRepo.findOne({
+          where: { id: booking.customerUserId },
+        })
+      : null;
+    const recipient = customer?.email || customer?.phone;
+    if (booking && customer && recipient) {
+      // Fire-and-forget from the DB transaction's point of view —
+      // NotificationsService never throws (§17.5) and a delivery failure
+      // must never undo a financial state change already committed.
+      await this.notificationsService.send({
+        userId: booking.customerUserId,
+        channel: NotificationsService.isEmail(recipient) ? 'EMAIL' : 'SMS',
+        templateKey: 'booking.confirmed',
+        locale: customer.locale || 'az',
+        recipient,
+        subject: 'FlexSpace — Rezervasiyanız təsdiqləndi',
+        body: `<p>Rezervasiyanız (#${booking.id}) təsdiqləndi.</p>`,
+        payload: { bookingId: booking.id },
       });
-      const customer = booking
-        ? await this.appUserRepo.findOne({
-            where: { id: booking.customerUserId },
-          })
-        : null;
-      const recipient = customer?.email || customer?.phone;
-      if (booking && customer && recipient) {
-        // Fire-and-forget from the DB transaction's point of view —
-        // NotificationsService never throws (§17.5) and a delivery failure
-        // must never undo a financial state change already committed.
-        await this.notificationsService.send({
-          userId: booking.customerUserId,
-          channel: NotificationsService.isEmail(recipient) ? 'EMAIL' : 'SMS',
-          templateKey: 'booking.confirmed',
-          locale: customer.locale || 'az',
-          recipient,
-          subject: 'FlexSpace — Rezervasiyanız təsdiqləndi',
-          body: `<p>Rezervasiyanız (#${booking.id}) təsdiqləndi.</p>`,
-          payload: { bookingId: booking.id },
-        });
-      }
     }
   }
 

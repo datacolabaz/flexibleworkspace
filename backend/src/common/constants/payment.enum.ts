@@ -3,6 +3,8 @@ export enum PaymentAdapterName {
   EPOINT = 'EPOINT',
   PAYRIFF = 'PAYRIFF',
   STRIPE = 'STRIPE',
+  /** Staging/test FakePaymentAdapter. Used for ledger tagging only — never persisted on `payment.provider_adapter` (DB enum is EPOINT/PAYRIFF/STRIPE). */
+  FAKE = 'FAKE',
 }
 
 /** Mirrors payment_status. */
@@ -85,4 +87,5 @@ export const GATEWAY_PROCESSING_FEE_PERCENTAGE: Record<
   [PaymentAdapterName.EPOINT]: 3.0,
   [PaymentAdapterName.PAYRIFF]: 3.0,
   [PaymentAdapterName.STRIPE]: 2.9, // not usable for AZ today (§13.4) — placeholder for the future EU-entity adapter
+  [PaymentAdapterName.FAKE]: 0, // no real card network; do not invent a gateway fee as GMV
 };
