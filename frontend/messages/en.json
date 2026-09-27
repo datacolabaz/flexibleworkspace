@@ -32,8 +32,8 @@
     "createEvent": "Create event"
   },
   "hero": {
-    "title": "Find your spot.",
-    "subtitle": "Book meeting rooms, event spaces, and workspaces across Baku.",
+    "title": "Spotva — find the right space for what you want to do.",
+    "subtitle": "Discover, compare, and reserve spaces for photo shoots, podcasts, coworking, meetings, training, workshops, and events.",
     "searchPlaceholder": "Where do you need a space?",
     "searchButton": "Search"
   },
@@ -653,8 +653,8 @@
     "metaTitle": "Spotva — discover spaces, events and communities in Baku",
     "metaDescription": "Find and book spaces for workshops, meetings, learning, events and podcasts.",
     "eyebrow": "A real-world platform starting in Baku",
-    "title": "Find the space. Create the event. Bring people together.",
-    "subtitle": "Discover and book spaces for workshops, classes, seminars, meetings, events and podcasts in one place.",
+    "title": "Spotva — find the right space for what you want to do.",
+    "subtitle": "Discover, compare, and reserve spaces for photo shoots, podcasts, coworking, meetings, training, workshops, and events.",
     "quickLabel": "Quick search:",
     "search": {
       "ariaLabel": "Search spaces on Spotva",
@@ -665,7 +665,24 @@
       "dateLabel": "Date",
       "guestsLabel": "Guests",
       "guestsPlaceholder": "1+",
-      "submit": "Search"
+      "submit": "Search",
+      "activities": {
+        "PODCAST_RECORDING": "Podcast recording",
+        "PHOTO_SHOOT": "Photo shoot",
+        "VIDEO_SHOOT": "Video shoot",
+        "CONTENT_CREATION": "Content creation",
+        "TEAM_MEETING": "Team meeting",
+        "TRAINING": "Training",
+        "WORKSHOP": "Workshop",
+        "COWORKING": "Coworking",
+        "YOGA": "Yoga",
+        "DANCE": "Dance",
+        "CONFERENCE": "Conference",
+        "PRESENTATION": "Presentation",
+        "INTERVIEW": "Interview",
+        "CREATIVE_SESSION": "Creative session",
+        "SMALL_EVENT": "Small event"
+      }
     },
     "purposeSection": {
       "eyebrow": "Intent first",

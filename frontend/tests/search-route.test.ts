@@ -65,6 +65,39 @@ describe('GET /api/search', () => {
     expect(calledUrl.searchParams.has('district')).toBe(false);
   });
 
+  it('maps marketplace category onto existing GET /spaces roomType and does not forward category', async () => {
+    const fetchMock = fetch as unknown as ReturnType<typeof vi.fn>;
+    fetchMock.mockResolvedValueOnce(jsonResponse({ results: [], page: 1, pageSize: 20, totalCount: 0 }));
+
+    const { GET } = await import('../app/api/search/route');
+    await GET(
+      req(
+        '/api/search?category=PODCAST_STUDIO&participants=10&metroStationId=aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee&amenities=amenity.lighting_kit,camera,microphone,green_screen',
+      ),
+    );
+
+    const calledUrl = new URL(fetchMock.mock.calls[0][0].url ?? fetchMock.mock.calls[0][0]);
+    expect(calledUrl.searchParams.get('roomType')).toBe('room_type.podcast_studio');
+    expect(calledUrl.searchParams.get('participants')).toBe('10');
+    expect(calledUrl.searchParams.get('metroStationId')).toBe('aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee');
+    expect(calledUrl.searchParams.has('category')).toBe(false);
+    expect(calledUrl.searchParams.getAll('amenities')).toEqual(['amenity.lighting_kit']);
+    expect(calledUrl.searchParams.getAll('amenities').join(',')).not.toMatch(/camera|microphone|green_screen/);
+  });
+
+  it('keeps an explicit roomType search working without requiring category', async () => {
+    const fetchMock = fetch as unknown as ReturnType<typeof vi.fn>;
+    fetchMock.mockResolvedValueOnce(jsonResponse({ results: [], page: 1, pageSize: 20, totalCount: 0 }));
+
+    const { GET } = await import('../app/api/search/route');
+    await GET(req('/api/search?roomType=room_type.meeting_room'));
+
+    const calledUrl = new URL(fetchMock.mock.calls[0][0].url ?? fetchMock.mock.calls[0][0]);
+    expect(calledUrl.searchParams.get('roomType')).toBe('room_type.meeting_room');
+    expect(calledUrl.searchParams.has('category')).toBe(false);
+  });
+
+
   it('rejects a sort value outside the enum rather than forwarding it', async () => {
     const fetchMock = fetch as unknown as ReturnType<typeof vi.fn>;
     fetchMock.mockResolvedValueOnce(jsonResponse({ results: [], page: 1, pageSize: 20, totalCount: 0 }));

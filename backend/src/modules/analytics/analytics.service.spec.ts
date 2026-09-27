@@ -36,6 +36,19 @@ describe('AnalyticsService.recordProductEvent', () => {
     expect(insert).not.toHaveBeenCalled();
   });
 
+  it('accepts purpose-search analytics events', async () => {
+    await service.recordProductEvent({
+      eventName: 'purpose_search_submitted',
+      props: {
+        activity: 'PODCAST_RECORDING',
+        mapped_category: 'PODCAST_STUDIO',
+        participants: 10,
+        metroStationId: 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee',
+      },
+    });
+    expect(insert).toHaveBeenCalled();
+  });
+
   it('strips PII keys and uses JWT user id', async () => {
     await service.recordProductEvent({
       eventName: 'whatsapp_contact_clicked',
@@ -43,10 +56,16 @@ describe('AnalyticsService.recordProductEvent', () => {
       props: { email: 'a@b.c', phone: '+994', location_id: 'not-uuid' },
     });
     expect(insert).toHaveBeenCalled();
-    const calls = insert.mock.calls as unknown as Array<[Record<string, unknown>]>;
+    const calls = insert.mock.calls as unknown as Array<
+      [Record<string, unknown>]
+    >;
     const row = calls[0][0];
     expect(row.userId).toBe('user-jwt');
-    expect((row.metadata as Record<string, unknown> | undefined)?.email).toBeUndefined();
-    expect((row.metadata as Record<string, unknown> | undefined)?.phone).toBeUndefined();
+    expect(
+      (row.metadata as Record<string, unknown> | undefined)?.email,
+    ).toBeUndefined();
+    expect(
+      (row.metadata as Record<string, unknown> | undefined)?.phone,
+    ).toBeUndefined();
   });
 });

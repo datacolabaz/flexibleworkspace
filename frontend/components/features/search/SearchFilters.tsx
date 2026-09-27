@@ -219,6 +219,10 @@ function draftToQueryString(draft: FilterDraft, currentParams?: URLSearchParams)
   // sort the user set via the header SortControl.
   const sort = currentParams?.get('sort');
   if (sort && sort !== 'relevance') qs.set('sort', sort);
+  // Home purpose search writes `category`. Keep it unless the user picked an
+  // explicit room type (that becomes the GET /spaces filter instead).
+  const category = currentParams?.get('category');
+  if (category && !draft.roomType) qs.set('category', category);
   // Filter changes are a new search — always land back on page 1.
   return qs.toString();
 }

@@ -19,6 +19,9 @@ export const AnalyticsEvent = {
   // ── Discovery ─────────────────────────────────────────────────────────
   HomeView: 'home_view',
   SearchStarted: 'search_started',
+  PurposeSelected: 'purpose_selected',
+  PurposeSearchSubmitted: 'purpose_search_submitted',
+  ActivityFilterUsed: 'activity_filter_used',
   FilterApplied: 'filter_applied',
   MapOpened: 'map_opened',
   LocationViewed: 'location_viewed',

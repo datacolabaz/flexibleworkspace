@@ -34,7 +34,7 @@ describe('SearchFilters', () => {
     mockSearchParams = new URLSearchParams('city=Baku&sort=price');
     renderFilters();
     expect(screen.getByLabelText('City')).toHaveValue('Baku');
-    expect(screen.getByLabelText('Sort by')).toHaveValue('price');
+    expect(screen.getByLabelText('Room type')).toHaveValue('');
   });
 
   it('does not touch the URL until Apply is pressed (typing alone never refetches)', () => {
@@ -55,6 +55,19 @@ describe('SearchFilters', () => {
     const params = new URLSearchParams(url.split('?')[1]);
     expect(params.get('city')).toBe('Ganja');
     expect(params.get('sort')).toBe('price');
+  });
+
+  it('preserves marketplace category from the URL when applying other filters', () => {
+    mockSearchParams = new URLSearchParams('category=PODCAST_STUDIO&participants=10');
+    renderFilters();
+    fireEvent.change(screen.getByLabelText('City'), { target: { value: 'Baku' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Apply filters' }));
+
+    const [url] = replaceMock.mock.calls[0];
+    const params = new URLSearchParams(url.split('?')[1]);
+    expect(params.get('category')).toBe('PODCAST_STUDIO');
+    expect(params.get('city')).toBe('Baku');
+    expect(params.get('participants')).toBe('10');
   });
 
   it('converts priceMax from whole-unit input to minor units (qəpik) in the query string', () => {

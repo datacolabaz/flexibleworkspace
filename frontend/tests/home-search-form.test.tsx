@@ -29,21 +29,24 @@ describe('HomeSearchForm', () => {
     expect(screen.getByLabelText('Guests')).toHaveValue(null);
   });
 
-  it('hands structured intent to the existing search URL contract', () => {
+  it('hands purpose as marketplace category on the existing search URL contract', () => {
     renderSearch();
-    fireEvent.change(screen.getByLabelText('Activity'), { target: { value: 'room_type.event_space' } });
+    fireEvent.change(screen.getByLabelText('Activity'), { target: { value: 'PODCAST_RECORDING' } });
     fireEvent.change(screen.getByLabelText('City'), { target: { value: 'Baku' } });
     fireEvent.change(screen.getByLabelText('Date'), { target: { value: '2026-10-10' } });
-    fireEvent.change(screen.getByLabelText('Guests'), { target: { value: '24' } });
+    fireEvent.change(screen.getByLabelText('Guests'), { target: { value: '10' } });
     fireEvent.click(screen.getByRole('button', { name: 'Search' }));
 
     expect(pushMock).toHaveBeenCalledTimes(1);
     const [url] = pushMock.mock.calls[0] as [string];
     const params = new URLSearchParams(url.split('?')[1]);
     expect(url.startsWith('/search?')).toBe(true);
-    expect(params.get('roomType')).toBe('room_type.event_space');
+    expect(params.get('category')).toBe('PODCAST_STUDIO');
+    expect(params.get('roomType')).toBeNull();
     expect(params.get('city')).toBe('Baku');
     expect(params.get('date')).toBe('2026-10-10');
-    expect(params.get('participants')).toBe('24');
+    expect(params.get('participants')).toBe('10');
+    expect(params.get('amenities')).toBeNull();
+    expect(url).not.toMatch(/camera|microphone|green_screen/);
   });
 });

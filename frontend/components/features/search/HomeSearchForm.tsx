@@ -3,41 +3,61 @@
 import { useState, type FormEvent } from 'react';
 import { useTranslations } from 'next-intl';
 import { useRouter } from '@/lib/i18n/navigation';
-import { ROOM_TYPES } from '@/lib/constants/taxonomy';
+import { track, AnalyticsEvent } from '@/lib/analytics/track';
+import {
+  SEARCH_ACTIVITIES,
+  buildSpaceSearchQuery,
+  mapActivityToCategory,
+} from '@/lib/search/activity-category';
 
 interface HomeSearchDraft {
-  roomType: string;
+  activity: string;
   city: string;
   date: string;
   participants: string;
 }
 
 const INITIAL_DRAFT: HomeSearchDraft = {
-  roomType: '',
+  activity: '',
   city: 'Bakı',
   date: '',
   participants: '',
 };
 
 /**
- * Intent-first entry point for the marketplace. Unlike the previous single
- * free-text field, this form captures the four decisions that materially
- * change availability: purpose, city, date and group size. It still hands
- * off to the existing /search contract, so this is a progressive UX upgrade
- * rather than a parallel search implementation.
+ * Intent-first entry point for the marketplace. Purpose maps onto the
+ * existing /search contract via marketplace `category` (BFF converts that
+ * to GET /spaces `roomType`). No parallel search mode.
  */
 export function HomeSearchForm() {
   const t = useTranslations();
   const router = useRouter();
   const [draft, setDraft] = useState<HomeSearchDraft>(INITIAL_DRAFT);
 
+  function handleActivityChange(activity: string) {
+    setDraft((current) => ({ ...current, activity }));
+    if (!activity) return;
+    track(AnalyticsEvent.PurposeSelected, {
+      activity,
+      mapped_category: mapActivityToCategory(activity) ?? null,
+    });
+  }
+
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const query = new URLSearchParams();
-    if (draft.roomType) query.set('roomType', draft.roomType);
-    if (draft.city.trim()) query.set('city', draft.city.trim());
-    if (draft.date) query.set('date', draft.date);
-    if (draft.participants) query.set('participants', draft.participants);
+    const query = buildSpaceSearchQuery({
+      activity: draft.activity,
+      city: draft.city,
+      date: draft.date,
+      participants: draft.participants,
+    });
+    const mappedCategory = mapActivityToCategory(draft.activity) ?? null;
+    track(AnalyticsEvent.PurposeSearchSubmitted, {
+      activity: draft.activity || null,
+      mapped_category: mappedCategory,
+      participants: draft.participants || null,
+      metroStationId: null,
+    });
     router.push(query.size > 0 ? `/search?${query.toString()}` : '/search');
   }
 
@@ -51,14 +71,14 @@ export function HomeSearchForm() {
       <label className="flex min-w-0 flex-col gap-1 rounded-md px-3 py-2 focus-within:bg-surface-elevated">
         <span className="text-caption font-semibold text-text-secondary">{t('home.search.purposeLabel')}</span>
         <select
-          value={draft.roomType}
-          onChange={(event) => setDraft((current) => ({ ...current, roomType: event.target.value }))}
+          value={draft.activity}
+          onChange={(event) => handleActivityChange(event.target.value)}
           className="min-h-7 w-full bg-transparent text-small text-text-primary outline-none"
         >
           <option value="">{t('home.search.purposeAny')}</option>
-          {ROOM_TYPES.filter((type) => type.parentKey === null).map((type) => (
-            <option key={type.key} value={type.translationKey}>
-              {t(`taxonomy.roomType.${type.key}`)}
+          {SEARCH_ACTIVITIES.map((activity) => (
+            <option key={activity} value={activity}>
+              {t(`home.search.activities.${activity}`)}
             </option>
           ))}
         </select>

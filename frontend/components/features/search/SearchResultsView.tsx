@@ -12,6 +12,8 @@ import { RoomListingCardSkeleton } from '@/components/features/rooms/RoomListing
 import { SearchFilters, draftFromSearchParams } from './SearchFilters';
 import { SearchResultsMap } from './SearchResultsMap';
 import type { SearchRoomsResult } from '@/lib/api-client/rooms';
+import { track, AnalyticsEvent } from '@/lib/analytics/track';
+import { mapActivityToCategory } from '@/lib/search/activity-category';
 
 const SORT_OPTIONS = ['relevance', 'price', 'distance', 'rating'] as const;
 
@@ -76,7 +78,20 @@ export function SearchResultsView() {
         return (await res.json()) as SearchRoomsResult;
       })
       .then((data) => {
-        if (!cancelled) setState({ status: 'success', data });
+        if (!cancelled) {
+          setState({ status: 'success', data });
+          const params = new URLSearchParams(queryString);
+          const category = params.get('category');
+          if (category) {
+            track(AnalyticsEvent.ActivityFilterUsed, {
+              activity: params.get('activity'),
+              mapped_category: mapActivityToCategory(category) ?? category,
+              participants: params.get('participants'),
+              metroStationId: params.get('metroStationId'),
+              result_count: data.totalCount ?? data.results?.length ?? 0,
+            });
+          }
+        }
       })
       .catch(() => {
         if (!cancelled) setState({ status: 'error' });

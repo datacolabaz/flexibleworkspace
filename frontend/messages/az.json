@@ -32,8 +32,8 @@
     "createEvent": "Tədbir yarat"
   },
   "hero": {
-    "title": "Öz yerini tap.",
-    "subtitle": "Bakı üzrə iclas otaqları, tədbir məkanları və iş yerləri bron edin.",
+    "title": "Spotva — nə etmək istəyirsənsə, ona uyğun məkanı tap.",
+    "subtitle": "Foto çəkilişi, podcast, coworking, görüş, təlim, workshop və tədbirlər üçün məkanları kəşf et, müqayisə et və rezerv et.",
     "searchPlaceholder": "Hansı məkana ehtiyacınız var?",
     "searchButton": "Axtar"
   },
@@ -762,8 +762,8 @@
     "metaTitle": "Spotva — Bakıda məkan, tədbir və icma kəşfi",
     "metaDescription": "Workshop, görüş, təlim, tədbir və podkast üçün məkan tapın; tədbirlərə qoşulun və ya öz fəaliyyətinizi təşkil edin.",
     "eyebrow": "Bakıdan başlayan real-həyat platforması",
-    "title": "Məkanı tap. Tədbiri yarat. İnsanları bir araya gətir.",
-    "subtitle": "Workshop, dərs, seminar, görüş, tədbir və podkast üçün məkanları bir yerdə kəşf edin və bron edin.",
+    "title": "Spotva — nə etmək istəyirsənsə, ona uyğun məkanı tap.",
+    "subtitle": "Foto çəkilişi, podcast, coworking, görüş, təlim, workshop və tədbirlər üçün məkanları kəşf et, müqayisə et və rezerv et.",
     "quickLabel": "Tez axtarış:",
     "search": {
       "ariaLabel": "Spotva-da məkan axtar",
@@ -774,7 +774,24 @@
       "dateLabel": "Tarix",
       "guestsLabel": "İştirakçı",
       "guestsPlaceholder": "1+",
-      "submit": "Axtar"
+      "submit": "Axtar",
+      "activities": {
+        "PODCAST_RECORDING": "Podkast yazımı",
+        "PHOTO_SHOOT": "Foto çəkilişi",
+        "VIDEO_SHOOT": "Video çəkilişi",
+        "CONTENT_CREATION": "Kontent yaradılması",
+        "TEAM_MEETING": "Komanda görüşü",
+        "TRAINING": "Təlim",
+        "WORKSHOP": "Workshop",
+        "COWORKING": "Coworking",
+        "YOGA": "Yoqa",
+        "DANCE": "Rəqs",
+        "CONFERENCE": "Konfrans",
+        "PRESENTATION": "Təqdimat",
+        "INTERVIEW": "Müsahibə",
+        "CREATIVE_SESSION": "Yaradıcı sessiya",
+        "SMALL_EVENT": "Kiçik tədbir"
+      }
     },
     "purposeSection": {
       "eyebrow": "İstifadə niyyəti",

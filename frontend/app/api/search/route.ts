@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { searchRooms, type SearchParams } from '@/lib/api-client/rooms';
 import { apiErrorResponse } from '@/lib/auth/route-helpers';
+import {
+  filterExistingAmenities,
+  resolveRoomTypeForSpacesQuery,
+} from '@/lib/search/activity-category';
 
 const NUMERIC_PARAMS = ['durationMinutes', 'participants', 'priceMax', 'lat', 'lng', 'radiusKm', 'page', 'pageSize'] as const;
 const SORT_VALUES = ['relevance', 'price', 'distance', 'rating'] as const;
@@ -27,7 +31,11 @@ export async function GET(request: NextRequest) {
   if (city) query.city = city;
   const district = searchParams.get('district');
   if (district) query.district = district;
-  const roomType = searchParams.get('roomType');
+  const roomType = resolveRoomTypeForSpacesQuery({
+    roomType: searchParams.get('roomType'),
+    category: searchParams.get('category'),
+    activity: searchParams.get('activity'),
+  });
   if (roomType) query.roomType = roomType;
   const date = searchParams.get('date');
   if (date) query.date = date;
@@ -47,8 +55,10 @@ export async function GET(request: NextRequest) {
     query[key] = value;
   }
 
-  const amenities = searchParams.get('amenities');
-  if (amenities) query.amenities = amenities.split(',').filter(Boolean);
+  const amenities = filterExistingAmenities(
+    searchParams.get('amenities')?.split(',').filter(Boolean) ?? [],
+  );
+  if (amenities.length > 0) query.amenities = amenities;
 
   const metroStationId = searchParams.get('metroStationId');
   if (metroStationId) query.metroStationId = metroStationId;
