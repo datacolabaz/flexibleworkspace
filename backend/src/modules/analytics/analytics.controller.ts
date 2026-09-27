@@ -8,8 +8,12 @@ import {
   MinLength,
 } from 'class-validator';
 import { Request } from 'express';
+import { Throttle } from '@nestjs/throttler';
 import { Public } from '../../common/decorators/public.decorator';
 import { AnalyticsService } from './analytics.service';
+import { RecordAnalyticsEventDto } from './dto/record-analytics-event.dto';
+import { AuthenticatedUser } from '../../common/guards/jwt-auth.guard';
+import { currentProviderId } from '../../common/utils/current-provider.util';
 
 class PageviewDto {
   @IsString()
@@ -35,6 +39,21 @@ export class AnalyticsController {
       roomId: dto.roomId,
       ip: request.ip,
       userAgent: request.get('user-agent') ?? '',
+    });
+  }
+
+  @Public()
+  @Throttle({ default: { limit: 60, ttl: 60_000 } })
+  @Post('event')
+  recordEvent(@Req() request: Request, @Body() dto: RecordAnalyticsEventDto) {
+    const user = request.user as AuthenticatedUser | undefined;
+    return this.analyticsService.recordProductEvent({
+      eventName: dto.event,
+      props: dto.props,
+      clientTs: dto.ts,
+      clientEventId: dto.eventId,
+      jwtUserId: user?.userId ?? null,
+      jwtProviderId: user ? currentProviderId(user) : null,
     });
   }
 }

@@ -60,6 +60,14 @@ export const AnalyticsEvent = {
   EventPublished: 'event_published',
   EventRsvpStarted: 'event_rsvp_started',
   EventRsvpCompleted: 'event_rsvp_completed',
+  ComparisonStarted: 'comparison_started',
+  PricingUnitSelected: 'pricing_unit_selected',
+  WhatsappContactClicked: 'whatsapp_contact_clicked',
+  BookingProviderAccepted: 'booking_provider_accepted',
+  BookingProviderRejected: 'booking_provider_rejected',
+  ReferralLinkClicked: 'referral_link_clicked',
+  TicketPurchased: 'ticket_purchased',
+  TicketCheckedIn: 'ticket_checked_in',
 
   // ── Commerce ──────────────────────────────────────────────────────────
   PromoCodeApplied: 'promo_code_applied',
