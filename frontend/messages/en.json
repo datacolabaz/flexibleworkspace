@@ -32,8 +32,8 @@
     "createEvent": "Create event"
   },
   "hero": {
-    "title": "Spotva — find the right space for what you want to do.",
-    "subtitle": "Discover, compare, and reserve spaces for photo shoots, podcasts, coworking, meetings, training, workshops, and events.",
+    "title": "Find the right space for what you want to do.",
+    "subtitle": "Discover, compare and reserve spaces for podcasts, photo/video shoots, meetings, coworking, training, workshops and events.",
     "searchPlaceholder": "Where do you need a space?",
     "searchButton": "Search"
   },
@@ -658,13 +658,13 @@
     "metaTitle": "Spotva — discover spaces, events and communities in Baku",
     "metaDescription": "Find and book spaces for workshops, meetings, learning, events and podcasts.",
     "eyebrow": "A real-world platform starting in Baku",
-    "title": "Spotva — find the right space for what you want to do.",
-    "subtitle": "Discover, compare, and reserve spaces for photo shoots, podcasts, coworking, meetings, training, workshops, and events.",
+    "title": "Find the right space for what you want to do.",
+    "subtitle": "Discover, compare and reserve spaces for podcasts, photo/video shoots, meetings, coworking, training, workshops and events.",
     "quickLabel": "Quick search:",
     "search": {
       "ariaLabel": "Search spaces on Spotva",
-      "purposeLabel": "Activity",
-      "purposeAny": "What do you want to do?",
+      "purposeLabel": "What do you want to do?",
+      "purposeAny": "e.g. a space for a 10-person podcast",
       "cityLabel": "City",
       "cityPlaceholder": "Baku",
       "dateLabel": "Date",
