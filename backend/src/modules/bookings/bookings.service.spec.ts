@@ -172,8 +172,14 @@ describe('BookingsService.transition', () => {
         { provide: NotificationsService, useValue: { send: jest.fn() } },
         { provide: ProvidersService, useValue: {} },
         { provide: PromoService, useValue: {} },
-        { provide: BookingAttributionService, useValue: { snapshot: jest.fn() } },
-        { provide: RlsContextService, useValue: { applyToQueryRunner: jest.fn() } },
+        {
+          provide: BookingAttributionService,
+          useValue: { snapshot: jest.fn() },
+        },
+        {
+          provide: RlsContextService,
+          useValue: { applyToQueryRunner: jest.fn() },
+        },
       ],
     }).compile();
 
@@ -364,5 +370,160 @@ describe('BookingsService.transition', () => {
     // ACTIVE_BOOKING_STATUSES itself (PENDING, PAYMENT_PENDING, CONFIRMED)
     // is untouched by T2 — this test only confirms REQUEST_BASED bookings
     // still pass through those same two statuses on the way to CONFIRMED.
+  });
+});
+
+/**
+ * Product decision (2026-09-26, the owner's explicit ask): REQUEST_BASED
+ * must never be the platform-wide default. Covers create()'s mode
+ * selection specifically — a real Postgres DB is needed for full coverage
+ * of create()'s transaction/exclusion-constraint/RLS behavior (that's
+ * bookings-provider-accept-reject.e2e-spec.ts, real DB, PAYMENTS_ENABLED
+ * forced false for that whole suite so it can't exercise the "true" path
+ * this covers). Here, `dataSource.query`/`createQueryRunner` and every
+ * collaborator are in-memory test doubles, matching this file's own
+ * established convention for testing BookingsService without a real DB.
+ */
+describe('BookingsService.create — booking mode selection', () => {
+  let service: BookingsService;
+  let configGet: jest.Mock;
+  let requestBasedEnabledByLocation: Record<string, boolean>;
+
+  const roomId = 'room-1';
+  const locationId = 'location-1';
+  const providerId = 'provider-1';
+
+  beforeEach(async () => {
+    requestBasedEnabledByLocation = {};
+
+    const queryRunner = {
+      connect: jest.fn(),
+      startTransaction: jest.fn(),
+      commitTransaction: jest.fn(),
+      rollbackTransaction: jest.fn(),
+      release: jest.fn(),
+      manager: {
+        create: jest.fn((_entity: unknown, data: unknown) => ({
+          ...(data as object),
+        })),
+        save: jest.fn(async (entity: any) => entity),
+      },
+    };
+    // create()'s only dataSource.query call on this path (no
+    // attributionEventId in the dto below, so the events-count query never
+    // fires) is the location+provider join that resolves providerId
+    // alongside requestBasedEnabled.
+    const dataSourceQuery = jest.fn(async () => [
+      {
+        id: locationId,
+        providerId,
+        requestBasedEnabled: requestBasedEnabledByLocation[locationId] ?? false,
+      },
+    ]);
+    configGet = jest.fn((key: string) => {
+      switch (key) {
+        case 'booking.paymentsEnabled':
+          return true;
+        case 'booking.serviceFeePercentage':
+          return 0;
+        case 'booking.holdMinutes':
+          return 15;
+        case 'booking.requestBasedHoldMinutes':
+          return 120;
+        default:
+          return undefined;
+      }
+    });
+
+    const module = await Test.createTestingModule({
+      providers: [
+        BookingsService,
+        {
+          provide: getDataSourceToken(),
+          useValue: {
+            query: dataSourceQuery,
+            createQueryRunner: jest.fn(() => queryRunner),
+          },
+        },
+        { provide: getRepositoryToken(BookingEntity), useValue: {} },
+        { provide: getRepositoryToken(BookingItemEntity), useValue: {} },
+        {
+          provide: getRepositoryToken(RoomEntity),
+          useValue: {
+            findOne: jest.fn(async () => ({
+              id: roomId,
+              locationId,
+              status: 'ACTIVE',
+              basePriceAmount: '10000',
+              basePriceCurrency: 'AZN',
+              deletedAt: null,
+            })),
+          },
+        },
+        { provide: getRepositoryToken(AppUserEntity), useValue: {} },
+        {
+          provide: AvailabilityService,
+          useValue: { isRangeAvailable: jest.fn(async () => ({ ok: true })) },
+        },
+        { provide: AuthService, useValue: { ensureUser: jest.fn() } },
+        { provide: ConfigService, useValue: { get: configGet } },
+        {
+          provide: ReferralTrackingService,
+          useValue: { attributeBooking: jest.fn(async () => undefined) },
+        },
+        { provide: NotificationsService, useValue: { send: jest.fn() } },
+        { provide: ProvidersService, useValue: {} },
+        {
+          provide: PromoService,
+          useValue: { findPendingReferral: jest.fn(async () => null) },
+        },
+        {
+          provide: BookingAttributionService,
+          useValue: { snapshot: jest.fn(async () => undefined) },
+        },
+        {
+          provide: RlsContextService,
+          useValue: { applyToQueryRunner: jest.fn(async () => undefined) },
+        },
+      ],
+    }).compile();
+
+    service = module.get(BookingsService);
+  });
+
+  const bookingDto = () => ({
+    roomId,
+    startAt: new Date(Date.now() + 86_400_000).toISOString(),
+    endAt: new Date(Date.now() + 90_000_000).toISOString(),
+  });
+
+  it('defaults to PAYMENT_BASED when the provider has not opted in to REQUEST_BASED', async () => {
+    requestBasedEnabledByLocation[locationId] = false;
+    const booking = await service.create('customer-1', bookingDto() as any);
+    expect(booking.mode).toBe(BookingMode.PAYMENT_BASED);
+  });
+
+  it('uses REQUEST_BASED only when the provider has explicitly opted in', async () => {
+    requestBasedEnabledByLocation[locationId] = true;
+    const booking = await service.create('customer-1', bookingDto() as any);
+    expect(booking.mode).toBe(BookingMode.REQUEST_BASED);
+  });
+
+  it('PAYMENTS_ENABLED=false forces REQUEST_BASED even when the provider has NOT opted in (platform-wide kill switch beats provider preference)', async () => {
+    configGet.mockImplementation((key: string) => {
+      switch (key) {
+        case 'booking.paymentsEnabled':
+          return false;
+        case 'booking.serviceFeePercentage':
+          return 0;
+        case 'booking.requestBasedHoldMinutes':
+          return 120;
+        default:
+          return undefined;
+      }
+    });
+    requestBasedEnabledByLocation[locationId] = false;
+    const booking = await service.create('customer-1', bookingDto() as any);
+    expect(booking.mode).toBe(BookingMode.REQUEST_BASED);
   });
 });
