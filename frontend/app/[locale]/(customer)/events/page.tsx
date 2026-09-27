@@ -37,12 +37,6 @@ export default async function EventsPage({ params }: { params: Promise<{ locale:
             <LinkButton href="/events/create">{t('createEventCta')}</LinkButton>
             <LinkButton href="/search?roomType=room_type.event_space" variant="secondary">{t('venueCta')}</LinkButton>
           </div>
-          {/* Moved up from the bottom of the page (was easy to miss below
-           * two full sections of confident feature copy) and reworded to
-           * name the gap explicitly — a provider flagged that "Dərc et"/
-           * "İdarə et" below read as live features (paid tickets, QR
-           * check-in) when none of that exists yet; only venue search and
-           * provider signup are real today. */}
           <p className="mt-6 max-w-2xl rounded-md bg-info-bg p-4 text-small text-info">{t('betaNote')}</p>
         </div>
       </section>

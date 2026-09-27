@@ -904,7 +904,7 @@
   "eventsPage": {
     "metaTitle": "Tədbirlər və təşkilatçılar — Spotva",
     "metaDescription": "Workshop, təlim, seminar, podkast və icma formatlarını məkan, RSVP və təşkilatçı alətləri ilə birləşdirin.",
-    "badge": "Təşkilatçı beta",
+    "badge": "Təşkilatçılar üçün",
     "title": "Tədbirin ideyasından iştirakçının check-in-inə qədər",
     "subtitle": "Məkanı tapın, tədbiri dərc edin, qeydiyyatı idarə edin və növbəti sessiya üçün auditoriyanızı qoruyun.",
     "organizerCta": "Təşkilatçı kimi başla",
@@ -944,14 +944,14 @@
       },
       "publish": {
         "title": "Dərc et",
-        "body": "Tezliklə: pulsuz RSVP, ödənişli bilet və seriya yaratma."
+        "body": "Pulsuz RSVP və bilet tipləri ilə tədbiri dərc edin."
       },
       "manage": {
         "title": "İdarə et",
-        "body": "Tezliklə: waitlist, xatırlatma, QR check-in və analitika."
+        "body": "QR check-in, iştirakçı siyahısı və analitika."
       }
     },
-    "betaNote": "Tədbir yaradın, uyğun məkan tapın və iştirakçı qeydiyyatını idarə edin. Bilet satışı və QR check-in funksiyaları yaxın zamanda əlavə olunacaq.",
+    "betaNote": "Tədbir yaradın, məkan tapın, pulsuz bilet və RSVP qəbul edin, QR check-in ilə girişə nəzarət edin.",
     "createEventCta": "Tədbir yarat",
     "listTitle": "Yaxınlaşan tədbirlər",
     "listEmpty": "Hələ heç bir tədbir yoxdur.",

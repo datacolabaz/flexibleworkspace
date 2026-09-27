@@ -795,7 +795,7 @@
   "eventsPage": {
     "metaTitle": "Events and organizers — Spotva",
     "metaDescription": "Connect workshops, training, seminars, podcasts and communities with spaces, RSVP and organizer tools.",
-    "badge": "Organizer beta",
+    "badge": "For organizers",
     "title": "From event idea to attendee check-in",
     "subtitle": "Find a venue, publish the event, manage registration and retain your audience for the next session.",
     "organizerCta": "Start as an organizer",
@@ -835,14 +835,14 @@
       },
       "publish": {
         "title": "Publish",
-        "body": "Coming soon: create free RSVP, paid tickets or a series."
+        "body": "Publish with free RSVP and ticket types."
       },
       "manage": {
         "title": "Manage",
-        "body": "Coming soon: waitlist, reminders, QR check-in and analytics."
+        "body": "QR check-in, attendee list and analytics."
       }
     },
-    "betaNote": "Right now only venue booking for events is available (via the search below). Publishing events, ticket sales and QR check-in are coming soon.",
+    "betaNote": "Create an event, find a venue, take free tickets and RSVPs, and check attendees in with QR.",
     "createEventCta": "Create event",
     "listTitle": "Upcoming events",
     "listEmpty": "No events yet.",
