@@ -182,4 +182,38 @@ describe('BFF booking + payment routes', () => {
       expect(body.error.code).toBe('BOOKING_NOT_PAYABLE');
     });
   });
+
+  describe('PATCH /api/provider/bookings/[bookingId]/accept', () => {
+    it('returns 401 with no session cookie', async () => {
+      const fetchMock = fetch as unknown as ReturnType<typeof vi.fn>;
+      const { PATCH } = await import('../app/api/provider/bookings/[bookingId]/accept/route');
+      const response = await PATCH(req('/api/provider/bookings/booking-1/accept', { method: 'PATCH', body: '{}' }), {
+        params: Promise.resolve({ bookingId: 'booking-1' }),
+      });
+      expect(response.status).toBe(401);
+      expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it('forwards the bearer token to the backend accept endpoint', async () => {
+      const fetchMock = fetch as unknown as ReturnType<typeof vi.fn>;
+      fetchMock.mockResolvedValueOnce(
+        new Response(JSON.stringify({ id: 'booking-1', status: 'PAYMENT_PENDING' }), { status: 200 }),
+      );
+      const { PATCH } = await import('../app/api/provider/bookings/[bookingId]/accept/route');
+      const response = await PATCH(
+        req('/api/provider/bookings/booking-1/accept', {
+          method: 'PATCH',
+          cookie: `${ACCESS_TOKEN_COOKIE}=test-token`,
+          body: '{}',
+        }),
+        { params: Promise.resolve({ bookingId: 'booking-1' }) },
+      );
+      expect(response.status).toBe(200);
+      const called = fetchMock.mock.calls[0][0] as string | Request;
+      const calledUrl = typeof called === 'string' ? called : called.url;
+      expect(calledUrl).toContain('/provider/bookings/booking-1/accept');
+      const headers = fetchMock.mock.calls[0][1]?.headers as Record<string, string>;
+      expect(headers.Authorization).toBe('Bearer test-token');
+    });
+  });
 });

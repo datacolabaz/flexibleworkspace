@@ -22,6 +22,7 @@ import {
   BOOKING_TRANSITIONS,
   BookingMode,
   BookingStatus,
+  PAYABLE_BOOKING_STATUSES,
   REQUEST_BASED_TRANSITIONS,
 } from '../../common/constants/booking.enum';
 import { RoomStatus } from '../../common/constants/provider.enum';
@@ -138,7 +139,10 @@ export class BookingsService {
     let promoCodeId: string | null = null;
     let promoDiscountAmount = 0;
     if (dto.promoCode) {
-      const result = await this.promoService.validatePromoCode(dto.promoCode, subtotal);
+      const result = await this.promoService.validatePromoCode(
+        dto.promoCode,
+        subtotal,
+      );
       promoCodeId = result.promoCodeId;
       promoDiscountAmount = result.discountAmount;
     }
@@ -172,7 +176,8 @@ export class BookingsService {
       if (Number(eventCount[0]?.count) > 0) {
         resolvedAttributionEventId = dto.attributionEventId;
         // Default attribution source when coming from an event page
-        if (!resolvedAttributionSource) resolvedAttributionSource = 'spotva_event';
+        if (!resolvedAttributionSource)
+          resolvedAttributionSource = 'spotva_event';
       }
     }
 
@@ -192,9 +197,13 @@ export class BookingsService {
         userId: resolvedCustomerId,
       });
       const now = new Date();
+      const initialStatus =
+        mode === BookingMode.REQUEST_BASED
+          ? BookingStatus.PENDING
+          : BookingStatus.PAYMENT_PENDING;
       const booking = queryRunner.manager.create(BookingEntity, {
         customerUserId: resolvedCustomerId,
-        status: BookingStatus.PENDING,
+        status: initialStatus,
         mode,
         currency: room.basePriceCurrency,
         grossAmount: String(grossAmount),
@@ -217,7 +226,7 @@ export class BookingsService {
         endAt,
         unitPriceAmount: room.basePriceAmount,
         quantity: 1,
-        status: BookingStatus.PENDING,
+        status: initialStatus,
       });
       // THE critical insert — this is what the no_overlapping_bookings
       // EXCLUDE constraint guards. If a concurrent request already holds an
@@ -256,19 +265,29 @@ export class BookingsService {
       // Task 4 — increment uses_count after successful commit (best-effort;
       // a failure here does not roll back the booking).
       if (promoCodeId) {
-        await this.promoService.applyPromoToBooking(promoCodeId).catch((err) =>
-          this.logger.warn(`Failed to increment promo uses_count for ${promoCodeId}: ${err}`),
-        );
+        await this.promoService
+          .applyPromoToBooking(promoCodeId)
+          .catch((err) =>
+            this.logger.warn(
+              `Failed to increment promo uses_count for ${promoCodeId}: ${err}`,
+            ),
+          );
       }
 
       // Task 4 — auto-qualify any pending referral for this customer on their
       // first confirmed booking (best-effort; never throws).
       if (resolvedCustomerId) {
-        const pendingReferral = await this.promoService.findPendingReferral(resolvedCustomerId).catch(() => null);
+        const pendingReferral = await this.promoService
+          .findPendingReferral(resolvedCustomerId)
+          .catch(() => null);
         if (pendingReferral) {
-          await this.promoService.qualifyReferral(pendingReferral.id, savedBooking.id).catch((err) =>
-            this.logger.warn(`Failed to qualify referral ${pendingReferral.id}: ${err}`),
-          );
+          await this.promoService
+            .qualifyReferral(pendingReferral.id, savedBooking.id)
+            .catch((err) =>
+              this.logger.warn(
+                `Failed to qualify referral ${pendingReferral.id}: ${err}`,
+              ),
+            );
         }
       }
 
@@ -294,7 +313,7 @@ export class BookingsService {
     });
     if (!booking || booking.deletedAt)
       throw new ResourceNotFoundException('Booking');
-    return booking;
+    return this.attachCustomerFacingFields(booking);
   }
 
   async listForCustomer(
@@ -334,7 +353,9 @@ export class BookingsService {
       });
     }
 
-    return qb.orderBy('b.created_at', 'DESC').getMany();
+    return this.attachCustomerFacingFieldsMany(
+      await qb.orderBy('b.created_at', 'DESC').getMany(),
+    );
   }
 
   /**
@@ -382,7 +403,11 @@ export class BookingsService {
     extra?: Partial<
       Pick<
         BookingEntity,
-        'rejectionReason' | 'rejectionNote' | 'rejectedAt' | 'rejectedByUserId'
+        | 'rejectionReason'
+        | 'rejectionNote'
+        | 'rejectedAt'
+        | 'rejectedByUserId'
+        | 'holdExpiresAt'
       >
     >,
   ): Promise<BookingEntity> {
@@ -407,7 +432,11 @@ export class BookingsService {
     extra?: Partial<
       Pick<
         BookingEntity,
-        'rejectionReason' | 'rejectionNote' | 'rejectedAt' | 'rejectedByUserId'
+        | 'rejectionReason'
+        | 'rejectionNote'
+        | 'rejectedAt'
+        | 'rejectedByUserId'
+        | 'holdExpiresAt'
       >
     >,
   ): Promise<BookingEntity> {
@@ -604,9 +633,7 @@ export class BookingsService {
        GROUP BY booking_id`,
       [ids, providerId],
     );
-    const ledgerByBooking = new Map(
-      ledgerRows.map((r) => [r.bookingId, r]),
-    );
+    const ledgerByBooking = new Map(ledgerRows.map((r) => [r.bookingId, r]));
     for (const booking of ordered) {
       const ledger = ledgerByBooking.get(booking.id);
       Object.assign(booking, {
@@ -616,6 +643,92 @@ export class BookingsService {
       });
     }
     return ordered;
+  }
+
+  /**
+   * Customer-facing extras that must never be persisted: payable is true
+   * only after provider accept (PAYMENT_PENDING). WhatsApp is exposed only
+   * once the booking is CONFIRMED and a payment has captured.
+   */
+  private async attachCustomerFacingFields(
+    booking: BookingEntity,
+  ): Promise<BookingEntity> {
+    const [enriched] = await this.attachCustomerFacingFieldsMany([booking]);
+    return enriched;
+  }
+
+  private async attachCustomerFacingFieldsMany(
+    bookings: BookingEntity[],
+  ): Promise<BookingEntity[]> {
+    if (bookings.length === 0) return bookings;
+    const ids = bookings.map((b) => b.id);
+    const paidRows: { bookingId: string }[] = await this.dataSource.query(
+      `SELECT DISTINCT booking_id AS "bookingId"
+       FROM payment
+       WHERE booking_id = ANY($1::uuid[]) AND status = 'CAPTURED'`,
+      [ids],
+    );
+    const paidIds = new Set(paidRows.map((r) => r.bookingId));
+
+    const confirmedIds = bookings
+      .filter((b) => b.status === BookingStatus.CONFIRMED && paidIds.has(b.id))
+      .map((b) => b.id);
+    const phoneByBooking = new Map<string, string>();
+    if (confirmedIds.length > 0) {
+      const phoneRows: { bookingId: string; phone: string | null }[] =
+        await this.dataSource.query(
+          `SELECT DISTINCT ON (bi.booking_id)
+                  bi.booking_id AS "bookingId", u.phone
+           FROM booking_item bi
+           JOIN room r ON r.id = bi.room_id
+           JOIN location l ON l.id = r.location_id
+           JOIN provider p ON p.id = l.provider_id
+           JOIN app_user u ON u.id = p.owner_user_id
+           WHERE bi.booking_id = ANY($1::uuid[])
+           ORDER BY bi.booking_id, bi.id`,
+          [confirmedIds],
+        );
+      for (const row of phoneRows) {
+        if (row.phone) phoneByBooking.set(row.bookingId, row.phone);
+      }
+    }
+
+    for (const booking of bookings) {
+      Object.assign(booking, {
+        payable: PAYABLE_BOOKING_STATUSES.includes(booking.status),
+        whatsappUrl:
+          booking.status === BookingStatus.CONFIRMED && paidIds.has(booking.id)
+            ? this.toWhatsAppUrl(phoneByBooking.get(booking.id) ?? null)
+            : null,
+      });
+    }
+    return bookings;
+  }
+
+  private toWhatsAppUrl(phone: string | null): string | null {
+    if (!phone) return null;
+    const digits = phone.replace(/\D/g, '');
+    if (digits.length < 8) return null;
+    return `https://wa.me/${digits}`;
+  }
+
+  private async assertHoldStillAvailable(
+    booking: BookingEntity,
+  ): Promise<void> {
+    const items =
+      booking.items ??
+      (await this.bookingItemRepo.find({ where: { bookingId: booking.id } }));
+    for (const item of items) {
+      const availability = await this.availabilityService.isRangeAvailable(
+        item.roomId,
+        item.startAt,
+        item.endAt,
+        { excludeBookingId: booking.id, skipAdvanceWindow: true },
+      );
+      if (!availability.ok) {
+        throw new SlotUnavailableException({ reason: availability.reason });
+      }
+    }
   }
 
   /**
@@ -640,7 +753,7 @@ export class BookingsService {
     const isEmail = NotificationsService.isEmail(identifier);
     const subject =
       kind === 'accepted'
-        ? 'FlexSpace — Rezervasiya təsdiqləndi'
+        ? 'FlexSpace — Rezervasiya qəbul edildi'
         : 'FlexSpace — Rezervasiya rədd edildi';
     const noteHtml = extra?.providerNote ? `<p>${extra.providerNote}</p>` : '';
     const reasonHtml = extra?.rejectionReason
@@ -648,7 +761,7 @@ export class BookingsService {
       : '';
     const body =
       kind === 'accepted'
-        ? `<p>Rezervasiyanız (${booking.id}) provider tərəfindən təsdiqləndi.</p>${noteHtml}`
+        ? `<p>Rezervasiyanız (${booking.id}) provider tərəfindən qəbul edildi. Ödənişi tamamladıqdan sonra təsdiqlənəcək.</p>${noteHtml}`
         : `<p>Rezervasiyanız (${booking.id}) provider tərəfindən rədd edildi.</p>${reasonHtml}`;
 
     await this.notificationsService.send({
@@ -665,9 +778,9 @@ export class BookingsService {
   }
 
   /**
-   * T4 — PATCH provider/bookings/:bookingId/accept. PENDING -> CONFIRMED,
-   * REQUEST_BASED only (assertProviderCanActOnBooking / transition()'s own
-   * transition-table check both enforce this).
+   * PATCH provider/bookings/:bookingId/accept. PENDING -> PAYMENT_PENDING
+   * (not CONFIRMED). REQUEST_BASED only. Re-checks availability/overlap
+   * excluding this hold; payment webhook is what confirms.
    */
   async acceptBooking(
     callerProviderId: string,
@@ -681,9 +794,27 @@ export class BookingsService {
       'accept',
     );
 
-    const confirmed = await this.transition(bookingId, BookingStatus.CONFIRMED);
-    await this.notifyCustomer(confirmed, 'accepted', { providerNote });
-    return confirmed;
+    if (booking.status !== BookingStatus.PENDING) {
+      throw new InvalidBookingStateTransitionException(
+        booking.status,
+        BookingStatus.PAYMENT_PENDING,
+      );
+    }
+
+    await this.assertHoldStillAvailable(booking);
+
+    const holdMinutes =
+      this.configService.get<number>('booking.requestBasedHoldMinutes') ?? 120;
+    const accepted = await this.transition(
+      bookingId,
+      BookingStatus.PAYMENT_PENDING,
+      undefined,
+      {
+        holdExpiresAt: new Date(Date.now() + holdMinutes * 60_000),
+      },
+    );
+    await this.notifyCustomer(accepted, 'accepted', { providerNote });
+    return this.attachCustomerFacingFields(accepted);
   }
 
   /**

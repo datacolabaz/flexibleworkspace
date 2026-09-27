@@ -20,13 +20,12 @@ import {
 import { BookingsService } from '../bookings/bookings.service';
 import { BookingEntity } from '../bookings/entities/booking.entity';
 import {
-  BookingMode,
+  PAYABLE_BOOKING_STATUSES,
   BookingStatus,
 } from '../../common/constants/booking.enum';
 import { NotificationsService } from '../notifications/notifications.service';
 import { AppUserEntity } from '../auth/entities/app-user.entity';
 import {
-  BookingModeNotSupportedException,
   DomainException,
   ResourceNotFoundException,
 } from '../../common/exceptions/domain.exception';
@@ -89,11 +88,7 @@ export class PaymentsService {
       throw new ResourceNotFoundException('Booking');
     }
 
-    if (
-      ![BookingStatus.PENDING, BookingStatus.PAYMENT_PENDING].includes(
-        booking.status,
-      )
-    ) {
+    if (!PAYABLE_BOOKING_STATUSES.includes(booking.status)) {
       throw new DomainException(
         'BOOKING_NOT_PAYABLE',
         `Booking is ${booking.status} and cannot be paid for.`,
@@ -147,13 +142,6 @@ export class PaymentsService {
     payment.externalReference = session.externalReference;
     payment.updatedAt = new Date();
     await this.paymentRepo.save(payment);
-
-    if (booking.status === BookingStatus.PENDING) {
-      await this.bookingsService.transition(
-        booking.id,
-        BookingStatus.PAYMENT_PENDING,
-      );
-    }
 
     return { checkoutUrl: session.checkoutUrl, paymentId: payment.id };
   }
@@ -250,46 +238,54 @@ export class PaymentsService {
           where: { id: payment.bookingId },
         });
         if (!bookingBefore) throw new ResourceNotFoundException('Booking');
-        // T4 defense-in-depth — PENDING -> CONFIRMED is a legal edge in
-        // BOTH transition tables (REQUEST_BASED_TRANSITIONS allows it for
-        // the provider-accept path), so transition() alone can't tell a
-        // misdirected payment-gateway webhook for a REQUEST_BASED booking
-        // (should never happen — checkout is only ever initiated for
-        // PAYMENT_BASED bookings — but a webhook is untrusted external
-        // input, so this is checked explicitly rather than assumed) apart
-        // from a legitimate PAYMENT_BASED confirmation.
-        if (bookingBefore.mode !== BookingMode.PAYMENT_BASED) {
-          throw new BookingModeNotSupportedException('payment');
-        }
-        bookingIdForNotification = bookingBefore.id;
 
-        const confirmed = await this.bookingsService.transition(
-          payment.bookingId,
-          BookingStatus.CONFIRMED,
-          queryRunner.manager,
-        );
-
-        const [roomRow] = await queryRunner.manager.query(
-          `SELECT r.room_type_id, l.provider_id
-           FROM booking_item bi JOIN room r ON r.id = bi.room_id JOIN location l ON l.id = r.location_id
-           WHERE bi.booking_id = $1 LIMIT 1`,
-          [payment.bookingId],
-        );
-        if (!roomRow) throw new ResourceNotFoundException('Room');
-
-        const ledgerResult =
-          await this.commissionService.buildLedgerEntriesForConfirmedBooking(
+        if (bookingBefore.status === BookingStatus.PAYMENT_PENDING) {
+          bookingIdForNotification = bookingBefore.id;
+          const confirmed = await this.bookingsService.transition(
+            payment.bookingId,
+            BookingStatus.CONFIRMED,
             queryRunner.manager,
-            {
-              bookingId: confirmed.id,
-              providerId: roomRow.provider_id,
-              roomTypeId: roomRow.room_type_id,
-              grossAmount: Number(confirmed.totalAmount),
-              currency: confirmed.currency,
-              paymentAdapter: providerName,
-            },
           );
-        await queryRunner.manager.save(LedgerEntryEntity, ledgerResult.entries);
+
+          const existingGross = await queryRunner.manager.query(
+            `SELECT id FROM ledger_entry
+             WHERE booking_id = $1 AND entry_type = 'GROSS'
+             LIMIT 1`,
+            [confirmed.id],
+          );
+          if (existingGross.length === 0) {
+            const [roomRow] = await queryRunner.manager.query(
+              `SELECT r.room_type_id, l.provider_id
+               FROM booking_item bi JOIN room r ON r.id = bi.room_id JOIN location l ON l.id = r.location_id
+               WHERE bi.booking_id = $1 LIMIT 1`,
+              [payment.bookingId],
+            );
+            if (!roomRow) throw new ResourceNotFoundException('Room');
+
+            const ledgerResult =
+              await this.commissionService.buildLedgerEntriesForConfirmedBooking(
+                queryRunner.manager,
+                {
+                  bookingId: confirmed.id,
+                  providerId: roomRow.provider_id,
+                  roomTypeId: roomRow.room_type_id,
+                  grossAmount: Number(confirmed.totalAmount),
+                  currency: confirmed.currency,
+                  paymentAdapter: providerName,
+                },
+              );
+            await queryRunner.manager.save(
+              LedgerEntryEntity,
+              ledgerResult.entries,
+            );
+          }
+        } else if (bookingBefore.status !== BookingStatus.CONFIRMED) {
+          throw new DomainException(
+            'BOOKING_NOT_PAYABLE',
+            `Booking is ${bookingBefore.status} and cannot be confirmed by payment.`,
+            HttpStatus.CONFLICT,
+          );
+        }
       } else if (event.type === 'CHARGE_FAILED') {
         payment.status = PaymentStatus.FAILED;
         payment.updatedAt = new Date();

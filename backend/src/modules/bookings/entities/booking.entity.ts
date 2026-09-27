@@ -89,7 +89,12 @@ export class BookingEntity {
   rejectedByUserId: string | null;
 
   /** Feature 5 — event-page attribution (MVP). e.g. 'spotva_event'. */
-  @Column({ name: 'attribution_source', type: 'varchar', length: 100, nullable: true })
+  @Column({
+    name: 'attribution_source',
+    type: 'varchar',
+    length: 100,
+    nullable: true,
+  })
   attributionSource: string | null;
 
   /** Feature 5 — the event page this booking was sourced from. */
@@ -98,4 +103,10 @@ export class BookingEntity {
 
   @OneToMany(() => BookingItemEntity, (item) => item.booking, { cascade: true })
   items: BookingItemEntity[];
+
+  /** Response-only: true when the customer may start checkout (PAYMENT_PENDING). */
+  payable?: boolean;
+
+  /** Response-only: wa.me link after CONFIRMED + captured payment. */
+  whatsappUrl?: string | null;
 }

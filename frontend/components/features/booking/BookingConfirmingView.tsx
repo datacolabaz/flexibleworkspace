@@ -9,20 +9,31 @@ import { Card } from '@/components/ui/Card';
 import { formatMoney } from '@/lib/format/money';
 import type { BookingSummary } from '@/lib/api-client/bookings';
 
+type BookingWithWhatsapp = BookingSummary & { whatsappUrl?: string | null };
+
 export interface BookingConfirmingViewProps {
   bookingId: string;
 }
 
 type ViewState =
   | { kind: 'polling'; slow: boolean }
-  | { kind: 'confirmed'; booking: BookingSummary }
-  | { kind: 'notCompleted'; booking: BookingSummary }
+  | { kind: 'confirmed'; booking: BookingWithWhatsapp }
+  | { kind: 'notCompleted'; booking: BookingWithWhatsapp }
   | { kind: 'notFound' }
   | { kind: 'error' };
 
 const POLL_INTERVAL_MS = 3000;
 const SLOW_AFTER_MS = 20000;
-const TERMINAL_NOT_CONFIRMED = new Set(['CANCELLED', 'EXPIRED', 'NO_SHOW', 'REFUND_PENDING', 'REFUNDED']);
+const TERMINAL_NOT_CONFIRMED = new Set([
+  'CANCELLED',
+  'EXPIRED',
+  'NO_SHOW',
+  'REFUND_PENDING',
+  'REFUNDED',
+  'REJECTED',
+  'CANCELLED_BY_USER',
+  'CANCELLED_BY_PROVIDER',
+]);
 const CONFIRMED_LIKE = new Set(['CONFIRMED', 'COMPLETED']);
 
 /**
@@ -39,6 +50,7 @@ const CONFIRMED_LIKE = new Set(['CONFIRMED', 'COMPLETED']);
  */
 export function BookingConfirmingView({ bookingId }: BookingConfirmingViewProps) {
   const t = useTranslations('booking.confirming');
+  const tBooking = useTranslations('booking');
   const locale = useLocale();
   const [state, setState] = useState<ViewState>({ kind: 'polling', slow: false });
   const startedAtRef = useRef(Date.now());
@@ -61,7 +73,7 @@ export function BookingConfirmingView({ bookingId }: BookingConfirmingViewProps)
           return;
         }
 
-        const booking = (await res.json()) as BookingSummary;
+        const booking = (await res.json()) as BookingWithWhatsapp;
         if (CONFIRMED_LIKE.has(booking.status ?? '')) {
           setState({ kind: 'confirmed', booking });
           return;
@@ -134,6 +146,16 @@ export function BookingConfirmingView({ bookingId }: BookingConfirmingViewProps)
         >
           {t('backHomeCta')}
         </Link>
+        {booking.whatsappUrl && (
+          <a
+            href={booking.whatsappUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex min-h-11 items-center justify-center rounded-md border border-border-strong bg-surface px-5 text-label font-semibold text-text-primary"
+          >
+              {tBooking('whatsappCta')}
+          </a>
+        )}
       </Card>
     );
   }

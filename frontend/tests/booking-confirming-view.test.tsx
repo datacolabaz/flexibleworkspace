@@ -49,7 +49,28 @@ describe('BookingConfirmingView', () => {
 
     expect(await screen.findByText('Booking confirmed!')).toBeInTheDocument();
     expect(screen.getByText('33 AZN')).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Message on WhatsApp' })).not.toBeInTheDocument();
     expect(fetchMock.mock.calls[0][0]).toBe('/api/bookings/booking-1');
+  });
+
+  it('shows WhatsApp after confirmation when the booking includes whatsappUrl', async () => {
+    const fetchMock = fetch as unknown as ReturnType<typeof vi.fn>;
+    fetchMock.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          id: 'booking-1',
+          status: 'CONFIRMED',
+          whatsappUrl: 'https://wa.me/994501112233',
+          items: [],
+        }),
+        { status: 200 },
+      ),
+    );
+
+    renderView();
+
+    const wa = await screen.findByRole('link', { name: 'Message on WhatsApp' });
+    expect(wa).toHaveAttribute('href', 'https://wa.me/994501112233');
   });
 
   it('shows a "not found" state on a 404', async () => {

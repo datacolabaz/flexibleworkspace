@@ -5,6 +5,7 @@ import { JwtModule } from '@nestjs/jwt';
 import { DataSource } from 'typeorm';
 
 import configuration from '../src/config/configuration';
+import { DatabaseModule } from '../src/database/database.module';
 import { PaymentsModule } from '../src/modules/payments/payments.module';
 import { PaymentsService } from '../src/modules/payments/payments.service';
 import { RefundsService } from '../src/modules/payments/refunds.service';
@@ -61,6 +62,7 @@ const TestAppModule = Test.createTestingModule({
         signOptions: { expiresIn: config.get('jwt.accessExpiresIn') },
       }),
     }),
+    DatabaseModule,
     BookingsModule,
     PaymentsModule,
   ],
@@ -227,7 +229,7 @@ describe('Payments (real Postgres — checkout, webhook, ledger, refund)', () =>
     );
   }
 
-  it('creates a dev-simulated checkout session and moves the booking to PAYMENT_PENDING', async () => {
+  it('creates a checkout session for a PAYMENT_PENDING booking without changing status', async () => {
     const booking = await makeBooking('checkout', 48);
     const session = await paymentsService.createCheckoutSession(null, {
       bookingId: booking.id,
@@ -242,6 +244,104 @@ describe('Payments (real Postgres — checkout, webhook, ledger, refund)', () =>
       [booking.id],
     );
     expect(updated.status).toBe(BookingStatus.PAYMENT_PENDING);
+  });
+
+  it('rejects checkout while the booking is still PENDING (not yet accepted)', async () => {
+    const booking = await makeBooking('pending-not-payable', 50);
+    await dataSource.query(
+      `UPDATE booking SET status = 'PENDING' WHERE id = $1`,
+      [booking.id],
+    );
+    await dataSource.query(
+      `UPDATE booking_item SET status = 'PENDING' WHERE booking_id = $1`,
+      [booking.id],
+    );
+    await expect(
+      paymentsService.createCheckoutSession(null, {
+        bookingId: booking.id,
+        provider: 'PAYRIFF' as any,
+      }),
+    ).rejects.toMatchObject({ code: 'BOOKING_NOT_PAYABLE' });
+  });
+
+  it('allows checkout after REQUEST_BASED accept, then confirms + writes ledger on webhook', async () => {
+    const booking = await makeBooking('request-then-pay', 54);
+    await dataSource.query(
+      `UPDATE booking SET mode = 'REQUEST_BASED', status = 'PENDING' WHERE id = $1`,
+      [booking.id],
+    );
+    await dataSource.query(
+      `UPDATE booking_item SET status = 'PENDING' WHERE booking_id = $1`,
+      [booking.id],
+    );
+    const accepted = await bookingsService.acceptBooking(
+      providerId,
+      booking.id,
+    );
+    expect(accepted.status).toBe(BookingStatus.PAYMENT_PENDING);
+
+    await dataSource.query(
+      `UPDATE app_user SET phone = '+994501112233' WHERE id = $1`,
+      [ownerUserId],
+    );
+
+    const session = await paymentsService.createCheckoutSession(null, {
+      bookingId: booking.id,
+      provider: 'PAYRIFF' as any,
+    });
+    await paymentsService.handleWebhook(
+      'PAYRIFF' as any,
+      payriffWebhookPayload(
+        session.paymentId,
+        'payriff-ext-request-pay',
+        Number(booking.totalAmount),
+      ),
+      undefined,
+    );
+    const [confirmed] = await dataSource.query(
+      `SELECT status FROM booking WHERE id = $1`,
+      [booking.id],
+    );
+    expect(confirmed.status).toBe(BookingStatus.CONFIRMED);
+    const [ledgerCount] = await dataSource.query(
+      `SELECT count(*)::int AS c FROM ledger_entry WHERE booking_id = $1`,
+      [booking.id],
+    );
+    expect(ledgerCount.c).toBeGreaterThan(0);
+
+    const loaded = await bookingsService.findById(booking.id);
+    expect(loaded.whatsappUrl).toBe('https://wa.me/994501112233');
+  });
+
+  it('keeps the booking PAYMENT_PENDING on CHARGE_FAILED (not CONFIRMED)', async () => {
+    const booking = await makeBooking('charge-fail', 56);
+    const session = await paymentsService.createCheckoutSession(null, {
+      bookingId: booking.id,
+      provider: 'PAYRIFF' as any,
+    });
+    await paymentsService.handleWebhook(
+      'PAYRIFF' as any,
+      Buffer.from(
+        JSON.stringify({
+          status: 'declined',
+          orderId: session.paymentId,
+          transactionId: 'payriff-ext-declined',
+          amount: Number(booking.totalAmount) / 100,
+          currency: 'AZN',
+        }),
+      ),
+      undefined,
+    );
+    const [row] = await dataSource.query(
+      `SELECT status FROM booking WHERE id = $1`,
+      [booking.id],
+    );
+    expect(row.status).toBe(BookingStatus.PAYMENT_PENDING);
+    const [ledgerCount] = await dataSource.query(
+      `SELECT count(*)::int AS c FROM ledger_entry WHERE booking_id = $1`,
+      [booking.id],
+    );
+    expect(ledgerCount.c).toBe(0);
   });
 
   it('confirms the booking and writes correct ledger entries on a verified CHARGE_SUCCEEDED webhook (12% platform default commission)', async () => {

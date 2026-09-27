@@ -86,10 +86,29 @@ describe('BookingListItem', () => {
     expect(screen.queryByRole('link', { name: 'Nizami Meeting Room A' })).not.toBeInTheDocument();
   });
 
-  it('shows a "Complete payment" link to the non-locale-prefixed /booking/{id}/failed page for a payable status', async () => {
-    await renderItem(makeBooking({ status: 'PENDING' }), baseRoom);
+  it('shows a "Complete payment" link only after accept (PAYMENT_PENDING), not while PENDING', async () => {
+    await renderItem(makeBooking({ status: 'PAYMENT_PENDING' }), baseRoom);
     const cta = screen.getByRole('link', { name: 'Complete payment' });
     expect(cta).toHaveAttribute('href', '/booking/booking-1/failed');
+  });
+
+  it('does not show a payment CTA for a PENDING request', async () => {
+    await renderItem(makeBooking({ status: 'PENDING' }), baseRoom);
+    expect(screen.queryByRole('link', { name: 'Complete payment' })).not.toBeInTheDocument();
+  });
+
+  it('shows WhatsApp only when the server attached a confirmed+paid whatsappUrl', async () => {
+    await renderItem(
+      { ...makeBooking({ status: 'CONFIRMED' }), whatsappUrl: 'https://wa.me/994501112233' } as AccountBooking,
+      baseRoom,
+    );
+    const wa = screen.getByRole('link', { name: 'Message on WhatsApp' });
+    expect(wa).toHaveAttribute('href', 'https://wa.me/994501112233');
+  });
+
+  it('does not show WhatsApp for a confirmed booking without whatsappUrl', async () => {
+    await renderItem(makeBooking({ status: 'CONFIRMED' }), baseRoom);
+    expect(screen.queryByRole('link', { name: 'Message on WhatsApp' })).not.toBeInTheDocument();
   });
 
   it('does not show a payment CTA for a confirmed booking', async () => {

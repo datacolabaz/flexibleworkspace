@@ -172,8 +172,14 @@ describe('BookingsService.transition', () => {
         { provide: NotificationsService, useValue: { send: jest.fn() } },
         { provide: ProvidersService, useValue: {} },
         { provide: PromoService, useValue: {} },
-        { provide: BookingAttributionService, useValue: { snapshot: jest.fn() } },
-        { provide: RlsContextService, useValue: { applyToQueryRunner: jest.fn() } },
+        {
+          provide: BookingAttributionService,
+          useValue: { snapshot: jest.fn() },
+        },
+        {
+          provide: RlsContextService,
+          useValue: { applyToQueryRunner: jest.fn() },
+        },
       ],
     }).compile();
 
@@ -251,7 +257,7 @@ describe('BookingsService.transition', () => {
     });
 
     it.each([
-      BookingStatus.CONFIRMED,
+      BookingStatus.PAYMENT_PENDING,
       BookingStatus.REJECTED,
       BookingStatus.EXPIRED,
       BookingStatus.CANCELLED_BY_USER,
@@ -259,6 +265,23 @@ describe('BookingsService.transition', () => {
       const b = seedBooking(BookingMode.REQUEST_BASED, BookingStatus.PENDING);
       const result = await service.transition(b.id, to);
       expect(result.status).toBe(to);
+    });
+
+    it('PAYMENT_PENDING -> CONFIRMED succeeds and stamps confirmedAt', async () => {
+      const b = seedBooking(
+        BookingMode.REQUEST_BASED,
+        BookingStatus.PAYMENT_PENDING,
+      );
+      const result = await service.transition(b.id, BookingStatus.CONFIRMED);
+      expect(result.status).toBe(BookingStatus.CONFIRMED);
+      expect(result.confirmedAt).toBeInstanceOf(Date);
+    });
+
+    it('rejects PENDING -> CONFIRMED (payment must follow accept)', async () => {
+      const b = seedBooking(BookingMode.REQUEST_BASED, BookingStatus.PENDING);
+      await expect(
+        service.transition(b.id, BookingStatus.CONFIRMED),
+      ).rejects.toBeInstanceOf(InvalidBookingStateTransitionException);
     });
 
     it.each([
@@ -332,8 +355,8 @@ describe('BookingsService.transition', () => {
       ).rejects.toBeInstanceOf(InvalidBookingStateTransitionException);
     });
 
-    it('rejects a cross-mode edge: REQUEST_BASED booking cannot reach PAYMENT_PENDING', async () => {
-      const b = seedBooking(BookingMode.REQUEST_BASED, BookingStatus.PENDING);
+    it('rejects a cross-mode edge: REQUEST_BASED booking cannot reach PAYMENT_PENDING from CONFIRMED', async () => {
+      const b = seedBooking(BookingMode.REQUEST_BASED, BookingStatus.CONFIRMED);
       await expect(
         service.transition(b.id, BookingStatus.PAYMENT_PENDING),
       ).rejects.toBeInstanceOf(InvalidBookingStateTransitionException);
@@ -341,28 +364,30 @@ describe('BookingsService.transition', () => {
 
     it('keeps booking_item.status in lockstep with the booking', async () => {
       const b = seedBooking(BookingMode.REQUEST_BASED, BookingStatus.PENDING);
-      await service.transition(b.id, BookingStatus.CONFIRMED);
+      await service.transition(b.id, BookingStatus.PAYMENT_PENDING);
       const item = bookingItems.find((i) => i.bookingId === b.id);
-      expect(item?.status).toBe(BookingStatus.CONFIRMED);
+      expect(item?.status).toBe(BookingStatus.PAYMENT_PENDING);
     });
   });
 
   // --- Slot-holding regression (ACTIVE_BOOKING_STATUSES semantics must
   // not change: both modes share PENDING/CONFIRMED as the "holds a slot"
   // statuses; only the new terminal statuses are excluded, same as before T2). ---
-  it('REQUEST_BASED PENDING and CONFIRMED remain reachable via the same statuses PAYMENT_BASED uses for slot-holding', async () => {
+  it('REQUEST_BASED PENDING and PAYMENT_PENDING remain slot-holding on the way to CONFIRMED', async () => {
     const pending = seedBooking(
       BookingMode.REQUEST_BASED,
       BookingStatus.PENDING,
     );
     expect(pending.status).toBe(BookingStatus.PENDING);
-    const confirmed = await service.transition(
+    const awaitingPay = await service.transition(
       pending.id,
+      BookingStatus.PAYMENT_PENDING,
+    );
+    expect(awaitingPay.status).toBe(BookingStatus.PAYMENT_PENDING);
+    const confirmed = await service.transition(
+      awaitingPay.id,
       BookingStatus.CONFIRMED,
     );
     expect(confirmed.status).toBe(BookingStatus.CONFIRMED);
-    // ACTIVE_BOOKING_STATUSES itself (PENDING, PAYMENT_PENDING, CONFIRMED)
-    // is untouched by T2 — this test only confirms REQUEST_BASED bookings
-    // still pass through those same two statuses on the way to CONFIRMED.
   });
 });

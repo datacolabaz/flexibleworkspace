@@ -59,6 +59,18 @@ describe('BookingFailedView', () => {
     expect(link).toHaveAttribute('href', '/rooms/room-1');
   });
 
+  it('treats PENDING as not payable (payment only after accept)', async () => {
+    const fetchMock = fetch as unknown as ReturnType<typeof vi.fn>;
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify({ id: 'booking-1', status: 'PENDING', items: [{ roomId: 'room-1' }] }), { status: 200 }),
+    );
+
+    renderView();
+
+    expect(await screen.findByText('This booking has expired')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Try payment again' })).not.toBeInTheDocument();
+  });
+
   it('shows a "not found" state on a 404', async () => {
     const fetchMock = fetch as unknown as ReturnType<typeof vi.fn>;
     fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({ error: { code: 'NOT_FOUND' } }), { status: 404 }));

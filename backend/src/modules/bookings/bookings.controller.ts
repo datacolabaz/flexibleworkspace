@@ -180,7 +180,10 @@ export class BookingsController {
    */
   @Patch('provider/bookings/:bookingId/accept')
   @Roles(RoleName.PROVIDER_OWNER, RoleName.PROVIDER_STAFF)
-  @ApiOperation({ summary: 'Accept a PENDING request-based booking' })
+  @ApiOperation({
+    summary:
+      'Accept a PENDING request-based booking (moves to PAYMENT_PENDING)',
+  })
   async accept(
     @CurrentUser() user: AuthenticatedUser,
     @Param('bookingId') bookingId: string,
@@ -209,7 +212,9 @@ export class BookingsController {
    */
   @Public()
   @Post('bookings/promo/validate')
-  @ApiOperation({ summary: 'Validate a promo code and compute its discount (Task 4)' })
+  @ApiOperation({
+    summary: 'Validate a promo code and compute its discount (Task 4)',
+  })
   async validatePromoCode(
     @Body() body: { code: string; bookingAmount: number },
   ) {

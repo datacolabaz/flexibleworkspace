@@ -130,6 +130,7 @@ export class AvailabilityService {
   async getOpenWindows(
     roomId: string,
     localDateISO: string,
+    options?: { excludeBookingId?: string; skipAdvanceWindow?: boolean },
   ): Promise<OpenWindow[]> {
     const { room, location } = await this.loadRoomWithLocation(roomId);
     const zone = location.timezone || 'Asia/Baku';
@@ -230,7 +231,7 @@ export class AvailabilityService {
 
     // Subtract existing active bookings, padded by buffer_minutes on both sides.
     const bufferMs = room.bufferMinutes * 60_000;
-    const activeItems = await this.bookingItemRepo
+    const activeItemsQb = this.bookingItemRepo
       .createQueryBuilder('bi')
       .where('bi.room_id = :roomId', { roomId })
       .andWhere('bi.status IN (:...statuses)', {
@@ -239,8 +240,13 @@ export class AvailabilityService {
       .andWhere('bi.start_at < :dayEnd AND bi.end_at > :dayStart', {
         dayEnd: dayEndUtc,
         dayStart: dayStartUtc,
-      })
-      .getMany();
+      });
+    if (options?.excludeBookingId) {
+      activeItemsQb.andWhere('bi.booking_id <> :excludeBookingId', {
+        excludeBookingId: options.excludeBookingId,
+      });
+    }
+    const activeItems = await activeItemsQb.getMany();
     for (const item of activeItems) {
       windows = this.subtractRange(windows, {
         startAt: new Date(item.startAt.getTime() - bufferMs),
@@ -259,21 +265,23 @@ export class AvailabilityService {
     // actual valid start time inside it. Found live alongside the
     // BOOKING_REQUEST_GRACE_MS fix above, smoke-testing the booking flow
     // with a room that already had one active booking (PHASE4_REPORT.md).
-    const now = new Date();
-    const earliest = new Date(
-      now.getTime() +
-        room.advanceBookingMinHours * 3_600_000 +
-        BOOKING_REQUEST_GRACE_MS,
-    );
-    const latest = new Date(
-      now.getTime() + room.advanceBookingMaxDays * 86_400_000,
-    );
-    windows = windows
-      .map((w) => ({
-        startAt: w.startAt < earliest ? earliest : w.startAt,
-        endAt: w.endAt,
-      }))
-      .filter((w) => w.startAt < w.endAt && w.startAt <= latest);
+    if (!options?.skipAdvanceWindow) {
+      const now = new Date();
+      const earliest = new Date(
+        now.getTime() +
+          room.advanceBookingMinHours * 3_600_000 +
+          BOOKING_REQUEST_GRACE_MS,
+      );
+      const latest = new Date(
+        now.getTime() + room.advanceBookingMaxDays * 86_400_000,
+      );
+      windows = windows
+        .map((w) => ({
+          startAt: w.startAt < earliest ? earliest : w.startAt,
+          endAt: w.endAt,
+        }))
+        .filter((w) => w.startAt < w.endAt && w.startAt <= latest);
+    }
 
     // Drop windows too short to fit the minimum booking duration — checked
     // last, against the post-clamp window bounds actually returned below.
@@ -290,6 +298,7 @@ export class AvailabilityService {
     roomId: string,
     startAt: Date,
     endAt: Date,
+    options?: { excludeBookingId?: string; skipAdvanceWindow?: boolean },
   ): Promise<{ ok: boolean; reason?: string }> {
     const { room } = await this.loadRoomWithLocation(roomId);
     if (room.status !== RoomStatus.ACTIVE)
@@ -308,7 +317,7 @@ export class AvailabilityService {
     const location = (await this.loadRoomWithLocation(roomId)).location;
     const zone = location.timezone || 'Asia/Baku';
     const localDateISO = DateTime.fromJSDate(startAt, { zone }).toISODate()!;
-    const windows = await this.getOpenWindows(roomId, localDateISO);
+    const windows = await this.getOpenWindows(roomId, localDateISO, options);
 
     const fits = windows.some((w) => startAt >= w.startAt && endAt <= w.endAt);
     return fits ? { ok: true } : { ok: false, reason: 'SLOT_UNAVAILABLE' };

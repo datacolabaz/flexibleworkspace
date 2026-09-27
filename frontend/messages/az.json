@@ -313,10 +313,12 @@
     "promoCodeApplied": "Promosyon kodu tətbiq edildi",
     "priceSubtotal": "Ara cəm",
     "submitCta": "Ödənişə keç",
+    "submitRequestCta": "Sorğu göndər",
     "submittingCta": "Rezervasiya edilir…",
     "retryPaymentCta": "Ödənişi yenidən cəhd edin",
     "requestSubmitted": "Rezervasiya sorğunuz göndərildi. Məkan sahibinin təsdiqi gözlənilir.",
     "backToRoom": "Otağa qayıt",
+    "whatsappCta": "WhatsApp-da yazın",
     "errors": {
       "slotUnavailable": "Təəssüf ki, bu vaxt aralığını artıq başqası rezerv etdi. Zəhmət olmasa başqa vaxt seçin.",
       "roomNotActive": "Bu otaq hazırda rezervasiya üçün əlçatan deyil.",
@@ -423,7 +425,7 @@
       "emptyCta": "Məkan tap",
       "statusLabel": {
         "DRAFT": "Qaralama",
-        "PENDING": "Ödəniş gözlənilir",
+        "PENDING": "Təsdiq gözlənilir",
         "PAYMENT_PENDING": "Ödəniş gözlənilir",
         "CONFIRMED": "Təsdiqləndi",
         "COMPLETED": "Tamamlandı",
@@ -431,7 +433,10 @@
         "EXPIRED": "Vaxtı bitdi",
         "NO_SHOW": "Gəlinmədi",
         "REFUND_PENDING": "Geri qaytarma gözlənilir",
-        "REFUNDED": "Geri qaytarıldı"
+        "REFUNDED": "Geri qaytarıldı",
+        "REJECTED": "Rədd edildi",
+        "CANCELLED_BY_USER": "Ləğv edildi",
+        "CANCELLED_BY_PROVIDER": "Sahib ləğv etdi"
       },
       "roomUnavailable": "Bu məkan artıq siyahıda deyil",
       "moreSpaces": "+{count} məkan daha",

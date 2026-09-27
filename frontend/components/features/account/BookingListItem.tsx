@@ -20,7 +20,7 @@ export interface BookingListItemProps {
 // Duplicated here rather than imported from BookingFailedView.tsx, which
 // doesn't export its own copy — both are small, stable, two-status sets
 // unlikely to drift independently.
-const PAYABLE_STATUSES = new Set(['PENDING', 'PAYMENT_PENDING']);
+const PAYABLE_STATUSES = new Set(['PAYMENT_PENDING']);
 
 const STATUS_VARIANT: Record<string, BadgeVariant> = {
   CONFIRMED: 'success',
@@ -33,6 +33,9 @@ const STATUS_VARIANT: Record<string, BadgeVariant> = {
   NO_SHOW: 'error',
   DRAFT: 'neutral',
   REFUNDED: 'neutral',
+  REJECTED: 'error',
+  CANCELLED_BY_USER: 'error',
+  CANCELLED_BY_PROVIDER: 'error',
 };
 
 /**
@@ -51,9 +54,11 @@ const STATUS_VARIANT: Record<string, BadgeVariant> = {
  */
 export async function BookingListItem({ booking, room, locale }: BookingListItemProps) {
   const t = await getTranslations('account.bookings');
+  const tBooking = await getTranslations('booking');
   const primaryItem = booking.items?.[0];
   const extraItemsCount = (booking.items?.length ?? 0) - 1;
   const status = booking.status ?? 'DRAFT';
+  const whatsappUrl = (booking as AccountBooking & { whatsappUrl?: string | null }).whatsappUrl;
 
   const dateFormatter = new Intl.DateTimeFormat(locale, { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
   const timeFormatter = new Intl.DateTimeFormat(locale, { hour: '2-digit', minute: '2-digit' });
@@ -114,6 +119,16 @@ export async function BookingListItem({ booking, room, locale }: BookingListItem
               className="text-small font-semibold text-primary underline underline-offset-2 hover:no-underline"
             >
               {t('completePaymentCta')}
+            </a>
+          )}
+          {whatsappUrl && (
+            <a
+              href={whatsappUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-small font-semibold text-primary underline underline-offset-2 hover:no-underline"
+            >
+              {tBooking('whatsappCta')}
             </a>
           )}
         </div>
