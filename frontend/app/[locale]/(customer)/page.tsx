@@ -7,7 +7,6 @@ import { LinkButton } from '@/components/ui/LinkButton';
 import { getFeaturedRooms } from '@/lib/api-client/featured';
 import { getAdSlot, HOMEPAGE_SIDEBAR_PLACEMENT } from '@/lib/api-client/ads';
 import { AdSlot } from '@/components/features/ads/AdSlot';
-import { CompactSidebarLink } from '@/components/features/home/CompactSidebarLink';
 import { roomTypeKeyFromTranslationKey } from '@/lib/constants/taxonomy';
 import { formatMoney } from '@/lib/format/money';
 
@@ -68,8 +67,8 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
       {/*
         Reverted from an absolute-positioned sidebar (tried to make the row
         height follow the main column only) - that caused a WORSE bug: when
-        the sidebar's own content (4 cards) was taller than the main column,
-        it silently overflowed past its box and visually overlapped the
+        the sidebar's own content was taller than the main column, it
+        silently overflowed past its box and visually overlapped the
         "loop" section below (its Sponsorlu card rendering on top of the
         "03" step). A plain CSS grid never overlaps, at the cost of some
         blank space next to the sidebar when the left column is short -
@@ -77,6 +76,8 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
         admin featuring real rooms fills the Featured Venues section back
         in) rather than a layout hack. Sidebar spacing tightened a bit
         (space-y-4, smaller map/card padding) to narrow the gap regardless.
+        (The İcma/Xəritə teaser cards this comment once balanced against
+        were removed 2026-09-27 — sidebar is now just calendar + ad slot.)
       */}
       <div className="mx-auto grid max-w-[1480px] gap-6 px-4 py-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-start">
         <div className="min-w-0 space-y-10">
@@ -216,18 +217,11 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
             </div>
           </section>
 
-          <CompactSidebarLink
-            eyebrow={t('dashboard.community.eyebrow')}
-            title={t('dashboard.community.compactTitle')}
-            href="/partners"
-            cta={t('dashboard.community.cta')}
-          />
-          <CompactSidebarLink
-            eyebrow={t('dashboard.map.eyebrow')}
-            title={t('dashboard.map.title')}
-            href="/search"
-            cta={t('dashboard.map.cta')}
-          />
+          {/* İcma/Xəritə CompactSidebarLink teaser cards removed here
+              (bug report, 2026-09-27 — "sağ tərəfdə... lazım deyil"):
+              both just repointed to pages already one click away from the
+              primary nav (/partners, /search), and duplicated real estate
+              the calendar and ad slot use better. */}
           <AdSlot slot={adSlot} />
         </aside>
       </div>

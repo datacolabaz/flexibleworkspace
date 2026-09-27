@@ -61,6 +61,17 @@ vi.mock('@/lib/i18n/navigation', () => ({
   useRouter: () => ({ replace: vi.fn(), push: mockPush, refresh: mockRefresh }),
 }));
 
+// ManageSpacesLink ("Məkan idarəsi") reads the *plain* next/navigation
+// pathname directly, not lib/i18n/navigation's locale-agnostic wrapper —
+// /provider lives at app/provider, outside app/[locale], so it's never
+// locale-prefixed. Defaults to '/' (not a /provider route) so every
+// pre-existing test — which never sets mockNextPathname — keeps exercising
+// the inactive styling unchanged.
+let mockNextPathname = '/';
+vi.mock('next/navigation', () => ({
+  usePathname: () => mockNextPathname,
+}));
+
 // Header calls getMyProfile to show the signed-in person's own name
 // instead of the generic "Account" label. Defaults to a rejection (no
 // BACKEND_API_URL in this test env would throw the same way) so every
@@ -125,6 +136,7 @@ describe('Header', () => {
     accessTokenCookieValue = undefined;
     displayNameToReturn = undefined;
     providerResult = 'not_a_provider';
+    mockNextPathname = '/';
     mockPush.mockClear();
     mockRefresh.mockClear();
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ success: true }), { status: 200 })));
@@ -202,6 +214,28 @@ describe('Header', () => {
     expect(screen.getByRole('link', { name: 'My bookings' })).toHaveAttribute('href', '/account/bookings');
     expect(screen.queryByRole('link', { name: 'Become a provider / List a space' })).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: '/provider/analytics' })).not.toBeInTheDocument();
+  });
+
+  it('only accent-colors "Manage spaces" while an actual /provider route is open (bug report, 2026-09-27: it used to stay orange everywhere)', async () => {
+    accessTokenCookieValue = 'a-real-access-token';
+    providerResult = 'success';
+
+    mockNextPathname = '/';
+    const { unmount } = await renderHeader();
+    let manageSpaces = screen.getByRole('link', { name: 'Manage spaces' });
+    // Inactive still carries `hover:text-accent` (same idle/hover styling
+    // as the rest of the nav) — `font-semibold` is what only the active
+    // branch adds, so that (not a bare "text-accent" substring, which
+    // "hover:text-accent" also contains) is what distinguishes them.
+    expect(manageSpaces.className).not.toMatch(/font-semibold/);
+    expect(manageSpaces).not.toHaveAttribute('aria-current');
+    unmount();
+
+    mockNextPathname = '/provider/rooms';
+    await renderHeader();
+    manageSpaces = screen.getByRole('link', { name: 'Manage spaces' });
+    expect(manageSpaces.className).toMatch(/font-semibold text-accent/);
+    expect(manageSpaces).toHaveAttribute('aria-current', 'page');
   });
 
   it('does not flash provider or onboarding links when the provider API errors', async () => {
