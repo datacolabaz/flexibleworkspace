@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { RsvpModal } from '@/components/features/events/RsvpModal';
 import type { EventRecord, TicketTypeRecord } from '@/lib/api-client/events';
+import { organizerDisplayLabel } from '@/lib/events/organizer-label';
 
 const STATUS_BADGE_VARIANT: Record<string, 'success' | 'warning' | 'error' | 'neutral'> = {
   rsvp_open: 'success',
@@ -399,7 +400,9 @@ export default function EventDetailPage() {
                 {/* Organizer */}
                 <div className="mt-5 border-t border-border pt-4">
                   <p className="text-small font-semibold text-text-muted">{t('organizer')}</p>
-                  <p className="mt-1 text-body text-text-primary">{event.organizerId}</p>
+                  <p className="mt-1 text-body text-text-primary">
+                    {organizerDisplayLabel(event, t('organizer'))}
+                  </p>
                 </div>
               </div>
             </div>

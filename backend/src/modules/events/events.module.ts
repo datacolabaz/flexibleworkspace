@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 
+import { AppUserEntity } from '../auth/entities/app-user.entity';
 import { EventEntity } from './entities/event.entity';
 import { EventLocationEntity } from './entities/event-location.entity';
 import { EventRsvpEntity } from './entities/event-rsvp.entity';
@@ -17,6 +18,7 @@ import { NotificationsModule } from '../notifications/notifications.module';
 @Module({
   imports: [
     TypeOrmModule.forFeature([
+      AppUserEntity,
       EventEntity,
       EventLocationEntity,
       EventRsvpEntity,

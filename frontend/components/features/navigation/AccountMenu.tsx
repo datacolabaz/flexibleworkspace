@@ -14,10 +14,12 @@ import { getAccountMenuItems, type ProviderNavState } from './account-menu-items
  */
 export function AccountMenu({
   label,
+  fullName,
   initials,
   isProvider,
 }: {
   label: string;
+  fullName?: string | null;
   initials: string | null;
   isProvider: ProviderNavState;
 }) {
@@ -61,8 +63,10 @@ export function AccountMenu({
     };
   }, [open]);
 
+  const menuName = (fullName ?? label).trim();
+
   return (
-    <div className="relative z-50 hidden overflow-visible sm:block" ref={containerRef}>
+    <div className="relative z-50 hidden min-w-0 overflow-visible sm:block" ref={containerRef}>
       <button
         type="button"
         aria-label={t('accountMenu')}
@@ -70,7 +74,7 @@ export function AccountMenu({
         aria-expanded={open}
         aria-controls="account-menu-panel"
         onClick={() => setOpen((value) => !value)}
-        className="inline-flex min-h-11 max-w-[11rem] min-w-0 items-center gap-1.5 rounded-md bg-accent px-3 text-label font-semibold text-accent-on hover:bg-accent-hover lg:px-4"
+        className="inline-flex min-h-11 min-w-0 max-w-[8.5rem] items-center gap-1.5 overflow-hidden rounded-md bg-accent px-2.5 text-label font-semibold text-accent-on hover:bg-accent-hover lg:max-w-[11rem] lg:px-3"
       >
         {initials && (
           <span
@@ -80,7 +84,7 @@ export function AccountMenu({
             {initials}
           </span>
         )}
-        <span className="min-w-0 truncate">{label}</span>
+        <span className="hidden min-w-0 truncate lg:inline">{label}</span>
         <span
           aria-hidden="true"
           className="shrink-0 text-xs leading-none transition-transform duration-200"
@@ -95,6 +99,11 @@ export function AccountMenu({
           id="account-menu-panel"
           className="absolute right-0 top-full z-[60] mt-2 w-64 max-w-[calc(100vw-1.5rem)] rounded-md border border-border bg-surface p-2 shadow-md"
         >
+          {menuName ? (
+            <p className="truncate px-3 py-2 text-small font-semibold text-text-primary" title={menuName}>
+              {menuName}
+            </p>
+          ) : null}
           <nav aria-label={t('accountMenu')} className="flex flex-col gap-1">
             {items.map((item, index) => {
               const className =

@@ -3,6 +3,7 @@ import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { Link } from '@/lib/i18n/navigation';
 import { LinkButton } from '@/components/ui/LinkButton';
 import { listPublicEvents } from '@/lib/api-client/events';
+import { organizerDisplayLabel } from '@/lib/events/organizer-label';
 
 const FORMATS = ['workshop', 'training', 'seminar', 'podcast', 'community', 'corporate'] as const;
 const STEPS = ['venue', 'publish', 'manage'] as const;
@@ -17,6 +18,7 @@ export default async function EventsPage({ params }: { params: Promise<{ locale:
   const { locale } = await params;
   setRequestLocale(locale);
   const t = await getTranslations('eventsPage');
+  const tOrganizer = await getTranslations('eventDetail');
 
   // Try to load published events for the list section
   let publishedEvents: Awaited<ReturnType<typeof listPublicEvents>> | null = null;
@@ -123,6 +125,10 @@ export default async function EventsPage({ params }: { params: Promise<{ locale:
                   </h3>
                   <p className="mt-1 text-small text-text-secondary line-clamp-2">
                     {event.shortDescription}
+                  </p>
+                  <p className="mt-2 text-caption text-text-muted">
+                    {tOrganizer('organizer')}{' '}
+                    {organizerDisplayLabel(event, tOrganizer('organizer'))}
                   </p>
                 </div>
               </Link>

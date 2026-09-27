@@ -216,6 +216,30 @@ describe('Header', () => {
     expect(screen.getByRole('button', { name: 'Account menu' })).toHaveTextContent('Telman');
   });
 
+  it('keeps a medium name on the trigger without growing the profile control', async () => {
+    accessTokenCookieValue = 'a-real-access-token';
+    displayNameToReturn = 'Nigar Aliyeva';
+    await renderHeader();
+    const trigger = screen.getByRole('button', { name: 'Account menu' });
+    expect(trigger).toHaveTextContent('Nigar');
+    expect(trigger.className).toMatch(/min-w-0/);
+    expect(trigger.className).toMatch(/overflow-hidden/);
+    expect(trigger.className).not.toMatch(/shrink-0/);
+    openAccountMenu();
+    expect(screen.getByText('Nigar Aliyeva')).toBeInTheDocument();
+  });
+
+  it('truncates a long name on the trigger and keeps the full name in the dropdown', async () => {
+    accessTokenCookieValue = 'a-real-access-token';
+    displayNameToReturn = 'Alexandrina Konstantinovna Verylongsurname';
+    await renderHeader();
+    const trigger = screen.getByRole('button', { name: 'Account menu' });
+    expect(trigger.querySelector('.truncate')).not.toBeNull();
+    expect(trigger.querySelector('.shrink-0')).not.toBeNull();
+    openAccountMenu();
+    expect(screen.getByText('Alexandrina Konstantinovna Verylongsurname')).toBeInTheDocument();
+  });
+
   it('falls back to "Account" when the signed-in person has no display name set (e.g. an OTP-only account)', async () => {
     accessTokenCookieValue = 'a-real-access-token';
     displayNameToReturn = null;

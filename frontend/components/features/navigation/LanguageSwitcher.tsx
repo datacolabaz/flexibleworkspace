@@ -2,7 +2,7 @@
 
 import { useLocale, useTranslations } from 'next-intl';
 import { usePathname, useRouter } from '@/lib/i18n/navigation';
-import { routing, LOCALE_LABELS } from '@/lib/i18n/routing';
+import { LOCALE_LABELS, SWITCHABLE_LOCALES } from '@/lib/i18n/routing';
 import { Select } from '@/components/ui/Select';
 
 /**
@@ -17,6 +17,9 @@ export function LanguageSwitcher() {
   const pathname = usePathname();
   const router = useRouter();
   const t = useTranslations('nav');
+  const selected = (SWITCHABLE_LOCALES as readonly string[]).includes(locale)
+    ? locale
+    : 'az';
 
   function handleChange(event: React.ChangeEvent<HTMLSelectElement>) {
     router.replace(pathname, { locale: event.target.value });
@@ -34,11 +37,11 @@ export function LanguageSwitcher() {
        * theme toggle and hamburger next to it. */}
       <Select
         id="language-switcher"
-        value={locale}
+        value={selected}
         onChange={handleChange}
-        className="max-w-[6.5rem] truncate pr-6 sm:max-w-none sm:pr-8"
+        className="max-w-[6.5rem] truncate pr-6 sm:max-w-[7.5rem] sm:pr-8 lg:max-w-none"
       >
-        {routing.locales.map((loc) => (
+        {SWITCHABLE_LOCALES.map((loc) => (
           <option key={loc} value={loc}>
             {LOCALE_LABELS[loc]}
           </option>

@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/Button';
 import { FormField, fieldDescribedBy } from '@/components/ui/FormField';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
-import { routing, LOCALE_LABELS } from '@/lib/i18n/routing';
+import { LOCALE_LABELS, SWITCHABLE_LOCALES } from '@/lib/i18n/routing';
 import type { Profile } from '@/lib/api-client/account';
 
 interface BffErrorBody {
@@ -37,7 +37,10 @@ export function ProfileForm({ initialProfile }: ProfileFormProps) {
   const t = useTranslations('account.profile');
 
   const [displayName, setDisplayName] = useState(initialProfile.displayName ?? '');
-  const [locale, setLocale] = useState(initialProfile.locale);
+  const initialLocale = initialProfile.locale ?? 'az';
+  const [locale, setLocale] = useState(
+    (SWITCHABLE_LOCALES as readonly string[]).includes(initialLocale) ? initialLocale : 'az',
+  );
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | undefined>();
   const [savedMessage, setSavedMessage] = useState<string | undefined>();
@@ -105,7 +108,7 @@ export function ProfileForm({ initialProfile }: ProfileFormProps) {
           aria-describedby={fieldDescribedBy('profile-locale', { hint: t('localeHint') })}
           onChange={(event) => setLocale(event.target.value)}
         >
-          {routing.locales.map((loc) => (
+          {SWITCHABLE_LOCALES.map((loc) => (
             <option key={loc} value={loc}>
               {LOCALE_LABELS[loc]}
             </option>

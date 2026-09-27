@@ -1,7 +1,20 @@
 import createMiddleware from 'next-intl/middleware';
-import { routing } from './lib/i18n/routing';
+import { NextRequest, NextResponse } from 'next/server';
+import { HIDDEN_LOCALES, routing } from './lib/i18n/routing';
 
-export default createMiddleware(routing);
+const handleI18n = createMiddleware(routing);
+const hiddenLocale = new Set<string>(HIDDEN_LOCALES);
+
+export default function middleware(request: NextRequest) {
+  const first = request.nextUrl.pathname.split('/')[1];
+  if (first && hiddenLocale.has(first)) {
+    const url = request.nextUrl.clone();
+    const rest = request.nextUrl.pathname.slice(first.length + 1);
+    url.pathname = rest ? `/az${rest}` : '/az';
+    return NextResponse.redirect(url);
+  }
+  return handleI18n(request);
+}
 
 export const config = {
   // Applies to every customer-facing route (locale-prefixed, per

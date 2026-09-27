@@ -160,11 +160,16 @@ export async function Header() {
             )}
           </nav>
 
-          <div className="flex min-w-0 items-center gap-1 sm:gap-2">
+          <div className="flex min-w-0 items-center justify-end gap-1 sm:gap-2">
             <LanguageSwitcher />
             <ThemeToggle />
             {isAuthenticated ? (
-              <AccountMenu label={accountLabel} initials={initials} isProvider={isProvider} />
+              <AccountMenu
+                label={accountLabel}
+                fullName={displayName}
+                initials={initials}
+                isProvider={isProvider}
+              />
             ) : (
               <Link
                 href={loginHref}

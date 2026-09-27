@@ -32,7 +32,7 @@ vi.mock('@/lib/i18n/navigation', () => ({
 function renderMenu(isProvider: boolean | undefined) {
   return render(
     <NextIntlClientProvider locale="en" messages={messages}>
-      <AccountMenu label="Account" initials={null} isProvider={isProvider} />
+      <AccountMenu label="Account" fullName="Account" initials={null} isProvider={isProvider} />
     </NextIntlClientProvider>,
   );
 }

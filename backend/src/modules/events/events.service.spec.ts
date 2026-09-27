@@ -55,6 +55,7 @@ describe('EventsService.createRsvp', () => {
       {} as never,
       rsvpsRepo as never,
       {} as never,
+      { find: jest.fn().mockResolvedValue([]) } as never,
     );
   });
 

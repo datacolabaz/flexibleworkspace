@@ -1,11 +1,13 @@
 import { HttpStatus, Inject, Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, IsNull, QueryFailedError } from 'typeorm';
+import { Repository, IsNull, In, QueryFailedError } from 'typeorm';
 import { randomBytes } from 'crypto';
 
 import { EventEntity, EventFormat, EventStatus, EventVisibility } from './entities/event.entity';
 import { EventLocationEntity, EventLocationStatus } from './entities/event-location.entity';
 import { EventRsvpEntity, EventRsvpStatus } from './entities/event-rsvp.entity';
+import { AppUserEntity } from '../auth/entities/app-user.entity';
+import { organizerPublicName } from './organizer-public-name';
 import { CreateEventDto } from './dto/create-event.dto';
 import { UpdateEventDto } from './dto/update-event.dto';
 import { CreateRsvpDto } from './dto/create-rsvp.dto';
@@ -27,7 +29,29 @@ export class EventsService {
     private readonly rsvpsRepo: Repository<EventRsvpEntity>,
     @Inject(STORAGE_PROVIDER)
     private readonly storageProvider: StorageProvider,
+    @InjectRepository(AppUserEntity)
+    private readonly usersRepo: Repository<AppUserEntity>,
   ) {}
+
+  private async withOrganizerNames<T extends EventEntity>(
+    events: T[],
+  ): Promise<(T & { organizerName: string | null })[]> {
+    const ids = [...new Set(events.map((event) => event.organizerId))];
+    if (ids.length === 0) {
+      return events.map((event) => Object.assign(event, { organizerName: null }));
+    }
+    const users = await this.usersRepo.find({
+      where: { id: In(ids) },
+      select: ['id', 'displayName', 'email'],
+    });
+    const byId = new Map(users.map((user) => [user.id, user]));
+    return events.map((event) => {
+      const user = byId.get(event.organizerId);
+      return Object.assign(event, {
+        organizerName: organizerPublicName(user?.displayName, user?.email),
+      });
+    });
+  }
 
   // ── Helpers ──────────────────────────────────────────────────────────────
 
@@ -150,7 +174,8 @@ export class EventsService {
     const rsvpCount = await this.rsvpsRepo.count({
       where: { eventId: event.id, status: EventRsvpStatus.CONFIRMED },
     });
-    return Object.assign(event, { rsvpCount });
+    const [withName] = await this.withOrganizerNames([event]);
+    return Object.assign(withName, { rsvpCount });
   }
 
   async getEventById(eventId: string): Promise<EventEntity & { rsvpCount: number }> {
@@ -158,7 +183,8 @@ export class EventsService {
     const rsvpCount = await this.rsvpsRepo.count({
       where: { eventId: event.id, status: EventRsvpStatus.CONFIRMED },
     });
-    return Object.assign(event, { rsvpCount });
+    const [withName] = await this.withOrganizerNames([event]);
+    return Object.assign(withName, { rsvpCount });
   }
 
   async listPublicEvents(filters: {
@@ -184,7 +210,7 @@ export class EventsService {
       .offset(filters.offset ?? 0)
       .getMany();
 
-    return { items, total };
+    return { items: await this.withOrganizerNames(items), total };
   }
 
   async getOrganizerEvents(userId: string): Promise<(EventEntity & { rsvpCount: number })[]> {

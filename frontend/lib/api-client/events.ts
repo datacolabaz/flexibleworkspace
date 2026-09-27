@@ -77,6 +77,8 @@ export interface EventLocationRecord {
 export interface EventRecord {
   id: string;
   organizerId: string;
+  /** Display name or email local-part from app_user; never a raw UUID. */
+  organizerName?: string | null;
   title: string;
   slug: string;
   format: EventFormat;

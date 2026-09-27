@@ -23,11 +23,11 @@ describe('LanguageSwitcher', () => {
     replaceMock.mockClear();
   });
 
-  it('lists all six locales, each in its own language rather than the current UI language', () => {
+  it('lists only az, en and ru, each in its own language rather than the current UI language', () => {
     renderSwitcher();
     const select = screen.getByLabelText('Language') as HTMLSelectElement;
     const optionLabels = Array.from(select.options).map((option) => option.textContent);
-    expect(optionLabels).toEqual(['Azərbaycanca', 'English', 'Русский', 'Türkçe', 'Español', 'Deutsch']);
+    expect(optionLabels).toEqual(['Azərbaycanca', 'English', 'Русский']);
   });
 
   it('defaults to the current locale as the selected option', () => {
