@@ -51,7 +51,8 @@ describe('LanguageSwitcher', () => {
   it('keeps short codes fully visible: min-width for 2–3 letters plus chevron, no clipping', () => {
     renderSwitcher();
     const select = languageSelect();
-    expect(select.className).toMatch(/min-w-\[4\.75rem\]/);
+    expect(select.className).toMatch(/min-w-\[4\.25rem\]/);
+    expect(select.className).toMatch(/max-w-\[4\.25rem\]/);
     expect(select.className).toMatch(/!text-sm/);
     expect(select.className).not.toMatch(/\btruncate\b/);
     expect(select.className).not.toMatch(/overflow-hidden/);

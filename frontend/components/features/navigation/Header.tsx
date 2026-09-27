@@ -34,8 +34,10 @@ import type { ProviderNavState } from './account-menu-items';
  * items ("Məkan idarəsi", "Tədbir yarat") plus language/theme/AccountMenu
  * overflow a 1024px row. Hiding the link row until `xl` (hamburger until
  * then) keeps the right cluster intact. Nav starts after the wordmark
- * (`justify-start`, `min-w-0`, `overflow-hidden`) so "Ana səhifə" cannot
- * paint under the logo. The profile trigger ellipsizes; language is short.
+ * (`justify-start`, `min-w-0`) so "Ana səhifə" cannot paint under the logo.
+ * The row is `overflow-visible` so "Tədbir yarat" is not clipped and the
+ * account dropdown can paint below the 64px bar. The profile trigger
+ * ellipsizes; language stays a short AZ/EN/RU control.
  */
 export async function Header() {
   const t = await getTranslations('nav');
@@ -110,7 +112,7 @@ export async function Header() {
         {t('skipToContent')}
       </a>
       <header className="sticky top-0 z-40 overflow-visible border-b border-border bg-surface">
-        <div className="mx-auto flex h-16 max-w-6xl min-w-0 items-center gap-3 overflow-hidden px-3 sm:gap-4 sm:px-4 xl:gap-5">
+        <div className="mx-auto flex h-16 max-w-6xl min-w-0 items-center gap-3 overflow-visible px-3 sm:gap-4 sm:px-4 xl:gap-5">
           <Link
             href="/"
             aria-label={t('home')}
@@ -127,7 +129,7 @@ export async function Header() {
             <Logo variant="wordmark" height={55} className="hidden sm:block" />
           </Link>
 
-          <nav aria-label={t('primaryNavigation')} className="hidden min-w-0 flex-1 items-center justify-start gap-x-1 overflow-hidden xl:flex">
+          <nav aria-label={t('primaryNavigation')} className="hidden min-w-0 flex-1 items-center justify-start gap-x-1 overflow-visible xl:flex">
             {navItems.map((item) => (
               <Link
                 key={item.href}
@@ -155,7 +157,7 @@ export async function Header() {
             )}
           </nav>
 
-          <div className="flex min-w-0 shrink-0 items-center justify-end gap-1.5 sm:gap-2">
+          <div className="relative z-50 ml-1 flex min-w-0 shrink-0 items-center justify-end gap-1 sm:ml-2 sm:gap-1.5">
             <LanguageSwitcher />
             <div className="shrink-0">
               <ThemeToggle />

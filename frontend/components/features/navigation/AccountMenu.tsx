@@ -66,7 +66,7 @@ export function AccountMenu({
   const menuName = (fullName ?? label).trim();
 
   return (
-    <div className="relative z-50 hidden min-w-0 overflow-visible sm:block" ref={containerRef}>
+    <div className="relative z-[70] hidden min-w-0 overflow-visible sm:block" ref={containerRef}>
       <button
         type="button"
         aria-label={t('accountMenu')}

@@ -52,6 +52,22 @@ describe('AccountMenu', () => {
     expect(screen.queryByRole('link', { name: 'My bookings' })).not.toBeInTheDocument();
   });
 
+  it('opens a dropdown of account links for a provider instead of a single Provider dashboard CTA', () => {
+    renderMenu(true);
+    fireEvent.click(screen.getByRole('button', { name: 'Account menu' }));
+    expect(document.getElementById('account-menu-panel')).not.toBeNull();
+    expect(screen.getByRole('link', { name: 'Provider dashboard' })).toHaveAttribute('href', '/provider');
+    expect(screen.getByRole('link', { name: 'Analytics' })).toHaveAttribute('href', '/provider#provider-analytics');
+    expect(screen.getByRole('link', { name: 'Earnings and payouts' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'My spaces' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'My account' })).toHaveAttribute('href', '/account/profile');
+    expect(screen.getByRole('link', { name: 'My bookings' })).toHaveAttribute('href', '/account/bookings');
+    expect(screen.getByRole('link', { name: 'My events' })).toHaveAttribute('href', '/account/events');
+    expect(screen.getByRole('link', { name: 'My attendances' })).toHaveAttribute('href', '/account/tickets');
+    expect(screen.getByRole('link', { name: 'My favorites' })).toHaveAttribute('href', '/account/favorites');
+    expect(screen.getByRole('button', { name: 'Log out' })).toBeInTheDocument();
+  });
+
   it('does not render role-exclusive links while provider status is unknown (loading)', () => {
     renderMenu(undefined);
     fireEvent.click(screen.getByRole('button', { name: 'Account menu' }));

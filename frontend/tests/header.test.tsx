@@ -168,7 +168,10 @@ describe('Header', () => {
     );
     expect(screen.queryByRole('link', { name: 'Analytics' })).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Provider dashboard' })).not.toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Create event' })).toHaveAttribute('href', '/events/create');
+    const createEvent = screen.getByRole('link', { name: 'Create event' });
+    expect(createEvent).toHaveAttribute('href', '/events/create');
+    expect(createEvent.className).toMatch(/whitespace-nowrap/);
+    expect(createEvent.className).not.toMatch(/truncate/);
     expect(screen.getByRole('navigation', { name: 'Primary' }).className).toMatch(/xl:flex/);
     expect(screen.getByRole('navigation', { name: 'Primary' }).className).not.toMatch(/(?:^|\s)lg:flex(?:\s|$)/);
   });
@@ -305,8 +308,11 @@ describe('Header', () => {
     expect(logo.className).not.toMatch(/absolute/);
     const nav = screen.getByRole('navigation', { name: 'Primary' });
     expect(nav.className).toMatch(/min-w-0/);
-    expect(nav.className).toMatch(/overflow-hidden/);
+    expect(nav.className).toMatch(/overflow-visible/);
+    expect(nav.className).not.toMatch(/overflow-hidden/);
     expect(nav.className).toMatch(/justify-start/);
+    expect(nav.parentElement?.className).toMatch(/overflow-visible/);
+    expect(nav.parentElement?.className).not.toMatch(/overflow-hidden/);
     const home = screen.getByRole('link', { name: 'Home' });
     expect(nav).toContainElement(home);
     expect(logo).not.toContainElement(home);
