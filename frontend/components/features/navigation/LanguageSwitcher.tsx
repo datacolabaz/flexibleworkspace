@@ -2,7 +2,7 @@
 
 import { useLocale, useTranslations } from 'next-intl';
 import { usePathname, useRouter } from '@/lib/i18n/navigation';
-import { LOCALE_LABELS, SWITCHABLE_LOCALES } from '@/lib/i18n/routing';
+import { LOCALE_LABELS, LOCALE_SHORT_LABELS, SWITCHABLE_LOCALES } from '@/lib/i18n/routing';
 import { Select } from '@/components/ui/Select';
 
 /**
@@ -20,6 +20,8 @@ export function LanguageSwitcher() {
   const selected = (SWITCHABLE_LOCALES as readonly string[]).includes(locale)
     ? locale
     : 'az';
+  const selectedFullName =
+    LOCALE_LABELS[selected as (typeof SWITCHABLE_LOCALES)[number]] ?? LOCALE_LABELS.az;
 
   function handleChange(event: React.ChangeEvent<HTMLSelectElement>) {
     router.replace(pathname, { locale: event.target.value });
@@ -30,17 +32,18 @@ export function LanguageSwitcher() {
       <label htmlFor="language-switcher" className="sr-only">
         {t('language')}
       </label>
-      {/* Always capped so "Azərbaycanca" cannot expand into AccountMenu
-       * or signed-in nav CTAs. Truncation stays below `sm` for 390px. */}
+      {/* Short codes only (Az / En / Ru) so the control cannot grow into
+       * nav links or AccountMenu. Full names stay on option aria-labels. */}
       <Select
         id="language-switcher"
         value={selected}
         onChange={handleChange}
-        className="max-w-[6.5rem] truncate pr-6 sm:max-w-[8.5rem] sm:pr-8"
+        aria-label={`${t('language')}: ${selectedFullName}`}
+        className="w-[4.25rem] max-w-[4.25rem] truncate px-2 pr-6"
       >
         {SWITCHABLE_LOCALES.map((loc) => (
-          <option key={loc} value={loc}>
-            {LOCALE_LABELS[loc]}
+          <option key={loc} value={loc} aria-label={LOCALE_LABELS[loc]} title={LOCALE_LABELS[loc]}>
+            {LOCALE_SHORT_LABELS[loc]}
           </option>
         ))}
       </Select>

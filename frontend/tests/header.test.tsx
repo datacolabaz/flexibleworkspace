@@ -227,6 +227,7 @@ describe('Header', () => {
     expect(trigger).toHaveTextContent('Nigar');
     expect(trigger.className).toMatch(/min-w-0/);
     expect(trigger.className).toMatch(/overflow-hidden/);
+    expect(trigger.className).toMatch(/max-w-\[6\.5rem\]/);
     expect(trigger.className).not.toMatch(/shrink-0/);
     openAccountMenu();
     expect(screen.getByText('Nigar Aliyeva')).toBeInTheDocument();
@@ -294,5 +295,20 @@ describe('Header', () => {
   it('links the logo to home with an accessible name', async () => {
     await renderHeader();
     expect(screen.getByRole('link', { name: 'Spotva home' })).toHaveAttribute('href', '/');
+  });
+
+  it('keeps the wordmark from covering primary nav; Home stays in the nav row to the right of the logo', async () => {
+    await renderHeader();
+    const logo = screen.getByRole('link', { name: 'Spotva home' });
+    expect(logo.className).toMatch(/shrink-0/);
+    expect(logo.className).toMatch(/relative/);
+    expect(logo.className).not.toMatch(/absolute/);
+    const nav = screen.getByRole('navigation', { name: 'Primary' });
+    expect(nav.className).toMatch(/min-w-0/);
+    expect(nav.className).toMatch(/overflow-hidden/);
+    expect(nav.className).toMatch(/justify-start/);
+    const home = screen.getByRole('link', { name: 'Home' });
+    expect(nav).toContainElement(home);
+    expect(logo).not.toContainElement(home);
   });
 });

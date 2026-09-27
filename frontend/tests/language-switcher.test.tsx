@@ -18,34 +18,41 @@ function renderSwitcher() {
   );
 }
 
+function languageSelect() {
+  return screen.getByRole('combobox', { name: /Language/ }) as HTMLSelectElement;
+}
+
 describe('LanguageSwitcher', () => {
   beforeEach(() => {
     replaceMock.mockClear();
   });
 
-  it('lists only az, en and ru, each in its own language rather than the current UI language', () => {
+  it('lists only az, en and ru as short labels, with full names on aria-label', () => {
     renderSwitcher();
-    const select = screen.getByLabelText('Language') as HTMLSelectElement;
+    const select = languageSelect();
     const optionLabels = Array.from(select.options).map((option) => option.textContent);
-    expect(optionLabels).toEqual(['Azərbaycanca', 'English', 'Русский']);
+    expect(optionLabels).toEqual(['Az', 'En', 'Ru']);
+    expect(select.options[0]).toHaveAttribute('aria-label', 'Azərbaycanca');
+    expect(select.options[1]).toHaveAttribute('aria-label', 'English');
+    expect(select.options[2]).toHaveAttribute('aria-label', 'Русский');
   });
 
   it('defaults to the current locale as the selected option', () => {
     renderSwitcher();
-    const select = screen.getByLabelText('Language') as HTMLSelectElement;
-    expect(select.value).toBe('en');
+    expect(languageSelect().value).toBe('en');
   });
 
   it('switches locale on change while staying on the same page', () => {
     renderSwitcher();
-    fireEvent.change(screen.getByLabelText('Language'), { target: { value: 'ru' } });
+    fireEvent.change(languageSelect(), { target: { value: 'ru' } });
     expect(replaceMock).toHaveBeenCalledWith('/login', { locale: 'ru' });
   });
 
-  it('keeps the language select capped so it cannot grow into neighbouring header controls', () => {
+  it('keeps the language select compact so it cannot grow into neighbouring header controls', () => {
     renderSwitcher();
-    const select = screen.getByLabelText('Language');
-    expect(select.className).toMatch(/sm:max-w-\[8\.5rem\]/);
+    const select = languageSelect();
+    expect(select.className).toMatch(/max-w-\[4\.25rem\]/);
+    expect(select.className).not.toMatch(/sm:max-w-\[8\.5rem\]/);
     expect(select.className).not.toMatch(/lg:max-w-none/);
   });
 });

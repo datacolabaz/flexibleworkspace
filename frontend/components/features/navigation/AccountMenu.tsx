@@ -74,7 +74,7 @@ export function AccountMenu({
         aria-expanded={open}
         aria-controls="account-menu-panel"
         onClick={() => setOpen((value) => !value)}
-        className="inline-flex min-h-11 min-w-0 max-w-[8.5rem] items-center gap-1.5 overflow-hidden rounded-md bg-accent px-2.5 text-label font-semibold text-accent-on hover:bg-accent-hover lg:max-w-[11rem] lg:px-3"
+        className="inline-flex min-h-11 min-w-0 max-w-[6.5rem] items-center gap-1.5 overflow-hidden rounded-md bg-accent px-2.5 text-label font-semibold text-accent-on hover:bg-accent-hover xl:max-w-[8.5rem] xl:px-3"
       >
         {initials && (
           <span

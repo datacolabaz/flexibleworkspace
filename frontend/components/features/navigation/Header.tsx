@@ -32,10 +32,10 @@ import type { ProviderNavState } from './account-menu-items';
  *
  * Desktop primary nav is `xl:flex` (not `lg:flex`). After login, extra
  * items ("Məkan idarəsi", "Tədbir yarat") plus language/theme/AccountMenu
- * overflow a 1024px row and paint on top of the language select. Hiding
- * the link row until `xl` (hamburger until then) keeps the right cluster
- * intact. Nav items are `whitespace-nowrap`; the right cluster is
- * `shrink-0` except the profile trigger, which still ellipsizes.
+ * overflow a 1024px row. Hiding the link row until `xl` (hamburger until
+ * then) keeps the right cluster intact. Nav starts after the wordmark
+ * (`justify-start`, `min-w-0`, `overflow-hidden`) so "Ana səhifə" cannot
+ * paint under the logo. The profile trigger ellipsizes; language is short.
  */
 export async function Header() {
   const t = await getTranslations('nav');
@@ -110,12 +110,12 @@ export async function Header() {
         {t('skipToContent')}
       </a>
       <header className="sticky top-0 z-40 overflow-visible border-b border-border bg-surface">
-        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-3 overflow-visible px-3 sm:gap-4 sm:px-4 xl:gap-6">
+        <div className="mx-auto flex h-16 max-w-6xl min-w-0 items-center gap-3 overflow-hidden px-3 sm:gap-4 sm:px-4 xl:gap-5">
           <Link
             href="/"
             aria-label={t('home')}
             title={t('home')}
-            className="group shrink-0 rounded-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary"
+            className="relative z-10 shrink-0 rounded-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary"
           >
             {/* Text-only wordmark, not the icon+wordmark lockup — the
                 owner's explicit choice for the navbar specifically. Two
@@ -127,12 +127,12 @@ export async function Header() {
             <Logo variant="wordmark" height={55} className="hidden sm:block" />
           </Link>
 
-          <nav aria-label={t('primaryNavigation')} className="hidden min-w-0 flex-1 items-center justify-end gap-x-2 xl:flex">
+          <nav aria-label={t('primaryNavigation')} className="hidden min-w-0 flex-1 items-center justify-start gap-x-1 overflow-hidden xl:flex">
             {navItems.map((item) => (
               <Link
                 key={item.href}
                 href={item.href}
-                className="group relative inline-flex min-h-11 shrink-0 items-center whitespace-nowrap rounded-md px-2 text-nav text-text-secondary transition-[color,background-color,transform] duration-150 hover:-translate-y-px hover:bg-surface-elevated hover:text-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary after:absolute after:bottom-1 after:left-2 after:right-2 after:h-px after:origin-left after:scale-x-0 after:bg-accent after:transition-transform after:duration-200 hover:after:scale-x-100"
+                className="group relative inline-flex min-h-11 shrink-0 items-center whitespace-nowrap rounded-md px-1.5 text-nav text-text-secondary transition-[color,background-color,transform] duration-150 hover:-translate-y-px hover:bg-surface-elevated hover:text-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary after:absolute after:bottom-1 after:left-1.5 after:right-1.5 after:h-px after:origin-left after:scale-x-0 after:bg-accent after:transition-transform after:duration-200 hover:after:scale-x-100"
               >
                 {item.label}
               </Link>
@@ -140,7 +140,7 @@ export async function Header() {
             {isProvider === true && (
               <NextLink
                 href="/provider"
-                className="group relative inline-flex min-h-11 shrink-0 items-center whitespace-nowrap rounded-md px-2 text-nav font-semibold text-accent hover:bg-surface-elevated"
+                className="group relative inline-flex min-h-11 shrink-0 items-center whitespace-nowrap rounded-md px-1.5 text-nav font-semibold text-accent hover:bg-surface-elevated"
               >
                 {t('manageSpaces')}
               </NextLink>
@@ -148,14 +148,14 @@ export async function Header() {
             {isAuthenticated && (
               <NextLink
                 href="/events/create"
-                className="group relative inline-flex min-h-11 shrink-0 items-center whitespace-nowrap rounded-md px-2 text-nav font-semibold text-primary hover:bg-surface-elevated"
+                className="group relative inline-flex min-h-11 shrink-0 items-center whitespace-nowrap rounded-md px-1.5 text-nav font-semibold text-primary hover:bg-surface-elevated"
               >
                 {t('createEvent')}
               </NextLink>
             )}
           </nav>
 
-          <div className="flex min-w-0 items-center justify-end gap-2 sm:gap-3">
+          <div className="flex min-w-0 shrink-0 items-center justify-end gap-1.5 sm:gap-2">
             <LanguageSwitcher />
             <div className="shrink-0">
               <ThemeToggle />
