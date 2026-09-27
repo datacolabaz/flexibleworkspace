@@ -21,9 +21,11 @@ import { HolidayEntity } from '../rooms/entities/holiday.entity';
 import { AppUserEntity } from '../auth/entities/app-user.entity';
 import { PromoModule } from '../promo/promo.module';
 import { BookingAttributionService } from './booking-attribution.service';
+import { DatabaseModule } from '../../database/database.module';
 
 @Module({
   imports: [
+    DatabaseModule,
     TypeOrmModule.forFeature([
       BookingEntity,
       BookingItemEntity,
