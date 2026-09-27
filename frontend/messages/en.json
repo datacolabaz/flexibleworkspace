@@ -1200,6 +1200,16 @@
         "pricing": "10–25% of platform fee"
       }
     },
+    "creativeSpecs": {
+      "title": "Creative (image) requirements",
+      "intro": "Prepare your ad image to these specs before placing an order — otherwise placement may be delayed.",
+      "sizesLabel": "Accepted sizes",
+      "sizes": "336 × 280 px (default) or 300 × 250 px",
+      "formatLabel": "File format",
+      "format": "JPG, PNG or WebP — keep it reasonably uncompressed so text stays legible (recommended max. 500 KB)",
+      "linkLabel": "Click URL",
+      "link": "Also share the full destination page (https://...) the ad should open when clicked"
+    },
     "audienceTitle": "Who can advertise?",
     "audienceBody": "Only categories relevant to Spotva's real-world activity and business context should be accepted.",
     "audiences": {

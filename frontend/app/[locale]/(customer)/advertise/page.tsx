@@ -4,6 +4,7 @@ import { LinkButton } from '@/components/ui/LinkButton';
 
 const INVENTORY = ['featured', 'category', 'eventSponsor', 'native', 'referral'] as const;
 const AUDIENCES = ['education', 'technology', 'business', 'creative', 'hospitality'] as const;
+const CREATIVE_SPECS = ['sizes', 'format', 'link'] as const;
 
 export async function generateMetadata({ params }: { params: Promise<{ locale: string }> }): Promise<Metadata> {
   const { locale } = await params;
@@ -38,6 +39,25 @@ export default async function AdvertisePage({ params }: { params: Promise<{ loca
             </article>
           ))}
         </div>
+      </section>
+
+      {/* Otherwise the pricing table above is the only content on this page
+          before a prospective advertiser has to click through and ask what
+          image to actually send — this states the two sizes the ad slot
+          (AdSlot.tsx / AD_CREATIVE_SIZES on the backend) accepts up front. */}
+      <section className="mt-14 rounded-lg border border-border bg-surface-elevated p-6 sm:p-8">
+        <h2 className="font-display text-h3 text-text-primary">{t('creativeSpecs.title')}</h2>
+        <p className="mt-2 max-w-2xl text-small text-text-secondary">{t('creativeSpecs.intro')}</p>
+        <dl className="mt-6 grid gap-6 sm:grid-cols-3">
+          {CREATIVE_SPECS.map((spec) => (
+            <div key={spec}>
+              <dt className="text-caption font-semibold uppercase tracking-wide text-text-muted">
+                {t(`creativeSpecs.${spec}Label`)}
+              </dt>
+              <dd className="mt-1.5 text-small text-text-primary">{t(`creativeSpecs.${spec}`)}</dd>
+            </div>
+          ))}
+        </dl>
       </section>
 
       <section className="mt-14 grid gap-10 lg:grid-cols-[0.9fr_1.1fr]">

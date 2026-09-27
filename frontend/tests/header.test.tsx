@@ -308,11 +308,19 @@ describe('Header', () => {
     expect(logo.className).not.toMatch(/absolute/);
     const nav = screen.getByRole('navigation', { name: 'Primary' });
     expect(nav.className).toMatch(/min-w-0/);
-    expect(nav.className).toMatch(/overflow-visible/);
+    // The nav itself scrolls internally (scrollbar hidden) rather than
+    // staying `overflow-visible` — on ru locale, "Управление площадками" +
+    // "Создать событие" (the two authenticated-only items) can outgrow the
+    // row at any desktop width (the row is capped by `max-w-6xl`), and a
+    // visible overflow painted those extra links on top of the language/
+    // theme/account cluster to their right instead of scrolling under them.
+    expect(nav.className).toMatch(/overflow-x-auto/);
+    expect(nav.className).not.toMatch(/overflow-visible/);
     expect(nav.className).not.toMatch(/overflow-hidden/);
     expect(nav.className).toMatch(/justify-start/);
     expect(nav.parentElement?.className).toMatch(/overflow-visible/);
     expect(nav.parentElement?.className).not.toMatch(/overflow-hidden/);
+    expect(nav.parentElement?.className).toMatch(/justify-between/);
     const home = screen.getByRole('link', { name: 'Home' });
     expect(nav).toContainElement(home);
     expect(logo).not.toContainElement(home);

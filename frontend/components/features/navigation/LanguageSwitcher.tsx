@@ -28,19 +28,28 @@ export function LanguageSwitcher() {
   }
 
   return (
-    <div className="shrink-0">
+    <div className="relative shrink-0">
       <label htmlFor="language-switcher" className="sr-only">
         {t('language')}
       </label>
       {/* Short codes (AZ / EN / RU). Compact fixed width so the control
        * does not crowd "Tədbir yarat"; overflow-visible + no truncate so
-       * labels are not clipped to "A". */}
+       * labels are not clipped to "A".
+       *
+       * `appearance-none` + the hand-drawn chevron below (rather than the
+       * browser's native one): at this width the native select-arrow
+       * rendering path visibly DISTORTS the option text next to it in
+       * Chrome — "RU" was rendering with a flattened, L-like second
+       * letter (confirmed live: switching to appearance:none on the exact
+       * same element fixed it immediately, independent of font/size/
+       * padding — those were all already fine on their own). Losing the
+       * native arrow this way is why a custom one is drawn back in. */}
       <Select
         id="language-switcher"
         value={selected}
         onChange={handleChange}
         aria-label={`${t('language')}: ${selectedFullName}`}
-        className="w-[4.25rem] min-w-[4.25rem] max-w-[4.25rem] overflow-visible whitespace-nowrap !px-1.5 !pr-6 !text-sm"
+        className="w-[4.25rem] min-w-[4.25rem] max-w-[4.25rem] appearance-none overflow-visible whitespace-nowrap !px-1.5 !pr-6 !text-sm"
       >
         {SWITCHABLE_LOCALES.map((loc) => (
           <option key={loc} value={loc} aria-label={LOCALE_LABELS[loc]} title={LOCALE_LABELS[loc]}>
@@ -48,6 +57,14 @@ export function LanguageSwitcher() {
           </option>
         ))}
       </Select>
+      <svg
+        aria-hidden="true"
+        viewBox="0 0 20 20"
+        fill="none"
+        className="pointer-events-none absolute right-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-text-secondary"
+      >
+        <path d="M5 7.5 10 12.5 15 7.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
     </div>
   );
 }

@@ -35,8 +35,16 @@ import type { ProviderNavState } from './account-menu-items';
  * overflow a 1024px row. Hiding the link row until `xl` (hamburger until
  * then) keeps the right cluster intact. Nav starts after the wordmark
  * (`justify-start`, `min-w-0`) so "Ana səhifə" cannot paint under the logo.
- * The row is `overflow-visible` so "Tədbir yarat" is not clipped and the
- * account dropdown can paint below the 64px bar. The profile trigger
+ * The outer row stays `overflow-visible` so the account dropdown can paint
+ * below the 64px bar. The primary <nav> itself is `overflow-x-auto` (with
+ * the scrollbar hidden) rather than visible: the row's content width is
+ * capped by `max-w-6xl`, so on RU (its labels run noticeably longer than
+ * az/en — e.g. "Управление площадками") combined with the two
+ * authenticated-only items, the nav's own children can outgrow the box at
+ * *any* desktop width, not just a narrow one. Letting that overflow stay
+ * `visible` let the last link(s) paint on top of the language/theme/
+ * account cluster; clipping+scrolling the nav internally keeps every
+ * sibling's hit area and text intact instead. The profile trigger
  * ellipsizes; language stays a short AZ/EN/RU control.
  */
 export async function Header() {
@@ -112,7 +120,7 @@ export async function Header() {
         {t('skipToContent')}
       </a>
       <header className="sticky top-0 z-40 overflow-visible border-b border-border bg-surface">
-        <div className="mx-auto flex h-16 max-w-6xl min-w-0 items-center gap-3 overflow-visible px-3 sm:gap-4 sm:px-4 xl:gap-5">
+        <div className="mx-auto flex h-16 max-w-6xl min-w-0 items-center justify-between gap-3 overflow-visible px-3 sm:gap-4 sm:px-4 xl:gap-5">
           <Link
             href="/"
             aria-label={t('home')}
@@ -129,7 +137,10 @@ export async function Header() {
             <Logo variant="wordmark" height={55} className="hidden sm:block" />
           </Link>
 
-          <nav aria-label={t('primaryNavigation')} className="hidden min-w-0 flex-1 items-center justify-start gap-x-1 overflow-visible xl:flex">
+          <nav
+            aria-label={t('primaryNavigation')}
+            className="hidden min-w-0 flex-1 items-center justify-start gap-x-1 overflow-x-auto overscroll-x-contain [-ms-overflow-style:none] [scrollbar-width:none] xl:flex [&::-webkit-scrollbar]:hidden"
+          >
             {navItems.map((item) => (
               <Link
                 key={item.href}

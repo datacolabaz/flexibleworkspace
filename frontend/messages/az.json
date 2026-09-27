@@ -1328,6 +1328,16 @@
         "pricing": "Platforma haqqının 10–25%-i"
       }
     },
+    "creativeSpecs": {
+      "title": "Kreativ (şəkil) tələbləri",
+      "intro": "Sifariş vermədən əvvəl reklam şəklinizi bu ölçülərə uyğun hazırlayın — əks halda yerləşdirmə gecikə bilər.",
+      "sizesLabel": "Qəbul olunan ölçülər",
+      "sizes": "336 × 280 px (standart) və ya 300 × 250 px",
+      "formatLabel": "Fayl formatı",
+      "format": "JPG, PNG və ya WebP — mətn oxunaqlı qalması üçün faylı sıxılmamış saxlayın (tövsiyə olunan max. 500 KB)",
+      "linkLabel": "Keçid (click URL)",
+      "link": "Reklam kliklənəndə açılacaq tam səhifə ünvanını (https://...) da bizimlə paylaşın"
+    },
     "audienceTitle": "Kimlər reklam verə bilər?",
     "audienceBody": "Yalnız Spotva-nın real fəaliyyət və biznes kontekstinə uyğun kateqoriyalar qəbul edilməlidir.",
     "audiences": {
