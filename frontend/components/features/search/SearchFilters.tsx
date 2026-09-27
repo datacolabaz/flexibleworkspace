@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/Input';
 import { Label } from '@/components/ui/Label';
 import { Select } from '@/components/ui/Select';
 import { BottomSheet } from '@/components/ui/BottomSheet';
-import { ROOM_TYPES, AMENITIES, AMENITY_CATEGORIES } from '@/lib/constants/taxonomy';
+import { ROOM_TYPES, AMENITIES, AMENITY_CATEGORIES, MARKETPLACE_CATEGORIES } from '@/lib/constants/taxonomy';
 
 // ---------------------------------------------------------------------------
 // Metro station name normalisation — strips line-2 suffixes so transfer
@@ -34,6 +34,7 @@ const DURATION_OPTIONS = [30, 60, 90, 120, 180, 240, 360, 480] as const;
 
 interface FilterDraft {
   city: string;
+  category: string;
   roomType: string;
   date: string;
   startTime: string;
@@ -54,6 +55,7 @@ interface FilterDraft {
 
 const EMPTY_DRAFT: FilterDraft = {
   city: '',
+  category: '',
   roomType: '',
   date: '',
   startTime: '',
@@ -80,6 +82,7 @@ function getCurrentDate(): string {
 function draftFromSearchParams(params: URLSearchParams): FilterDraft {
   return {
     city: params.get('city') ?? '',
+    category: params.get('category') ?? '',
     roomType: params.get('roomType') ?? '',
     date: params.get('date') ?? '',
     startTime: params.get('startTime') ?? '',
@@ -200,6 +203,7 @@ function openNativePicker(input: HTMLInputElement | null): void {
 function draftToQueryString(draft: FilterDraft, currentParams?: URLSearchParams): string {
   const qs = new URLSearchParams();
   if (draft.city.trim()) qs.set('city', draft.city.trim());
+  if (draft.category) qs.set('category', draft.category);
   if (draft.roomType) qs.set('roomType', draft.roomType);
   if (draft.date) qs.set('date', draft.date);
   if (draft.startTime) qs.set('startTime', draft.startTime);
@@ -226,6 +230,7 @@ function draftToQueryString(draft: FilterDraft, currentParams?: URLSearchParams)
 function countActive(draft: FilterDraft): number {
   let count = 0;
   if (draft.city.trim()) count += 1;
+  if (draft.category) count += 1;
   if (draft.roomType) count += 1;
   if (draft.date) count += 1;
   if (draft.startTime) count += 1;
@@ -331,6 +336,22 @@ function FilterFields({
           </Select>
         </div>
       )}
+
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="filter-category">{t('search.categoryLabel')}</Label>
+        <Select
+          id="filter-category"
+          value={draft.category}
+          onChange={(e) => onChange({ ...draft, category: e.target.value })}
+        >
+          <option value="">{t('search.categoryAny')}</option>
+          {MARKETPLACE_CATEGORIES.map((cat) => (
+            <option key={cat.slug} value={cat.slug}>
+              {t(`taxonomy.roomType.${cat.messageKey}`)}
+            </option>
+          ))}
+        </Select>
+      </div>
 
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="filter-room-type">{t('search.roomTypeLabel')}</Label>

@@ -271,26 +271,33 @@ export class PaymentsService {
         );
 
         const [roomRow] = await queryRunner.manager.query(
-          `SELECT r.room_type_id, l.provider_id
+          `SELECT r.room_type_id, l.provider_id, bi.billing_unit
            FROM booking_item bi JOIN room r ON r.id = bi.room_id JOIN location l ON l.id = r.location_id
            WHERE bi.booking_id = $1 LIMIT 1`,
           [payment.bookingId],
         );
         if (!roomRow) throw new ResourceNotFoundException('Room');
 
-        const ledgerResult =
-          await this.commissionService.buildLedgerEntriesForConfirmedBooking(
-            queryRunner.manager,
-            {
-              bookingId: confirmed.id,
-              providerId: roomRow.provider_id,
-              roomTypeId: roomRow.room_type_id,
-              grossAmount: Number(confirmed.totalAmount),
-              currency: confirmed.currency,
-              paymentAdapter: providerName,
-            },
-          );
-        await queryRunner.manager.save(LedgerEntryEntity, ledgerResult.entries);
+        const existingLedger = await queryRunner.manager.query(
+          `SELECT 1 FROM ledger_entry WHERE booking_id = $1 AND entry_type = 'GROSS' LIMIT 1`,
+          [payment.bookingId],
+        );
+        if (existingLedger.length === 0) {
+          const ledgerResult =
+            await this.commissionService.buildLedgerEntriesForConfirmedBooking(
+              queryRunner.manager,
+              {
+                bookingId: confirmed.id,
+                providerId: roomRow.provider_id,
+                roomTypeId: roomRow.room_type_id,
+                billingUnit: roomRow.billing_unit,
+                grossAmount: Number(confirmed.totalAmount),
+                currency: confirmed.currency,
+                paymentAdapter: providerName,
+              },
+            );
+          await queryRunner.manager.save(LedgerEntryEntity, ledgerResult.entries);
+        }
       } else if (event.type === 'CHARGE_FAILED') {
         payment.status = PaymentStatus.FAILED;
         payment.updatedAt = new Date();

@@ -36,6 +36,28 @@ export class SearchController {
   }
 
   @Public()
+  @Get('spaces/compare')
+  @ApiOperation({ summary: 'Compare up to 4 rooms (no duplicates, no unit conversion)' })
+  async compare(@Query('ids') ids?: string) {
+    const list = (ids ?? '')
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
+    return this.searchService.compareRooms(list);
+  }
+
+  @Public()
+  @Get('spaces/:roomId/quote')
+  @ApiOperation({ summary: 'Server-side price quote for a time range (no invented packages)' })
+  async quote(
+    @Param('roomId') roomId: string,
+    @Query('startAt') startAt: string,
+    @Query('endAt') endAt: string,
+  ) {
+    return this.searchService.quoteRoom(roomId, startAt, endAt);
+  }
+
+  @Public()
   @Get('spaces/:roomId')
   @ApiOperation({ summary: 'Full room detail (public)' })
   async getRoomDetail(@Param('roomId') roomId: string) {

@@ -49,4 +49,11 @@ export class LeadEntity {
 
   @Column({ name: 'contacted_by_user_id', type: 'uuid', nullable: true })
   contactedByUserId: string | null;
+
+  /** Offline lead attribution only — never auto-creates commission/ledger. */
+  @Column({ name: 'attribution_source', type: 'varchar', length: 100, nullable: true })
+  attributionSource: string | null;
+
+  @Column({ name: 'converted_booking_id', type: 'uuid', nullable: true })
+  convertedBookingId: string | null;
 }

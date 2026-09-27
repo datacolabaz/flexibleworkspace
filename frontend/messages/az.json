@@ -170,6 +170,26 @@
     "untitledRoom": "Adsız məkan",
     "newListing": "Yeni",
     "perHour": "/ saat",
+    "perDay": "/ gün",
+    "perWeek": "/ həftə",
+    "perMonth": "/ ay",
+    "priceFrom": "{price}-dən",
+    "priceRequest": "Sorğu ilə",
+    "priceNotAvailable": "—",
+    "stalePrice30": "Qiymət 30 gündən çoxdur yenilənməyib",
+    "stalePrice90": "Qiymət 90 gündən çoxdur yenilənməyib",
+    "availability": {
+      "AVAILABLE": "Mövcuddur",
+      "PARTIALLY_AVAILABLE": "Qismən mövcuddur",
+      "REQUEST_CONFIRMATION": "Təsdiq tələb olunur",
+      "NOT_AVAILABLE": "Mövcud deyil",
+      "UNKNOWN": "Mövcudluq məlum deyil"
+    },
+    "addToCompare": "Müqayisə et",
+    "removeFromCompare": "Müqayisədən çıxar",
+    "compareFull": "Müqayisə siyahısı doludur (4)",
+    "categoryLabel": "Kateqoriya",
+    "categoryAny": "İstənilən kateqoriya",
     "distanceKm": "{distance} km məsafədə",
     "prevPage": "Əvvəlki",
     "nextPage": "Növbəti",
@@ -264,6 +284,11 @@
       "podcast_studio": "Podkast studiyası",
       "photo_video_studio": "Foto və video studiyası",
       "event_space": "Tədbir məkanı",
+      "yoga_dance_studio": "Yoga / rəqs studiyası",
+      "restaurant_hotel_event_space": "Restoran / otel tədbir məkanı",
+      "small_event_space": "Kiçik tədbir məkanı",
+      "creative_community_space": "Yaradıcı / icma məkanı",
+      "coworking_space": "Kovorkinq məkanı",
       "business_meeting_room": "Biznes iclas otağı",
       "interview_room": "Müsahibə otağı",
       "tutor_teacher_room": "Dərs otağı"
@@ -531,6 +556,14 @@
       "signedOutError": "Hesabınızdan çıxış edilib. Zəhmət olmasa yenidən daxil olun.",
       "genericError": "Xəta baş verdi. Zəhmət olmasa yenidən cəhd edin."
     }
+  },
+  "compare": {
+    "title": "Məkanları müqayisə et",
+    "empty": "Müqayisə üçün axtarışdan ən çox 4 məkan əlavə edin.",
+    "bookingCta": "Rezervasiya sorğusu",
+    "cheapest": "Bu vahiddə ən aşağı",
+    "responseTime": "Cavab müddəti",
+    "noData": "—"
   },
   "howItWorks": {
     "pageTitle": "Spotva necə işləyir",

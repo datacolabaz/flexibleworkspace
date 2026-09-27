@@ -16,6 +16,7 @@ import { ProvidersService } from '../providers/providers.service';
 import { PromoService } from '../promo/promo.service';
 import { BookingAttributionService } from './booking-attribution.service';
 import { RlsContextService } from '../../database/rls-context.service';
+import { PriceQuoteService } from '../rooms/price-quote.service';
 import { ProviderVerificationStatus } from '../../common/constants/provider.enum';
 import { BookingRejectionReason } from '../../common/constants/booking-rejection-reason.enum';
 import {
@@ -65,6 +66,7 @@ export class BookingsService {
     private readonly promoService: PromoService,
     private readonly bookingAttributionService: BookingAttributionService,
     private readonly rlsContext: RlsContextService,
+    private readonly priceQuoteService: PriceQuoteService,
   ) {}
 
   /**
@@ -127,10 +129,15 @@ export class BookingsService {
       throw new SlotUnavailableException({ reason: availability.reason });
     }
 
-    const durationHours = (endAt.getTime() - startAt.getTime()) / 3_600_000;
-    const grossAmount = Math.round(
-      Number(room.basePriceAmount) * durationHours,
-    );
+    const quote = await this.priceQuoteService.quote(dto.roomId, startAt, endAt);
+    if (quote.priceType === 'NOT_AVAILABLE' || quote.amount == null) {
+      throw new DomainException(
+        'PRICE_NOT_AVAILABLE',
+        'This duration has no published price. Request a quote from the provider.',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+    const grossAmount = Math.round(quote.amount);
     const serviceFeePercentage =
       this.configService.get<number>('booking.serviceFeePercentage') ?? 0;
     const serviceFeeAmount = Math.round(
@@ -207,7 +214,7 @@ export class BookingsService {
         customerUserId: resolvedCustomerId,
         status: BookingStatus.PENDING,
         mode,
-        currency: room.basePriceCurrency,
+        currency: quote.currency || room.basePriceCurrency || 'AZN',
         grossAmount: String(grossAmount),
         serviceFeeAmount: String(serviceFeeAmount),
         totalAmount: String(totalAmount),
@@ -226,9 +233,14 @@ export class BookingsService {
         roomId: dto.roomId,
         startAt,
         endAt,
-        unitPriceAmount: room.basePriceAmount,
+        unitPriceAmount: String(
+          quote.quantity > 0
+            ? Math.round(grossAmount / quote.quantity)
+            : grossAmount,
+        ),
         quantity: 1,
         status: BookingStatus.PENDING,
+        billingUnit: quote.unitType,
       });
       // THE critical insert — this is what the no_overlapping_bookings
       // EXCLUDE constraint guards. If a concurrent request already holds an

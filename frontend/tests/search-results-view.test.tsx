@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { NextIntlClientProvider } from 'next-intl';
 import messages from '../messages/en.json';
 import { SearchResultsView } from '@/components/features/search/SearchResultsView';
@@ -171,6 +171,7 @@ describe('SearchResultsView', () => {
 
     renderView();
 
+    fireEvent.click(await screen.findByRole('tab', { name: 'Map' }));
     expect(await screen.findByText(`The map isn't available right now.`)).toBeInTheDocument();
   });
 });

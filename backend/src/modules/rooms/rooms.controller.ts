@@ -15,7 +15,9 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
 
 import { RoomsService } from './rooms.service';
+import { PricePackagesService } from './price-packages.service';
 import { RoomInputDto, UpdateRoomAmenitiesDto } from './dto/room-input.dto';
+import { ReplacePricePackagesDto } from './dto/price-package.dto';
 import { ReplaceAvailabilityRulesDto } from './dto/availability-rule-input.dto';
 import { BlockedPeriodInputDto } from './dto/blocked-period-input.dto';
 import {
@@ -36,7 +38,10 @@ import { DomainException } from '../../common/exceptions/domain.exception';
 @Controller('provider/rooms')
 @Roles(RoleName.PROVIDER_OWNER, RoleName.PROVIDER_STAFF)
 export class RoomsController {
-  constructor(private readonly roomsService: RoomsService) {}
+  constructor(
+    private readonly roomsService: RoomsService,
+    private readonly pricePackagesService: PricePackagesService,
+  ) {}
 
   private requireProviderId(user: AuthenticatedUser): string {
     const providerId = currentProviderId(user);
@@ -356,6 +361,35 @@ export class RoomsController {
       this.requireProviderId(user),
       user.userId,
       dto,
+    );
+  }
+
+  @Get(':roomId/price-packages')
+  @ApiOperation({ summary: 'List published price packages for a room' })
+  async listPricePackages(
+    @Param('roomId') roomId: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.pricePackagesService.listForProvider(
+      roomId,
+      this.requireProviderId(user),
+    );
+  }
+
+  @Put(':roomId/price-packages')
+  @ApiOperation({
+    summary:
+      'Replace price packages (HOURLY/DAILY/WEEKLY/MONTHLY/CUSTOM_QUOTE). Never auto-derived.',
+  })
+  async replacePricePackages(
+    @Param('roomId') roomId: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: ReplacePricePackagesDto,
+  ) {
+    return this.pricePackagesService.replaceForProvider(
+      roomId,
+      this.requireProviderId(user),
+      dto.packages,
     );
   }
 }

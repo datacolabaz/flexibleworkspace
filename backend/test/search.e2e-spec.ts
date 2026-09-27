@@ -305,6 +305,56 @@ describe('Search (real Postgres, real SQL)', () => {
     expect(ids).not.toContain(expensiveVerifiedRoomId);
     const cheap = page.results.find((r) => r.id === cheapVerifiedRoomId);
     expect(cheap?.available).toBe(true);
+    expect(cheap?.availabilityStatus).toBe('AVAILABLE');
+    expect(cheap?.primaryCategory).toBe('MEETING_ROOM');
+    expect(cheap?.amenities).toContain('amenity.wifi');
+  });
+
+  it('never treats UNKNOWN availability as AVAILABLE', async () => {
+    const page = await searchService.search({
+      city: 'Baku',
+      page: 1,
+      pageSize: 50,
+    } as any);
+    const cheap = page.results.find((r) => r.id === cheapVerifiedRoomId);
+    expect(cheap?.availabilityStatus).toBe('UNKNOWN');
+    expect(cheap?.available).toBe(false);
+  });
+
+  it('filters by marketplace category without dropping the roomType filter', async () => {
+    const byCategory = await searchService.search({
+      city: 'Baku',
+      category: 'MEETING_ROOM',
+      page: 1,
+      pageSize: 50,
+    } as any);
+    expect(byCategory.results.map((r) => r.id)).toContain(cheapVerifiedRoomId);
+
+    const byType = await searchService.search({
+      city: 'Baku',
+      roomType: 'room_type.meeting_room',
+      page: 1,
+      pageSize: 50,
+    } as any);
+    expect(byType.results.map((r) => r.id)).toContain(cheapVerifiedRoomId);
+  });
+
+  it('compare returns at most 4 unique rooms and rejects a 5th id', async () => {
+    const compared = await searchService.compareRooms([
+      cheapVerifiedRoomId,
+      cheapVerifiedRoomId,
+      expensiveVerifiedRoomId,
+    ]);
+    expect(compared).toHaveLength(2);
+    await expect(
+      searchService.compareRooms([
+        cheapVerifiedRoomId,
+        expensiveVerifiedRoomId,
+        '11111111-1111-1111-1111-111111111111',
+        '22222222-2222-2222-2222-222222222222',
+        '33333333-3333-3333-3333-333333333333',
+      ]),
+    ).rejects.toMatchObject({ code: 'COMPARE_LIMIT' });
   });
 
   it('sorts by price ascending when sort=price', async () => {
@@ -314,7 +364,7 @@ describe('Search (real Postgres, real SQL)', () => {
       page: 1,
       pageSize: 50,
     } as any);
-    const prices = page.results.map((r) => r.pricePerHour.amount);
+    const prices = page.results.map((r) => r.pricePerHour?.amount ?? Number.POSITIVE_INFINITY);
     const sorted = [...prices].sort((a, b) => a - b);
     expect(prices).toEqual(sorted);
   });

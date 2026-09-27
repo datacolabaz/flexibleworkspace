@@ -35,6 +35,11 @@ export const ROOM_TYPES: RoomTypeOption[] = [
   { translationKey: 'room_type.podcast_studio', key: 'podcast_studio', parentKey: null },
   { translationKey: 'room_type.photo_video_studio', key: 'photo_video_studio', parentKey: null },
   { translationKey: 'room_type.event_space', key: 'event_space', parentKey: null },
+  { translationKey: 'room_type.yoga_dance_studio', key: 'yoga_dance_studio', parentKey: null },
+  { translationKey: 'room_type.restaurant_hotel_event_space', key: 'restaurant_hotel_event_space', parentKey: null },
+  { translationKey: 'room_type.small_event_space', key: 'small_event_space', parentKey: null },
+  { translationKey: 'room_type.creative_community_space', key: 'creative_community_space', parentKey: null },
+  { translationKey: 'room_type.coworking_space', key: 'coworking_space', parentKey: null },
   { translationKey: 'room_type.business_meeting_room', key: 'business_meeting_room', parentKey: 'meeting_room' },
   { translationKey: 'room_type.interview_room', key: 'interview_room', parentKey: 'meeting_room' },
   { translationKey: 'room_type.tutor_teacher_room', key: 'tutor_teacher_room', parentKey: 'classroom' },
@@ -83,6 +88,19 @@ const DEFAULT_AMENITY_ICON = '•';
 export function amenityIconFromTranslationKey(translationKey: string): string {
   return AMENITIES.find((a) => a.translationKey === translationKey)?.icon ?? DEFAULT_AMENITY_ICON;
 }
+
+export const MARKETPLACE_CATEGORIES = [
+  { slug: 'TRAINING_ROOM', messageKey: 'training_room' },
+  { slug: 'WORKSHOP_SPACE', messageKey: 'workshop_space' },
+  { slug: 'PHOTO_VIDEO_STUDIO', messageKey: 'photo_video_studio' },
+  { slug: 'PODCAST_STUDIO', messageKey: 'podcast_studio' },
+  { slug: 'YOGA_DANCE_STUDIO', messageKey: 'yoga_dance_studio' },
+  { slug: 'RESTAURANT_HOTEL_EVENT_SPACE', messageKey: 'restaurant_hotel_event_space' },
+  { slug: 'SMALL_EVENT_SPACE', messageKey: 'small_event_space' },
+  { slug: 'CREATIVE_COMMUNITY_SPACE', messageKey: 'creative_community_space' },
+  { slug: 'MEETING_ROOM', messageKey: 'meeting_room' },
+  { slug: 'COWORKING_SPACE', messageKey: 'coworking_space' },
+] as const;
 
 export const AMENITY_CATEGORIES: AmenityCategory[] = ['EQUIPMENT', 'COMFORT', 'ACCESSIBILITY'];
 

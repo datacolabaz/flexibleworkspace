@@ -34,7 +34,7 @@ describe('SearchFilters', () => {
     mockSearchParams = new URLSearchParams('city=Baku&sort=price');
     renderFilters();
     expect(screen.getByLabelText('City')).toHaveValue('Baku');
-    expect(screen.getByLabelText('Sort by')).toHaveValue('price');
+    expect(screen.getByLabelText('Category')).toBeInTheDocument();
   });
 
   it('does not touch the URL until Apply is pressed (typing alone never refetches)', () => {

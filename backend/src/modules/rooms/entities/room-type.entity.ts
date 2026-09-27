@@ -27,6 +27,9 @@ export class RoomTypeEntity {
   })
   searchFacetWeight: string;
 
+  @Column({ name: 'marketplace_slug', type: 'varchar', length: 64, nullable: true })
+  marketplaceSlug: string | null;
+
   @Column({ name: 'created_at', type: 'timestamptz' })
   createdAt: Date;
 }

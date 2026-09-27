@@ -29,6 +29,8 @@ export async function GET(request: NextRequest) {
   if (district) query.district = district;
   const roomType = searchParams.get('roomType');
   if (roomType) query.roomType = roomType;
+  const category = searchParams.get('category');
+  if (category) query.category = category;
   const date = searchParams.get('date');
   if (date) query.date = date;
   const startTime = searchParams.get('startTime');

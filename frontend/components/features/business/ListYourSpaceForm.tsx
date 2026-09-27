@@ -24,26 +24,16 @@ type LocationCategory = {
 
 /** Static fallback list — shown when the API is unavailable. */
 const STATIC_CATEGORIES: LocationCategory[] = [
-  { id: 'studiya', slug: 'studiya', nameAz: 'Studiya', nameEn: 'Studio', sortOrder: 1 },
-  { id: 'telim-otagi', slug: 'telim-otagi', nameAz: 'Təlim otağı', nameEn: 'Training Room', sortOrder: 2 },
-  { id: 'workshop-otagi', slug: 'workshop-otagi', nameAz: 'Workshop otağı', nameEn: 'Workshop Space', sortOrder: 3 },
-  { id: 'coworking', slug: 'coworking', nameAz: 'Coworking', nameEn: 'Coworking', sortOrder: 4 },
-  { id: 'ofis-sahesi', slug: 'ofis-sahesi', nameAz: 'Ofis sahəsi', nameEn: 'Office Space (hot desk / flex desk)', sortOrder: 5 },
-  { id: 'ferdi-ofis', slug: 'ferdi-ofis', nameAz: 'Fərdi ofis', nameEn: 'Private Office', sortOrder: 6 },
-  { id: 'icas-otagi', slug: 'icas-otagi', nameAz: 'İclas otağı', nameEn: 'Meeting Room', sortOrder: 7 },
-  { id: 'konfrans-otagi', slug: 'konfrans-otagi', nameAz: 'Konfrans otağı', nameEn: 'Conference Room', sortOrder: 8 },
-  { id: 'seminar-otagi', slug: 'seminar-otagi', nameAz: 'Seminar otağı', nameEn: 'Seminar Room', sortOrder: 9 },
-  { id: 'sinif-otagi', slug: 'sinif-otagi', nameAz: 'Sinif otağı', nameEn: 'Classroom', sortOrder: 10 },
-  { id: 'podkast-studiyasi', slug: 'podkast-studiyasi', nameAz: 'Podkast studiyası', nameEn: 'Podcast Studio', sortOrder: 11 },
-  { id: 'foto-video-studiya', slug: 'foto-video-studiya', nameAz: 'Foto və video studiyası', nameEn: 'Photo & Video Studio', sortOrder: 12 },
-  { id: 'tdbir-mkani', slug: 'tdbir-mkani', nameAz: 'Tədbir məkanı', nameEn: 'Event Space', sortOrder: 13 },
-  { id: 'emalatxana', slug: 'emalatxana', nameAz: 'Emalatxana sahəsi', nameEn: 'Workshop Area', sortOrder: 14 },
-  { id: 'mutfeq-yeyi', slug: 'mutfeq-yeyi', nameAz: 'Mətbəx / yeməkxana', nameEn: 'Kitchen / Canteen', sortOrder: 15 },
-  { id: 'spor-zal', slug: 'spor-zal', nameAz: 'İdman zalı', nameEn: 'Gym / Sports Hall', sortOrder: 16 },
-  { id: 'ses-studiyasi', slug: 'ses-studiyasi', nameAz: 'Səs studiyası', nameEn: 'Sound Studio', sortOrder: 17 },
-  { id: 'rehearsal-space', slug: 'rehearsal-space', nameAz: 'Məşq sahəsi', nameEn: 'Rehearsal Space', sortOrder: 18 },
-  { id: 'outdoor-space', slug: 'outdoor-space', nameAz: 'Açıq sahə', nameEn: 'Outdoor Space', sortOrder: 19 },
-  { id: 'kafe-restoran', slug: 'kafe-restoran', nameAz: 'Kafe / restoran', nameEn: 'Cafe / Restaurant', sortOrder: 20 },
+  { id: 'TRAINING_ROOM', slug: 'TRAINING_ROOM', nameAz: 'Təlim otağı', nameEn: 'Training Room', sortOrder: 1 },
+  { id: 'WORKSHOP_SPACE', slug: 'WORKSHOP_SPACE', nameAz: 'Workshop sahəsi', nameEn: 'Workshop Space', sortOrder: 2 },
+  { id: 'PHOTO_VIDEO_STUDIO', slug: 'PHOTO_VIDEO_STUDIO', nameAz: 'Foto və video studiyası', nameEn: 'Photo & Video Studio', sortOrder: 3 },
+  { id: 'PODCAST_STUDIO', slug: 'PODCAST_STUDIO', nameAz: 'Podkast studiyası', nameEn: 'Podcast Studio', sortOrder: 4 },
+  { id: 'YOGA_DANCE_STUDIO', slug: 'YOGA_DANCE_STUDIO', nameAz: 'Yoga / rəqs studiyası', nameEn: 'Yoga / Dance Studio', sortOrder: 5 },
+  { id: 'RESTAURANT_HOTEL_EVENT_SPACE', slug: 'RESTAURANT_HOTEL_EVENT_SPACE', nameAz: 'Restoran / otel tədbir məkanı', nameEn: 'Restaurant / Hotel Event Space', sortOrder: 6 },
+  { id: 'SMALL_EVENT_SPACE', slug: 'SMALL_EVENT_SPACE', nameAz: 'Kiçik tədbir məkanı', nameEn: 'Small Event Space', sortOrder: 7 },
+  { id: 'CREATIVE_COMMUNITY_SPACE', slug: 'CREATIVE_COMMUNITY_SPACE', nameAz: 'Yaradıcı / icma məkanı', nameEn: 'Creative / Community Space', sortOrder: 8 },
+  { id: 'MEETING_ROOM', slug: 'MEETING_ROOM', nameAz: 'İclas otağı', nameEn: 'Meeting Room', sortOrder: 9 },
+  { id: 'COWORKING_SPACE', slug: 'COWORKING_SPACE', nameAz: 'Kovorkinq', nameEn: 'Coworking', sortOrder: 10 },
 ];
 
 const MAX_LOGO_BYTES = 8 * 1024 * 1024;

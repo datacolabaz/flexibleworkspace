@@ -138,6 +138,7 @@ export default async function RoomDetailPage({
             '@context': 'https://schema.org',
             '@type': 'Product',
             name: room.name,
+            category: room.primaryCategory ?? room.roomType,
             description: room.description ?? undefined,
             image: room.photos ?? undefined,
             url: pageUrl,

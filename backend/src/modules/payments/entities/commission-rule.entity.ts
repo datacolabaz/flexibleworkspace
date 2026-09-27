@@ -41,6 +41,9 @@ export class CommissionRuleEntity {
   @Column({ name: 'ends_at', type: 'timestamptz', nullable: true })
   endsAt: Date | null;
 
+  @Column({ name: 'billing_unit', type: 'varchar', length: 32, nullable: true })
+  billingUnit: string | null;
+
   @Column({ type: 'int', default: 0 })
   priority: number;
 

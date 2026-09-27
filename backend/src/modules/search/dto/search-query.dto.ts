@@ -30,6 +30,11 @@ export class SearchQueryDto {
   @IsString()
   district?: string;
 
+  /** Matches location_categories / room_type marketplace_slug (e.g. MEETING_ROOM). Does not replace roomType. */
+  @IsOptional()
+  @IsString()
+  category?: string;
+
   /** Matches room_type.translation_key exactly (e.g. "room_type.meeting_room") — this is a fixed taxonomy, not free text (30_SEED_DATA.sql). */
   @IsOptional()
   @IsString()

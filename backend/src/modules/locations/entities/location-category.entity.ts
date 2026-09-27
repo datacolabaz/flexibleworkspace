@@ -24,6 +24,12 @@ export class LocationCategoryEntity {
   @Column({ name: 'is_active', type: 'boolean', default: true })
   isActive: boolean;
 
+  @Column({ name: 'marketplace_slug', type: 'varchar', length: 64, nullable: true })
+  marketplaceSlug: string | null;
+
+  @Column({ name: 'is_marketplace', type: 'boolean', default: false })
+  isMarketplace: boolean;
+
   @Column({ name: 'created_at', type: 'timestamptz' })
   createdAt: Date;
 }

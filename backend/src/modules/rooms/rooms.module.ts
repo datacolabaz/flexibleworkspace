@@ -12,6 +12,9 @@ import { PhotoEntity } from './entities/photo.entity';
 import { LocationsModule } from '../locations/locations.module';
 import { ProvidersModule } from '../providers/providers.module';
 import { StorageModule } from '../storage/storage.module';
+import { PricePackagesService } from './price-packages.service';
+import { PriceQuoteService } from './price-quote.service';
+import { RoomPricePackageEntity } from './entities/room-price-package.entity';
 
 @Module({
   imports: [
@@ -22,13 +25,14 @@ import { StorageModule } from '../storage/storage.module';
       AvailabilityRuleEntity,
       BlockedPeriodEntity,
       PhotoEntity,
+      RoomPricePackageEntity,
     ]),
     LocationsModule,
     ProvidersModule,
     StorageModule,
   ],
   controllers: [RoomsController],
-  providers: [RoomsService],
-  exports: [RoomsService, TypeOrmModule],
+  providers: [RoomsService, PricePackagesService, PriceQuoteService],
+  exports: [RoomsService, PriceQuoteService, PricePackagesService, TypeOrmModule],
 })
 export class RoomsModule {}

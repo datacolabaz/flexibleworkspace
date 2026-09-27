@@ -170,6 +170,26 @@
     "untitledRoom": "Untitled space",
     "newListing": "New",
     "perHour": "/ hr",
+    "perDay": "/ day",
+    "perWeek": "/ week",
+    "perMonth": "/ month",
+    "priceFrom": "from {price}",
+    "priceRequest": "Price on request",
+    "priceNotAvailable": "—",
+    "stalePrice30": "Price last updated over 30 days ago",
+    "stalePrice90": "Price last updated over 90 days ago",
+    "availability": {
+      "AVAILABLE": "Available",
+      "PARTIALLY_AVAILABLE": "Partially available",
+      "REQUEST_CONFIRMATION": "Request confirmation",
+      "NOT_AVAILABLE": "Not available",
+      "UNKNOWN": "Availability unknown"
+    },
+    "addToCompare": "Compare",
+    "removeFromCompare": "Remove from compare",
+    "compareFull": "Compare list is full (4)",
+    "categoryLabel": "Category",
+    "categoryAny": "Any category",
     "distanceKm": "{distance} km away",
     "prevPage": "Previous",
     "nextPage": "Next",
@@ -264,6 +284,11 @@
       "podcast_studio": "Podcast studio",
       "photo_video_studio": "Photo & video studio",
       "event_space": "Event space",
+      "yoga_dance_studio": "Yoga / dance studio",
+      "restaurant_hotel_event_space": "Restaurant / hotel event space",
+      "small_event_space": "Small event space",
+      "creative_community_space": "Creative / community space",
+      "coworking_space": "Coworking space",
       "business_meeting_room": "Business meeting room",
       "interview_room": "Interview room",
       "tutor_teacher_room": "Tutoring room"
@@ -531,6 +556,14 @@
       "signedOutError": "You've been signed out. Please sign in again.",
       "genericError": "Something went wrong. Please try again."
     }
+  },
+  "compare": {
+    "title": "Compare spaces",
+    "empty": "Add up to 4 spaces from search to compare.",
+    "bookingCta": "Request to book",
+    "cheapest": "Lowest in this unit",
+    "responseTime": "Response time",
+    "noData": "—"
   },
   "howItWorks": {
     "pageTitle": "How Spotva works",

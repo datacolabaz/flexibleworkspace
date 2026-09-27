@@ -3,6 +3,7 @@ import { Module } from '@nestjs/common';
 import { SearchController } from './search.controller';
 import { SearchService } from './search.service';
 import { StorageModule } from '../storage/storage.module';
+import { PriceQuoteService } from '../rooms/price-quote.service';
 
 /**
  * No TypeOrmModule.forFeature() here — SearchService only ever queries
@@ -15,7 +16,7 @@ import { StorageModule } from '../storage/storage.module';
 @Module({
   imports: [StorageModule],
   controllers: [SearchController],
-  providers: [SearchService],
+  providers: [SearchService, PriceQuoteService],
   exports: [SearchService],
 })
 export class SearchModule {}

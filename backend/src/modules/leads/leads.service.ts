@@ -45,6 +45,8 @@ export class LeadsService {
       customerEmail: dto.customerEmail ?? null,
       message: dto.message ?? null,
       status: LeadStatus.NEW,
+      attributionSource: dto.attributionSource ?? null,
+      convertedBookingId: null,
       createdAt: new Date(),
     });
     return this.leadRepo.save(lead);

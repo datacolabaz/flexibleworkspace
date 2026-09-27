@@ -183,6 +183,9 @@ describe('RoomsService', () => {
       locationsService,
       providersService,
       storageProvider,
+      {
+        syncHourlyFromBasePrice: jest.fn(async () => undefined),
+      } as any,
     );
   });
 
@@ -255,6 +258,7 @@ describe('RoomsService', () => {
         id,
         planTier: ProviderPlanTier.FREE,
         verificationStatus: ProviderVerificationStatus.VERIFIED,
+        categories: ['MEETING_ROOM'],
       }));
       const room = {
         id: 'room-y',
@@ -270,6 +274,28 @@ describe('RoomsService', () => {
         RoomStatus.ACTIVE,
       );
       expect(updated.status).toBe(RoomStatus.ACTIVE);
+    });
+
+    it('refuses to activate when the provider has no marketplace category', async () => {
+      providersService.findById = jest.fn(async (id: string) => ({
+        id,
+        planTier: ProviderPlanTier.FREE,
+        verificationStatus: ProviderVerificationStatus.VERIFIED,
+        categories: [],
+      }));
+      const room = {
+        id: 'room-no-cat',
+        status: RoomStatus.DRAFT,
+        location: { providerId },
+      };
+      roomRepo.rows.push(room);
+      photoRepo.rows.push({ roomId: 'room-no-cat' });
+
+      await expect(
+        service.setStatus('room-no-cat', providerId, RoomStatus.ACTIVE),
+      ).rejects.toMatchObject({
+        code: 'PROVIDER_CATEGORY_REQUIRED',
+      });
     });
 
     it("refuses to activate a VERIFIED provider's room that has no photos yet", async () => {

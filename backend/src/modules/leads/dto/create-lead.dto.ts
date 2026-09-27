@@ -31,4 +31,10 @@ export class CreateLeadDto {
   @IsString()
   @MaxLength(2000)
   message?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  attributionSource?: string;
 }

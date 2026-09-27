@@ -30,7 +30,7 @@ export class LocationsTaxonomyController {
   @ApiOperation({ summary: 'List active provider location categories' })
   async listCategories() {
     return this.categoryRepo.find({
-      where: { isActive: true },
+      where: { isActive: true, isMarketplace: true },
       order: { sortOrder: 'ASC' },
     });
   }

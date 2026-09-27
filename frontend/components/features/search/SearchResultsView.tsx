@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/Button';
 import { Select } from '@/components/ui/Select';
 import { RoomListingCard, type RoomSummary } from '@/components/features/rooms/RoomListingCard';
 import { RoomListingCardSkeleton } from '@/components/features/rooms/RoomListingCardSkeleton';
+import { CompareBar } from '@/components/features/compare/CompareBar';
 import { SearchFilters, draftFromSearchParams } from './SearchFilters';
 import { SearchResultsMap } from './SearchResultsMap';
 import type { SearchRoomsResult } from '@/lib/api-client/rooms';
@@ -267,6 +268,7 @@ export function SearchResultsView() {
                     />
                   ))}
                 </div>
+                <CompareBar />
 
                 {totalPages > 1 && (
                   <nav className="mt-6 flex items-center justify-center gap-3" aria-label={t('title')}>

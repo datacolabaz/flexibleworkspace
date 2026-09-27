@@ -170,6 +170,26 @@
     "untitledRoom": "Без названия",
     "newListing": "Новое",
     "perHour": "/ час",
+    "perDay": "/ день",
+    "perWeek": "/ неделя",
+    "perMonth": "/ месяц",
+    "priceFrom": "от {price}",
+    "priceRequest": "По запросу",
+    "priceNotAvailable": "—",
+    "stalePrice30": "Цена не обновлялась более 30 дней",
+    "stalePrice90": "Цена не обновлялась более 90 дней",
+    "availability": {
+      "AVAILABLE": "Доступно",
+      "PARTIALLY_AVAILABLE": "Частично доступно",
+      "REQUEST_CONFIRMATION": "Нужно подтверждение",
+      "NOT_AVAILABLE": "Недоступно",
+      "UNKNOWN": "Доступность неизвестна"
+    },
+    "addToCompare": "Сравнить",
+    "removeFromCompare": "Убрать из сравнения",
+    "compareFull": "В сравнении уже 4 объекта",
+    "categoryLabel": "Категория",
+    "categoryAny": "Любая категория",
     "distanceKm": "{distance} км от вас",
     "prevPage": "Назад",
     "nextPage": "Вперёд",
@@ -247,6 +267,11 @@
       "podcast_studio": "Подкаст-студия",
       "photo_video_studio": "Фото/видео студия",
       "event_space": "Пространство для мероприятий",
+      "yoga_dance_studio": "Йога / танцевальная студия",
+      "restaurant_hotel_event_space": "Ресторан / отель для мероприятий",
+      "small_event_space": "Небольшое пространство для мероприятий",
+      "creative_community_space": "Креативное / community пространство",
+      "coworking_space": "Коворкинг",
       "business_meeting_room": "Бизнес-переговорная",
       "interview_room": "Комната для собеседований",
       "tutor_teacher_room": "Комната для занятий"
@@ -449,6 +474,14 @@
       "signedOutError": "Вы вышли из аккаунта. Пожалуйста, войдите снова.",
       "genericError": "Что-то пошло не так. Пожалуйста, попробуйте снова."
     }
+  },
+  "compare": {
+    "title": "Сравнить пространства",
+    "empty": "Добавьте до 4 пространств из поиска.",
+    "bookingCta": "Запросить бронь",
+    "cheapest": "Минимум в этой единице",
+    "responseTime": "Время ответа",
+    "noData": "—"
   },
   "howItWorks": {
     "pageTitle": "Как работает Spotva",

@@ -46,4 +46,7 @@ export class BookingItemEntity {
 
   @Column({ type: 'enum', enum: BookingStatus, default: BookingStatus.DRAFT })
   status: BookingStatus;
+
+  @Column({ name: 'billing_unit', type: 'varchar', length: 32, nullable: true })
+  billingUnit: string | null;
 }

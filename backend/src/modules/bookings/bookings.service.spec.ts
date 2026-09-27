@@ -15,6 +15,7 @@ import { ConfigService } from '@nestjs/config';
 import { PromoService } from '../promo/promo.service';
 import { BookingAttributionService } from './booking-attribution.service';
 import { RlsContextService } from '../../database/rls-context.service';
+import { PriceQuoteService } from '../rooms/price-quote.service';
 import {
   BookingMode,
   BookingStatus,
@@ -180,6 +181,18 @@ describe('BookingsService.transition', () => {
         {
           provide: RlsContextService,
           useValue: { applyToQueryRunner: jest.fn() },
+        },
+        {
+          provide: PriceQuoteService,
+          useValue: {
+            quote: jest.fn(async () => ({
+              amount: 10000,
+              currency: 'AZN',
+              unitType: 'HOURLY',
+              priceType: 'EXACT',
+              quantity: 2,
+            })),
+          },
         },
       ],
     }).compile();

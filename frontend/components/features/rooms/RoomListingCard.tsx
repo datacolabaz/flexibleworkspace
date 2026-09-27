@@ -4,8 +4,9 @@ import { useLocale, useTranslations } from 'next-intl';
 import { Link } from '@/lib/i18n/navigation';
 import { Badge } from '@/components/ui/Badge';
 import { formatMoney } from '@/lib/format/money';
-import { roomTypeKeyFromTranslationKey } from '@/lib/constants/taxonomy';
+import { roomTypeKeyFromTranslationKey, MARKETPLACE_CATEGORIES } from '@/lib/constants/taxonomy';
 import { BookmarkButton } from './BookmarkButton';
+import { CompareToggle } from '@/components/features/compare/CompareBar';
 import type { SearchRoomsResult } from '@/lib/api-client/rooms';
 
 export type RoomSummary = NonNullable<SearchRoomsResult['results']>[number];
@@ -52,10 +53,38 @@ export function RoomListingCard({ room, highlighted = false, onHoverChange, init
 
   const roomTypeKey = roomTypeKeyFromTranslationKey(room.roomType);
   const roomTypeLabel = roomTypeKey ? t(`taxonomy.roomType.${roomTypeKey}`) : room.roomType;
-  const priceLabel =
-    room.pricePerHour?.amount !== undefined && room.pricePerHour.currency
-      ? formatMoney(room.pricePerHour.amount, room.pricePerHour.currency, locale)
-      : null;
+  const marketplaceKey = MARKETPLACE_CATEGORIES.find((c) => c.slug === room.primaryCategory)?.messageKey;
+  const categoryLabel = marketplaceKey ? t(`taxonomy.roomType.${marketplaceKey}`) : roomTypeLabel;
+
+  const unitSuffix: Record<string, string> = {
+    HOURLY: t('search.perHour'),
+    DAILY: t('search.perDay'),
+    WEEKLY: t('search.perWeek'),
+    MONTHLY: t('search.perMonth'),
+  };
+  const primary = room.primaryPrice;
+  let priceLabel: string | null = null;
+  let priceSuffix = '';
+  if (primary?.priceType === 'REQUEST') {
+    priceLabel = t('search.priceRequest');
+  } else if (primary?.priceType === 'NOT_AVAILABLE' || (primary?.amount == null && !room.pricePerHour?.amount)) {
+    priceLabel = t('search.priceNotAvailable');
+  } else if (primary?.amount != null && primary.currency) {
+    const money = formatMoney(primary.amount, primary.currency, locale);
+    priceLabel = primary.priceType === 'FROM' ? t('search.priceFrom', { price: money }) : money;
+    priceSuffix = unitSuffix[primary.unitType ?? 'HOURLY'] ?? t('search.perHour');
+  } else if (room.pricePerHour?.amount !== undefined && room.pricePerHour.currency) {
+    priceLabel = formatMoney(room.pricePerHour.amount, room.pricePerHour.currency, locale);
+    priceSuffix = t('search.perHour');
+  }
+
+  const availabilityStatus =
+    room.availabilityStatus && room.availabilityStatus !== 'AVAILABLE'
+      ? room.availabilityStatus
+      : room.availabilityStatus === 'AVAILABLE'
+        ? 'AVAILABLE'
+        : 'UNKNOWN';
+  const availabilityLabel = t(`search.availability.${availabilityStatus}`);
 
   const href = room.id ? `/rooms/${room.id}` : '/search';
 
@@ -133,9 +162,16 @@ export function RoomListingCard({ room, highlighted = false, onHoverChange, init
       <Link href={href} className="flex min-w-0 flex-1 flex-col gap-1 p-3">
         <h3 className="truncate text-label font-semibold text-text-primary">{room.name ?? t('search.untitledRoom')}</h3>
         <p className="truncate text-small text-text-secondary">
-          {roomTypeLabel}
-          {(room.district || room.city) && <> · {[room.district, room.city].filter(Boolean).join(', ')}</>}
+          {room.providerName}
+          {room.verified ? ` · ${t('search.verified')}` : null}
         </p>
+        <p className="truncate text-small text-text-secondary">
+          {categoryLabel}
+          {(room.district || room.metro || room.city) && (
+            <> · {[room.district, room.metro, room.city].filter(Boolean).join(', ')}</>
+          )}
+        </p>
+        <p className="text-caption text-text-muted">{availabilityLabel}</p>
 
         {/* Secondary metadata line — capacity (the one RoomSummary field
          * the old card never surfaced) plus rating/distance, so the card
@@ -173,11 +209,22 @@ export function RoomListingCard({ room, highlighted = false, onHoverChange, init
          * quiet arrow that only appears on hover as a "view details"
          * affordance (matches the mockup's bottom row: price left,
          * chevron right). */}
+        {(room.amenities ?? []).length > 0 && (
+          <p className="truncate text-caption text-text-muted">{room.amenities!.slice(0, 4).join(' · ')}</p>
+        )}
+
+        {room.staleWarning === 'stale_90d' && (
+          <p className="text-caption text-warning">{t('search.stalePrice90')}</p>
+        )}
+        {room.staleWarning === 'stale_30d' && (
+          <p className="text-caption text-warning">{t('search.stalePrice30')}</p>
+        )}
+
         <div className="mt-auto flex items-end justify-between gap-2 pt-2">
           {priceLabel ? (
             <p className="whitespace-nowrap text-text-primary">
               <span className="text-h4 font-display font-semibold">{priceLabel}</span>
-              <span className="text-caption text-text-muted"> {t('search.perHour')}</span>
+              {priceSuffix ? <span className="text-caption text-text-muted"> {priceSuffix}</span> : null}
             </p>
           ) : (
             <span />
@@ -190,6 +237,11 @@ export function RoomListingCard({ room, highlighted = false, onHoverChange, init
           </span>
         </div>
       </Link>
+      {room.id ? (
+        <div className="px-3 pb-3">
+          <CompareToggle roomId={room.id} />
+        </div>
+      ) : null}
     </div>
   );
 }

@@ -43,19 +43,28 @@ export class CommissionService {
     manager: EntityManager,
     providerId: string,
     roomTypeId: string,
+    billingUnit?: string | null,
   ): Promise<CommissionRuleEntity | null> {
     const rows = await manager.query(
       `SELECT * FROM commission_rule
        WHERE (starts_at IS NULL OR starts_at <= now())
          AND (ends_at IS NULL OR ends_at >= now())
          AND (
-           scope = 'PLATFORM_DEFAULT'
+           (scope = 'PLATFORM_DEFAULT' AND (billing_unit IS NULL OR billing_unit = $3))
            OR (scope IN ('PROVIDER', 'PROMOTIONAL') AND provider_id = $1)
-           OR (scope = 'CATEGORY' AND room_type_id = $2)
+           OR (scope = 'CATEGORY' AND room_type_id = $2 AND (billing_unit IS NULL OR billing_unit = $3))
          )
-       ORDER BY priority DESC, created_at DESC
+       ORDER BY
+         CASE
+           WHEN scope IN ('PROVIDER', 'PROMOTIONAL') THEN 400
+           WHEN billing_unit IS NOT NULL AND $3 IS NOT NULL AND billing_unit = $3 THEN 300
+           WHEN scope = 'CATEGORY' THEN 200
+           ELSE 100
+         END DESC,
+         priority DESC,
+         created_at DESC
        LIMIT 1`,
-      [providerId, roomTypeId],
+      [providerId, roomTypeId, billingUnit ?? null],
     );
     if (rows.length === 0) return null;
     const row = rows[0];
@@ -68,6 +77,7 @@ export class CommissionService {
     rule.fixedFeeAmount = row.fixed_fee_amount;
     rule.fixedFeeCurrency = row.fixed_fee_currency;
     rule.priority = row.priority;
+    rule.billingUnit = row.billing_unit;
     return rule;
   }
 
@@ -104,6 +114,7 @@ export class CommissionService {
       bookingId: string;
       providerId: string;
       roomTypeId: string;
+      billingUnit?: string | null;
       grossAmount: number; // the full customer charge — Booking.totalAmount (§14.2's "full customer charge")
       currency: string;
       paymentAdapter: PaymentAdapterName;
@@ -113,6 +124,7 @@ export class CommissionService {
       manager,
       params.providerId,
       params.roomTypeId,
+      params.billingUnit,
     );
     const platformFeeAmount = this.commissionAmount(rule, params.grossAmount);
     const processingFeeAmount = Math.round(

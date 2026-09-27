@@ -94,7 +94,7 @@ describe('ListYourSpaceForm', () => {
 
     // P2: categories are now multi-select checkboxes loaded from the static fallback list.
     // Check "Coworking" checkbox.
-    const coworkingCheckbox = await screen.findByRole('checkbox', { name: 'Coworking' });
+    const coworkingCheckbox = await screen.findByRole('checkbox', { name: 'Kovorkinq' });
     fireEvent.click(coworkingCheckbox);
 
     attachLogo();
@@ -104,7 +104,7 @@ describe('ListYourSpaceForm', () => {
     expect(fetchMock).toHaveBeenCalledWith('/api/providers', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ legalName: 'Acme LLC', displayName: 'Acme Spaces', categories: ['coworking'] }),
+      body: JSON.stringify({ legalName: 'Acme LLC', displayName: 'Acme Spaces', categories: ['COWORKING_SPACE'] }),
     });
     expect(fetchMock).toHaveBeenCalledWith('/api/providers/provider-1/logo', expect.objectContaining({ method: 'POST' }));
   });

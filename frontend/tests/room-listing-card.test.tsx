@@ -95,6 +95,19 @@ describe('RoomListingCard', () => {
     expect(heartButton.closest('a')).toBeNull();
   });
 
+  it('shows price-on-request copy and never labels UNKNOWN as available', () => {
+    renderCard({
+      ...BASE_ROOM,
+      available: false,
+      availabilityStatus: 'UNKNOWN',
+      primaryPrice: { amount: null, currency: 'AZN', unitType: 'CUSTOM_QUOTE', priceType: 'REQUEST' },
+      pricePerHour: null,
+    });
+    expect(screen.getByText('Price on request')).toBeInTheDocument();
+    expect(screen.getByText('Availability unknown')).toBeInTheDocument();
+    expect(screen.queryByText('Available')).not.toBeInTheDocument();
+  });
+
   it('defaults the favorite toggle to unfavorited when initiallyFavorited is omitted', () => {
     renderCard(BASE_ROOM);
     expect(screen.getByRole('button', { name: 'Add to favorites' })).toBeInTheDocument();

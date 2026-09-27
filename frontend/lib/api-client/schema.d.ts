@@ -293,6 +293,7 @@ export interface paths {
                     city?: string;
                     district?: string;
                     roomType?: string;
+                    category?: string;
                     date?: string;
                     startTime?: string;
                     durationMinutes?: number;
@@ -2401,17 +2402,36 @@ export interface components {
             verified?: boolean;
             city?: string;
             district?: string;
+            metro?: string | null;
+            primaryCategory?: string | null;
             lat?: number;
             lng?: number;
             distanceKm?: number;
             capacityMin?: number;
             capacityMax?: number;
-            pricePerHour?: components["schemas"]["Money"];
+            pricePerHour?: components["schemas"]["Money"] | null;
+            primaryPrice?: {
+                amount?: number | null;
+                currency?: string;
+                unitType?: string;
+                priceType?: string;
+            } | null;
+            pricePackages?: {
+                unitType?: string;
+                amount?: number | null;
+                currency?: string;
+                priceType?: string;
+                lastUpdatedAt?: string | null;
+            }[];
+            priceLastUpdatedAt?: string | null;
+            staleWarning?: "none" | "stale_30d" | "stale_90d";
             averageRating?: number;
             reviewCount?: number;
             /** Format: uri */
             coverPhotoUrl?: string;
             available?: boolean;
+            availabilityStatus?: "AVAILABLE" | "PARTIALLY_AVAILABLE" | "REQUEST_CONFIRMATION" | "NOT_AVAILABLE" | "UNKNOWN";
+            amenities?: string[];
             relevanceScore?: number;
         };
         Profile: {

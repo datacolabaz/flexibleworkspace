@@ -8,25 +8,53 @@ import { ACTIVE_BOOKING_STATUSES } from '../../common/constants/booking.enum';
 import { DomainException } from '../../common/exceptions/domain.exception';
 import { StorageProvider } from '../storage/storage-provider.interface';
 import { STORAGE_PROVIDER } from '../storage/storage.module';
+import { PriceQuoteService } from '../rooms/price-quote.service';
+import {
+  AvailabilityStatus,
+  PRIMARY_PRICE_UNIT_ORDER,
+  PriceType,
+  PriceUnitType,
+} from '../../common/constants/pricing.enum';
+
+export interface PricePackageSummary {
+  unitType: string;
+  amount: number | null;
+  currency: string;
+  priceType: string;
+  lastUpdatedAt: string | null;
+}
 
 export interface RoomSearchResult {
   id: string;
   name: string;
   roomType: string;
+  primaryCategory: string | null;
   providerName: string;
   verified: boolean;
   city: string;
   district: string | null;
+  metro: string | null;
   lat: number | null;
   lng: number | null;
   distanceKm: number | null;
   capacityMin: number;
   capacityMax: number;
-  pricePerHour: { amount: number; currency: string };
+  pricePerHour: { amount: number; currency: string } | null;
+  primaryPrice: {
+    amount: number | null;
+    currency: string;
+    unitType: string;
+    priceType: string;
+  } | null;
+  pricePackages: PricePackageSummary[];
+  priceLastUpdatedAt: string | null;
+  staleWarning: 'none' | 'stale_30d' | 'stale_90d';
   averageRating: number;
   reviewCount: number;
   coverPhotoUrl: string | null;
   available: boolean;
+  availabilityStatus: AvailabilityStatus;
+  amenities: string[];
   relevanceScore: number;
 }
 
@@ -76,6 +104,7 @@ export class SearchService {
     @InjectDataSource() private readonly dataSource: DataSource,
     private readonly configService: ConfigService,
     @Inject(STORAGE_PROVIDER) private readonly storageProvider: StorageProvider,
+    private readonly priceQuoteService: PriceQuoteService,
   ) {}
 
   async search(dto: SearchQueryDto): Promise<SearchResultPage> {
@@ -111,7 +140,7 @@ export class SearchService {
     // duration bounds, holiday-closes-day-unless-date-override, weekly vs.
     // date-specific rule precedence, blocked periods, buffered active
     // bookings, and the advance-booking window. ----
-    let isAvailableExpr = 'TRUE';
+    let isAvailableExpr = 'NULL';
     if (hasAvailabilityCheck) {
       const pDate = pb.add(dto.date);
       const pStartTime = pb.add(dto.startTime);
@@ -191,6 +220,9 @@ export class SearchService {
     }
     if (dto.roomType) {
       whereClauses.push(`rt.translation_key = ${pb.add(dto.roomType)}`);
+    }
+    if (dto.category) {
+      whereClauses.push(`rt.marketplace_slug = ${pb.add(dto.category)}`);
     }
     if (dto.participants !== undefined) {
       // Hard-fits check only (must physically hold the party); how *well*
@@ -284,12 +316,14 @@ export class SearchService {
         r.id,
         r.name,
         rt.translation_key AS room_type,
+        rt.marketplace_slug AS primary_category,
         p.display_name AS provider_name,
         -- Every row here already passed p.verification_status = 'VERIFIED'
         -- in the WHERE clause, so this is always true for a search result.
         true AS verified,
         l.city,
         l.district,
+        ms.name_az AS metro_name,
         ST_Y(l.geo::geometry) AS lat,
         ST_X(l.geo::geometry) AS lng,
         ${distanceMExpr} AS distance_m,
@@ -297,6 +331,24 @@ export class SearchService {
         r.capacity_max,
         r.base_price_amount::int AS price_amount,
         r.base_price_currency AS price_currency,
+        (
+          SELECT json_agg(json_build_object(
+            'unitType', pp.unit_type,
+            'amount', pp.amount,
+            'currency', pp.currency,
+            'priceType', pp.price_type,
+            'lastUpdatedAt', pp.last_updated_at
+          ) ORDER BY pp.unit_type)
+          FROM room_price_package pp
+          WHERE pp.room_id = r.id AND pp.active = TRUE
+            AND (pp.valid_from IS NULL OR pp.valid_from <= now())
+            AND (pp.valid_until IS NULL OR pp.valid_until >= now())
+        ) AS price_packages,
+        (
+          SELECT COALESCE(json_agg(am.translation_key ORDER BY am.translation_key), '[]'::json)
+          FROM room_amenity ra JOIN amenity am ON am.id = ra.amenity_id
+          WHERE ra.room_id = r.id
+        ) AS amenities,
         r.average_rating::float AS average_rating,
         r.review_count,
         (
@@ -312,6 +364,7 @@ export class SearchService {
       JOIN location l ON l.id = r.location_id
       JOIN provider p ON p.id = l.provider_id
       JOIN room_type rt ON rt.id = r.room_type_id
+      LEFT JOIN metro_stations ms ON ms.id = l.nearest_metro_station_id
       WHERE ${whereClauses.join(' AND ')}
       ORDER BY ${orderByExpr}, r.id
       LIMIT ${limitParam} OFFSET ${offsetParam}
@@ -328,31 +381,171 @@ export class SearchService {
     };
   }
 
+  private parsePackages(raw: unknown): PricePackageSummary[] {
+    let list: any[] = [];
+    if (!raw) return [];
+    if (typeof raw === 'string') {
+      try {
+        list = JSON.parse(raw);
+      } catch {
+        return [];
+      }
+    } else if (Array.isArray(raw)) {
+      list = raw;
+    }
+    return list.map((p: any) => ({
+      unitType: String(p.unitType ?? p.unit_type),
+      amount: p.amount != null ? Number(p.amount) : null,
+      currency: p.currency || 'AZN',
+      priceType: String(p.priceType ?? p.price_type),
+      lastUpdatedAt: p.lastUpdatedAt
+        ? new Date(p.lastUpdatedAt).toISOString()
+        : p.last_updated_at
+          ? new Date(p.last_updated_at).toISOString()
+          : null,
+    }));
+  }
+
+  private pickPrimaryPrice(
+    packages: PricePackageSummary[],
+    fallbackAmount: number | null,
+    fallbackCurrency: string,
+  ): {
+    primaryPrice: RoomSearchResult['primaryPrice'];
+    pricePerHour: RoomSearchResult['pricePerHour'];
+    priceLastUpdatedAt: string | null;
+    staleWarning: RoomSearchResult['staleWarning'];
+  } {
+    const usable = packages.filter(
+      (p) =>
+        p.priceType === PriceType.EXACT || p.priceType === PriceType.FROM,
+    );
+    let chosen: PricePackageSummary | undefined;
+    for (const unit of PRIMARY_PRICE_UNIT_ORDER) {
+      chosen = usable.find((p) => p.unitType === unit);
+      if (chosen) break;
+    }
+    const hourly = packages.find((p) => p.unitType === PriceUnitType.HOURLY);
+    const lastUpdatedAt = chosen?.lastUpdatedAt ?? hourly?.lastUpdatedAt ?? null;
+    let staleWarning: RoomSearchResult['staleWarning'] = 'none';
+    if (lastUpdatedAt) {
+      const days = Math.floor(
+        (Date.now() - new Date(lastUpdatedAt).getTime()) / 86_400_000,
+      );
+      if (days >= 90) staleWarning = 'stale_90d';
+      else if (days >= 30) staleWarning = 'stale_30d';
+    }
+
+    const pricePerHour =
+      hourly && hourly.amount != null
+        ? { amount: hourly.amount, currency: hourly.currency || 'AZN' }
+        : fallbackAmount != null && fallbackAmount > 0
+          ? { amount: fallbackAmount, currency: fallbackCurrency || 'AZN' }
+          : null;
+
+    const primaryPrice = chosen
+      ? {
+          amount: chosen.amount,
+          currency: chosen.currency || 'AZN',
+          unitType: chosen.unitType,
+          priceType: chosen.priceType,
+        }
+      : pricePerHour
+        ? {
+            amount: pricePerHour.amount,
+            currency: pricePerHour.currency,
+            unitType: PriceUnitType.HOURLY,
+            priceType: PriceType.EXACT,
+          }
+        : packages.some((p) => p.priceType === PriceType.REQUEST)
+          ? {
+              amount: null,
+              currency: 'AZN',
+              unitType: PriceUnitType.CUSTOM_QUOTE,
+              priceType: PriceType.REQUEST,
+            }
+          : {
+              amount: null,
+              currency: 'AZN',
+              unitType: PriceUnitType.HOURLY,
+              priceType: PriceType.NOT_AVAILABLE,
+            };
+
+    return { primaryPrice, pricePerHour, priceLastUpdatedAt: lastUpdatedAt, staleWarning };
+  }
+
+  private availabilityFromRow(
+    row: any,
+    primaryPrice: RoomSearchResult['primaryPrice'],
+  ): { available: boolean; availabilityStatus: AvailabilityStatus } {
+    if (row.available === true) {
+      return {
+        available: true,
+        availabilityStatus: AvailabilityStatus.AVAILABLE,
+      };
+    }
+    if (row.available === false) {
+      return {
+        available: false,
+        availabilityStatus: AvailabilityStatus.NOT_AVAILABLE,
+      };
+    }
+    if (primaryPrice?.priceType === PriceType.REQUEST) {
+      return {
+        available: false,
+        availabilityStatus: AvailabilityStatus.REQUEST_CONFIRMATION,
+      };
+    }
+    return {
+      available: false,
+      availabilityStatus: AvailabilityStatus.UNKNOWN,
+    };
+  }
+
   private mapRow(row: any): RoomSearchResult {
+    const packages = this.parsePackages(row.price_packages);
+    const pricing = this.pickPrimaryPrice(
+      packages,
+      row.price_amount != null ? Number(row.price_amount) : null,
+      row.price_currency,
+    );
+    const availability = this.availabilityFromRow(row, pricing.primaryPrice);
+    const amenitiesRaw = row.amenities;
+    const amenities = Array.isArray(amenitiesRaw)
+      ? amenitiesRaw.map(String)
+      : [];
     return {
       id: row.id,
       name: row.name,
       roomType: row.room_type,
+      primaryCategory: row.primary_category ?? null,
       providerName: row.provider_name,
-      verified: row.verified,
+      verified: !!row.verified,
       city: row.city,
       district: row.district,
-      lat: row.lat !== null ? Number(row.lat) : null,
-      lng: row.lng !== null ? Number(row.lng) : null,
+      metro: row.metro_name ?? null,
+      lat: row.lat !== null && row.lat !== undefined ? Number(row.lat) : null,
+      lng: row.lng !== null && row.lng !== undefined ? Number(row.lng) : null,
       distanceKm:
-        row.distance_m !== null
+        row.distance_m !== null && row.distance_m !== undefined
           ? Math.round((row.distance_m / 1000) * 10) / 10
           : null,
       capacityMin: row.capacity_min,
       capacityMax: row.capacity_max,
-      pricePerHour: { amount: row.price_amount, currency: row.price_currency },
+      pricePerHour: pricing.pricePerHour,
+      primaryPrice: pricing.primaryPrice,
+      pricePackages: packages,
+      priceLastUpdatedAt: pricing.priceLastUpdatedAt,
+      staleWarning: pricing.staleWarning,
       averageRating: row.average_rating,
       reviewCount: row.review_count,
       coverPhotoUrl: row.cover_photo_key
         ? this.storageKeyToUrl(row.cover_photo_key)
         : null,
-      available: row.available,
-      relevanceScore: Math.round(row.relevance_score * 1000) / 1000,
+      available: availability.available,
+      availabilityStatus: availability.availabilityStatus,
+      amenities,
+      relevanceScore: Math.round((row.relevance_score ?? 0) * 1000) / 1000,
     };
   }
 
@@ -391,10 +584,12 @@ export class SearchService {
         r.id,
         r.name,
         rt.translation_key AS room_type,
+        rt.marketplace_slug AS primary_category,
         p.display_name AS provider_name,
         true AS verified,
         l.city,
         l.district,
+        ms.name_az AS metro_name,
         NULL::double precision AS lat,
         NULL::double precision AS lng,
         NULL::double precision AS distance_m,
@@ -402,6 +597,24 @@ export class SearchService {
         r.capacity_max,
         r.base_price_amount::int AS price_amount,
         r.base_price_currency AS price_currency,
+        (
+          SELECT json_agg(json_build_object(
+            'unitType', pp.unit_type,
+            'amount', pp.amount,
+            'currency', pp.currency,
+            'priceType', pp.price_type,
+            'lastUpdatedAt', pp.last_updated_at
+          ) ORDER BY pp.unit_type)
+          FROM room_price_package pp
+          WHERE pp.room_id = r.id AND pp.active = TRUE
+            AND (pp.valid_from IS NULL OR pp.valid_from <= now())
+            AND (pp.valid_until IS NULL OR pp.valid_until >= now())
+        ) AS price_packages,
+        (
+          SELECT COALESCE(json_agg(am.translation_key ORDER BY am.translation_key), '[]'::json)
+          FROM room_amenity ra JOIN amenity am ON am.id = ra.amenity_id
+          WHERE ra.room_id = r.id
+        ) AS amenities,
         r.average_rating::float AS average_rating,
         r.review_count,
         (
@@ -410,12 +623,13 @@ export class SearchService {
           ORDER BY ph.is_cover DESC, ph.display_order ASC
           LIMIT 1
         ) AS cover_photo_key,
-        true AS available,
+        NULL::boolean AS available,
         0 AS relevance_score
       FROM room r
       JOIN location l ON l.id = r.location_id
       JOIN provider p ON p.id = l.provider_id
       JOIN room_type rt ON rt.id = r.room_type_id
+      LEFT JOIN metro_stations ms ON ms.id = l.nearest_metro_station_id
       WHERE r.deleted_at IS NULL AND r.status = 'ACTIVE'
         AND l.deleted_at IS NULL AND p.deleted_at IS NULL
         AND p.verification_status = 'VERIFIED'
@@ -442,14 +656,17 @@ export class SearchService {
         r.average_rating::float AS average_rating, r.review_count,
         r.status,
         rt.translation_key AS room_type,
+        rt.marketplace_slug AS primary_category,
         p.display_name AS provider_name,
         p.verification_status,
         l.city, l.district,
+        ms.name_az AS metro_name,
         ST_Y(l.geo::geometry) AS lat, ST_X(l.geo::geometry) AS lng
       FROM room r
       JOIN location l ON l.id = r.location_id
       JOIN provider p ON p.id = l.provider_id
       JOIN room_type rt ON rt.id = r.room_type_id
+      LEFT JOIN metro_stations ms ON ms.id = l.nearest_metro_station_id
       WHERE r.id = ${pRoomId} AND r.deleted_at IS NULL AND l.deleted_at IS NULL AND p.deleted_at IS NULL
         AND r.status = 'ACTIVE' AND p.verification_status = 'VERIFIED'
       `,
@@ -476,34 +693,102 @@ export class SearchService {
       `SELECT storage_key FROM photo WHERE room_id = $1 AND moderation_status = 'APPROVED' ORDER BY is_cover DESC, display_order ASC`,
       [roomId],
     );
+    const packageRows = await this.dataSource.query(
+      `SELECT unit_type AS "unitType", amount, currency, price_type AS "priceType", last_updated_at AS "lastUpdatedAt"
+       FROM room_price_package
+       WHERE room_id = $1 AND active = TRUE
+         AND (valid_from IS NULL OR valid_from <= now())
+         AND (valid_until IS NULL OR valid_until >= now())`,
+      [roomId],
+    );
+
+    const mapped = this.mapRow({
+      ...row,
+      room_type: row.room_type,
+      primary_category: row.primary_category,
+      provider_name: row.provider_name,
+      verified: row.verification_status === 'VERIFIED',
+      metro_name: row.metro_name,
+      distance_m: null,
+      price_packages: packageRows,
+      amenities: amenities.map((a: any) => a.translation_key),
+      cover_photo_key: photos[0]?.storage_key ?? null,
+      available: null,
+      relevance_score: 0,
+    });
 
     return {
-      id: row.id,
-      name: row.name,
-      roomType: row.room_type,
-      providerName: row.provider_name,
-      verified: row.verification_status === 'VERIFIED',
-      city: row.city,
-      district: row.district,
-      distanceKm: null,
-      capacityMin: row.capacity_min,
-      capacityMax: row.capacity_max,
-      pricePerHour: { amount: row.price_amount, currency: row.price_currency },
-      averageRating: row.average_rating,
-      reviewCount: row.review_count,
-      coverPhotoUrl:
-        photos.length > 0 ? this.storageKeyToUrl(photos[0].storage_key) : null,
-      available: row.status === 'ACTIVE',
-      relevanceScore: 0,
+      ...mapped,
       description: row.description,
       sizeSqm: row.size_sqm !== null ? Number(row.size_sqm) : null,
       amenities: amenities.map((a: any) => a.translation_key),
       cancellationPolicy: row.cancellation_policy,
       photos: photos.map((p: any) => this.storageKeyToUrl(p.storage_key)),
-      lat: row.lat !== null ? Number(row.lat) : null,
-      lng: row.lng !== null ? Number(row.lng) : null,
       minBookingMinutes: row.min_booking_minutes,
       maxBookingMinutes: row.max_booking_minutes,
     };
+  }
+
+  async quoteRoom(roomId: string, startAt: string, endAt: string) {
+    await this.getRoomDetail(roomId);
+    return this.priceQuoteService.quote(
+      roomId,
+      new Date(startAt),
+      new Date(endAt),
+    );
+  }
+
+  async compareRooms(ids: string[]): Promise<RoomSearchResult[]> {
+    const unique = [...new Set(ids.filter(Boolean))];
+    if (unique.length === 0) return [];
+    if (unique.length > 4) {
+      throw new DomainException(
+        'COMPARE_LIMIT',
+        'Compare at most 4 locations.',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+    const rows = await this.dataSource.query(
+      `
+      SELECT
+        r.id, r.name, rt.translation_key AS room_type, rt.marketplace_slug AS primary_category,
+        p.display_name AS provider_name, true AS verified, l.city, l.district, ms.name_az AS metro_name,
+        ST_Y(l.geo::geometry) AS lat, ST_X(l.geo::geometry) AS lng, NULL::double precision AS distance_m,
+        r.capacity_min, r.capacity_max, r.base_price_amount::int AS price_amount, r.base_price_currency AS price_currency,
+        (
+          SELECT json_agg(json_build_object(
+            'unitType', pp.unit_type, 'amount', pp.amount, 'currency', pp.currency,
+            'priceType', pp.price_type, 'lastUpdatedAt', pp.last_updated_at
+          ) ORDER BY pp.unit_type)
+          FROM room_price_package pp
+          WHERE pp.room_id = r.id AND pp.active = TRUE
+            AND (pp.valid_from IS NULL OR pp.valid_from <= now())
+            AND (pp.valid_until IS NULL OR pp.valid_until >= now())
+        ) AS price_packages,
+        (
+          SELECT COALESCE(json_agg(am.translation_key ORDER BY am.translation_key), '[]'::json)
+          FROM room_amenity ra JOIN amenity am ON am.id = ra.amenity_id WHERE ra.room_id = r.id
+        ) AS amenities,
+        r.average_rating::float AS average_rating, r.review_count,
+        (
+          SELECT storage_key FROM photo ph
+          WHERE ph.room_id = r.id AND ph.moderation_status = 'APPROVED'
+          ORDER BY ph.is_cover DESC, ph.display_order ASC LIMIT 1
+        ) AS cover_photo_key,
+        NULL::boolean AS available,
+        0 AS relevance_score
+      FROM room r
+      JOIN location l ON l.id = r.location_id
+      JOIN provider p ON p.id = l.provider_id
+      JOIN room_type rt ON rt.id = r.room_type_id
+      LEFT JOIN metro_stations ms ON ms.id = l.nearest_metro_station_id
+      WHERE r.id = ANY($1::uuid[]) AND r.deleted_at IS NULL AND r.status = 'ACTIVE'
+        AND l.deleted_at IS NULL AND p.deleted_at IS NULL
+        AND p.verification_status = 'VERIFIED'
+      `,
+      [unique],
+    );
+    const byId = new Map(rows.map((row: any) => [row.id, this.mapRow(row)]));
+    return unique.map((id) => byId.get(id)).filter(Boolean) as RoomSearchResult[];
   }
 }

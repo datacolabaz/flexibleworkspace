@@ -39,6 +39,8 @@ import {
 } from '../storage/storage-provider.interface';
 import { STORAGE_PROVIDER } from '../storage/storage.module';
 import { Inject } from '@nestjs/common';
+import { PricePackagesService } from './price-packages.service';
+import { providerHasMarketplaceCategory } from '../../common/constants/marketplace-category';
 
 @Injectable()
 export class RoomsService {
@@ -58,6 +60,7 @@ export class RoomsService {
     private readonly locationsService: LocationsService,
     private readonly providersService: ProvidersService,
     @Inject(STORAGE_PROVIDER) private readonly storageProvider: StorageProvider,
+    private readonly pricePackagesService: PricePackagesService,
   ) {}
 
   private slugify(input: string): string {
@@ -146,7 +149,13 @@ export class RoomsService {
       updatedAt: now,
     });
 
-    return this.roomRepo.save(room);
+    const saved = await this.roomRepo.save(room);
+    await this.pricePackagesService.syncHourlyFromBasePrice(
+      saved.id,
+      Number(saved.basePriceAmount),
+      saved.basePriceCurrency,
+    );
+    return saved;
   }
 
   /**
@@ -158,9 +167,11 @@ export class RoomsService {
    * mapping before this; kept provider-gated (same controller) rather
    * than public, since only the room-creation form needs it.
    */
-  async listRoomTypes(): Promise<{ id: string; translationKey: string }[]> {
+  async listRoomTypes(): Promise<
+    { id: string; translationKey: string; marketplaceSlug: string | null }[]
+  > {
     return this.roomTypeRepo.find({
-      select: ['id', 'translationKey'],
+      select: ['id', 'translationKey', 'marketplaceSlug'],
       order: { translationKey: 'ASC' },
     });
   }
@@ -232,7 +243,13 @@ export class RoomsService {
       room.amenities = await this.resolveAmenities(dto.amenityIds);
     room.updatedAt = new Date();
 
-    return this.roomRepo.save(room);
+    const saved = await this.roomRepo.save(room);
+    await this.pricePackagesService.syncHourlyFromBasePrice(
+      saved.id,
+      Number(saved.basePriceAmount),
+      saved.basePriceCurrency,
+    );
+    return saved;
   }
 
   /** Soft-delete a provider listing while preserving booking history and references. */
@@ -296,6 +313,14 @@ export class RoomsService {
         throw new DomainException(
           'ROOM_NO_PHOTOS',
           'Add at least one photo before this room can go live.',
+          HttpStatus.FORBIDDEN,
+        );
+      }
+
+      if (!providerHasMarketplaceCategory(provider.categories)) {
+        throw new DomainException(
+          'PROVIDER_CATEGORY_REQUIRED',
+          'Pick at least one marketplace category before publishing.',
           HttpStatus.FORBIDDEN,
         );
       }
