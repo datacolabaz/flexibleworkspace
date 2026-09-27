@@ -1,6 +1,6 @@
-import { HttpStatus, Inject, Injectable } from '@nestjs/common';
+import { HttpStatus, Inject, Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, IsNull } from 'typeorm';
+import { Repository, IsNull, QueryFailedError } from 'typeorm';
 import { randomBytes } from 'crypto';
 
 import { EventEntity, EventFormat, EventStatus, EventVisibility } from './entities/event.entity';
@@ -16,6 +16,8 @@ import { STORAGE_PROVIDER } from '../storage/storage.module';
 
 @Injectable()
 export class EventsService {
+  private readonly logger = new Logger(EventsService.name);
+
   constructor(
     @InjectRepository(EventEntity)
     private readonly eventsRepo: Repository<EventEntity>,
@@ -205,66 +207,127 @@ export class EventsService {
   // ── RSVP ─────────────────────────────────────────────────────────────────
 
   async createRsvp(
+    eventId: string,
     dto: CreateRsvpDto,
     userId?: string,
   ): Promise<EventRsvpEntity> {
-    const event = await this.findById(dto.eventId);
+    // Explicit transaction so RlsTransactionSubscriber SET LOCAL app.*
+    // applies for authenticated inserts (autocommit save() skips it).
+    return this.rsvpsRepo.manager.transaction(async (em) => {
+      const eventsRepo = em.getRepository(EventEntity);
+      const rsvpsRepo = em.getRepository(EventRsvpEntity);
 
-    if (
-      event.status !== EventStatus.RSVP_OPEN &&
-      event.status !== EventStatus.PUBLISHED
-    ) {
-      throw new DomainException(
-        'RSVP_NOT_OPEN',
-        'RSVP is not open for this event.',
-        HttpStatus.CONFLICT,
-      );
-    }
-
-    // Capacity check
-    if (event.capacity !== null) {
-      const confirmed = await this.rsvpsRepo.count({
-        where: { eventId: event.id, status: EventRsvpStatus.CONFIRMED },
+      const event = await eventsRepo.findOne({
+        where: { id: eventId, deletedAt: IsNull() },
       });
-      if (confirmed >= event.capacity) {
-        // Mark sold out
-        event.status = EventStatus.SOLD_OUT;
-        event.updatedAt = new Date();
-        await this.eventsRepo.save(event);
-        throw new DomainException('EVENT_SOLD_OUT', 'This event is sold out.', HttpStatus.CONFLICT);
+      if (!event) throw new ResourceNotFoundException('Event');
+
+      if (
+        event.status !== EventStatus.RSVP_OPEN &&
+        event.status !== EventStatus.PUBLISHED
+      ) {
+        throw new DomainException(
+          'RSVP_NOT_OPEN',
+          'RSVP is not open for this event.',
+          HttpStatus.CONFLICT,
+        );
       }
-    }
 
-    const confirmationCode = this.generateConfirmationCode();
-    const now = new Date();
+      if (event.rsvpDeadline && event.rsvpDeadline.getTime() < Date.now()) {
+        throw new DomainException(
+          'RSVP_CLOSED',
+          'The RSVP deadline for this event has passed.',
+          HttpStatus.CONFLICT,
+        );
+      }
 
-    const rsvp = this.rsvpsRepo.create({
-      eventId: dto.eventId,
-      userId: userId ?? null,
-      name: dto.name,
-      email: dto.email,
-      phone: dto.phone ?? null,
-      status: EventRsvpStatus.CONFIRMED,
-      confirmationCode,
-      createdAt: now,
-      updatedAt: now,
+      const email = dto.email.trim().toLowerCase();
+      const duplicate = await rsvpsRepo.findOne({
+        where: {
+          eventId: event.id,
+          email,
+          status: EventRsvpStatus.CONFIRMED,
+        },
+      });
+      if (duplicate) {
+        throw new DomainException(
+          'RSVP_DUPLICATE',
+          'This email is already registered for the event.',
+          HttpStatus.CONFLICT,
+        );
+      }
+
+      if (event.capacity !== null) {
+        const confirmed = await rsvpsRepo.count({
+          where: { eventId: event.id, status: EventRsvpStatus.CONFIRMED },
+        });
+        if (confirmed >= event.capacity) {
+          event.status = EventStatus.SOLD_OUT;
+          event.updatedAt = new Date();
+          await eventsRepo.save(event);
+          throw new DomainException(
+            'EVENT_SOLD_OUT',
+            'This event is sold out.',
+            HttpStatus.CONFLICT,
+          );
+        }
+      }
+
+      const now = new Date();
+      const rsvp = rsvpsRepo.create({
+        eventId: event.id,
+        userId: userId ?? null,
+        name: dto.name.trim(),
+        email,
+        phone: dto.phone?.trim() ? dto.phone.trim() : null,
+        status: EventRsvpStatus.CONFIRMED,
+        confirmationCode: this.generateConfirmationCode(),
+        createdAt: now,
+        updatedAt: now,
+      });
+
+      let saved: EventRsvpEntity;
+      try {
+        saved = await rsvpsRepo.save(rsvp);
+      } catch (err) {
+        this.logger.error(
+          `RSVP insert failed for event ${event.id}: ${(err as Error).message}`,
+          (err as Error).stack,
+        );
+        const pgCode =
+          err instanceof QueryFailedError
+            ? String((err as QueryFailedError & { driverError?: { code?: string } }).driverError?.code ?? '')
+            : '';
+        if (pgCode === '42501') {
+          throw new DomainException(
+            'RSVP_FORBIDDEN',
+            'Could not save this registration.',
+            HttpStatus.FORBIDDEN,
+          );
+        }
+        if (pgCode === '23505') {
+          throw new DomainException(
+            'RSVP_DUPLICATE',
+            'This email is already registered for the event.',
+            HttpStatus.CONFLICT,
+          );
+        }
+        throw err;
+      }
+
+      if (event.capacity !== null) {
+        const total = await rsvpsRepo.count({
+          where: { eventId: event.id, status: EventRsvpStatus.CONFIRMED },
+        });
+        if (total >= event.capacity) {
+          event.status = EventStatus.SOLD_OUT;
+          event.updatedAt = new Date();
+          await eventsRepo.save(event);
+        }
+      }
+
+      return saved;
     });
-
-    const saved = await this.rsvpsRepo.save(rsvp);
-
-    // Re-check capacity after saving — mark sold out if now full
-    if (event.capacity !== null) {
-      const total = await this.rsvpsRepo.count({
-        where: { eventId: event.id, status: EventRsvpStatus.CONFIRMED },
-      });
-      if (total >= event.capacity) {
-        event.status = EventStatus.SOLD_OUT;
-        event.updatedAt = new Date();
-        await this.eventsRepo.save(event);
-      }
-    }
-
-    return saved;
   }
 
   // ── Cover image upload ─────────────────────────────────────────────────

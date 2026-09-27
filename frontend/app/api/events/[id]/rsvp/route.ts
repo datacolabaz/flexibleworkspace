@@ -25,6 +25,12 @@ export async function POST(
     const rsvp = await createRsvp(id, body as Parameters<typeof createRsvp>[1], accessToken);
     return NextResponse.json(rsvp, { status: 201, headers: { 'Cache-Control': 'no-store' } });
   } catch (err) {
+    console.error('[POST /api/events/:id/rsvp] failed', {
+      eventId: id,
+      status: (err as { status?: number }).status,
+      code: (err as { code?: string }).code,
+      message: err instanceof Error ? err.message : err,
+    });
     return apiErrorResponse(err);
   }
 }

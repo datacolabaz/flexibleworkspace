@@ -1,6 +1,9 @@
 import 'server-only';
+import { ApiError } from './client';
 
-// Same env var as every other api-client in this project.
+// Same env var as every other api-client in this project. Never use BACKEND_URL
+// here — that name is not set in this app and previously produced HTML 404s
+// that blew up res.json() into a generic BFF 502.
 const BACKEND = process.env.BACKEND_API_URL ?? 'http://localhost:3001/api/v1';
 
 function authHeaders(accessToken?: string) {
@@ -10,33 +13,42 @@ function authHeaders(accessToken?: string) {
   };
 }
 
-interface ApiError extends Error {
-  status: number;
-  code?: string;
-  details?: unknown;
-}
-
 interface BackendErrorBody {
   error?: { message?: string; code?: string; details?: unknown };
 }
 
 async function fetchJson<T>(url: string, init: RequestInit): Promise<T> {
   const res = await fetch(url, init);
+  const contentType = res.headers.get('content-type') ?? '';
   if (!res.ok) {
-    let body: unknown;
-    try {
-      body = await res.json();
-    } catch {
-      body = {};
+    let body: BackendErrorBody | undefined;
+    if (contentType.includes('application/json')) {
+      try {
+        body = (await res.json()) as BackendErrorBody;
+      } catch {
+        body = undefined;
+      }
+    } else {
+      const text = await res.text().catch(() => '');
+      console.error(
+        `[events api-client] non-JSON ${res.status} from ${url}: ${text.slice(0, 200)}`,
+      );
     }
-    const err = (body as BackendErrorBody)?.error ?? {};
-    const e = new Error(err.message ?? `HTTP ${res.status}`) as ApiError;
-    e.status = res.status;
-    e.code = err.code;
-    e.details = err.details;
-    throw e;
+    throw new ApiError(res.status, {
+      error: {
+        message: body?.error?.message ?? `HTTP ${res.status}`,
+        code: body?.error?.code,
+      },
+    });
   }
   if (res.status === 204) return undefined as unknown as T;
+  if (contentType && !contentType.includes('application/json')) {
+    const text = await res.text().catch(() => '');
+    console.error(`[events api-client] expected JSON from ${url}: ${text.slice(0, 200)}`);
+    throw new ApiError(502, {
+      error: { message: 'Invalid backend response.', code: 'BFF_INTERNAL_ERROR' },
+    });
+  }
   return res.json() as Promise<T>;
 }
 

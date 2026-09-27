@@ -126,6 +126,6 @@ export class EventsController {
     @Body() dto: CreateRsvpDto,
     @CurrentUser() user?: AuthenticatedUser,
   ) {
-    return this.eventsService.createRsvp({ ...dto, eventId: id }, user?.userId);
+    return this.eventsService.createRsvp(id, dto, user?.userId);
   }
 }

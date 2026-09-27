@@ -9,8 +9,22 @@ import { ApiError } from '../api-client/client';
  * either way (11_API_CONTRACTS.md §11.2), whether it came straight from
  * the backend or through this BFF layer.
  */
+function isForwardableApiError(
+  err: unknown,
+): err is { status: number; message: string; code?: string; details?: unknown } {
+  if (err instanceof ApiError) return true;
+  if (typeof err !== 'object' || err === null) return false;
+  const candidate = err as { status?: unknown; message?: unknown };
+  return typeof candidate.status === 'number' && typeof candidate.message === 'string';
+}
+
 export function apiErrorResponse(err: unknown): NextResponse {
-  if (err instanceof ApiError) {
+  if (isForwardableApiError(err)) {
+    console.error('BFF upstream error:', {
+      status: err.status,
+      code: err.code,
+      message: err.message,
+    });
     return NextResponse.json(
       { error: { code: err.code ?? 'UNKNOWN_ERROR', message: err.message, details: err.details } },
       { status: err.status },

@@ -34,8 +34,28 @@ export function RsvpModal({ eventId, onClose }: RsvpModalProps) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name, email, phone: phone || undefined }),
       });
-      const data = await res.json() as { confirmationCode?: string; error?: { message: string } };
-      if (!res.ok) throw new Error(data?.error?.message ?? t('rsvpError'));
+      let data: { confirmationCode?: string; error?: { message: string; code?: string } };
+      try {
+        data = await res.json() as typeof data;
+      } catch {
+        throw new Error(t('rsvpErrorGeneric'));
+      }
+      if (!res.ok) {
+        const code = data?.error?.code;
+        const keyByCode: Record<string, string> = {
+          RSVP_NOT_OPEN: 'rsvpNotOpen',
+          RSVP_CLOSED: 'rsvpDeadlinePassed',
+          RSVP_DUPLICATE: 'rsvpDuplicate',
+          EVENT_SOLD_OUT: 'rsvpSoldOut',
+          NOT_FOUND: 'notFound',
+          VALIDATION_ERROR: 'rsvpValidation',
+          UNAUTHENTICATED: 'rsvpLoginRequired',
+          UNAUTHORIZED: 'rsvpLoginRequired',
+          RSVP_FORBIDDEN: 'rsvpError',
+          BFF_INTERNAL_ERROR: 'rsvpErrorGeneric',
+        };
+        throw new Error(t(keyByCode[code ?? ''] ?? 'rsvpError'));
+      }
       track(AnalyticsEvent.EventRsvpCompleted, { event_id: eventId });
       setConfirmationCode(data.confirmationCode ?? '');
     } catch (err) {
