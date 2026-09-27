@@ -160,7 +160,7 @@ describe('Header', () => {
     expect(screen.getByRole('link', { name: 'My account' })).toHaveAttribute('href', '/account/profile');
     expect(screen.getByRole('link', { name: 'My bookings' })).toHaveAttribute('href', '/account/bookings');
     expect(screen.getByRole('link', { name: 'My events' })).toHaveAttribute('href', '/account/events');
-    expect(screen.getByRole('link', { name: 'My RSVPs' })).toHaveAttribute('href', '/account/tickets');
+    expect(screen.getByRole('link', { name: 'My attendances' })).toHaveAttribute('href', '/account/tickets');
     expect(screen.getByRole('link', { name: 'My favorites' })).toHaveAttribute('href', '/account/favorites');
     expect(screen.getByRole('link', { name: 'Become a provider / List a space' })).toHaveAttribute(
       'href',
@@ -168,6 +168,9 @@ describe('Header', () => {
     );
     expect(screen.queryByRole('link', { name: 'Analytics' })).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Provider dashboard' })).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Create event' })).toHaveAttribute('href', '/events/create');
+    expect(screen.getByRole('navigation', { name: 'Primary' }).className).toMatch(/xl:flex/);
+    expect(screen.getByRole('navigation', { name: 'Primary' }).className).not.toMatch(/(?:^|\s)lg:flex(?:\s|$)/);
   });
 
   it('treats NOT_A_PROVIDER as the customer/organizer menu (Tədbirlərim stays /account/events)', async () => {

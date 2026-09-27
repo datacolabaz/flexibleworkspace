@@ -80,4 +80,9 @@ describe('SearchFilters', () => {
     const filterButtons = screen.getAllByRole('button', { name: /Filters/ });
     expect(filterButtons.some((btn) => btn.textContent?.includes('2'))).toBe(true);
   });
+
+  it('does not render the voice-search microphone on mobile filters', () => {
+    renderFilters();
+    expect(screen.queryByRole('button', { name: /voice search/i })).not.toBeInTheDocument();
+  });
 });

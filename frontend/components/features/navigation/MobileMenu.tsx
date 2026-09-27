@@ -84,7 +84,7 @@ export function MobileMenu({
     'min-h-11 rounded-sm px-3 py-2.5 text-label font-semibold text-primary hover:bg-surface-elevated';
 
   return (
-    <div className="relative lg:hidden" ref={containerRef}>
+    <div className="relative shrink-0 xl:hidden" ref={containerRef}>
       <IconButton
         aria-label={open ? t('closeMenu') : t('openMenu')}
         aria-expanded={open}

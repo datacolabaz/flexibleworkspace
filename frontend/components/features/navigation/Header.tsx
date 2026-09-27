@@ -30,17 +30,12 @@ import type { ProviderNavState } from './account-menu-items';
  * menu plus onboarding; other API errors leave exclusive role links off
  * so the header never flashes the wrong set.
  *
- * The desktop nav's `gap-4 md:flex lg:gap-6` and the Account/Login
- * button's `px-3 ... lg:px-4` (neither a flat `gap-6`/`px-4`) are a
- * live-found fix, not the original spacing: every prior visual pass only
- * ever exercised the signed-out ("Log in") header, since there was no way
- * to hold a real authenticated session through Playwright before the
- * /account milestone. "Account" is one character wider than "Log in",
- * and at exactly the md breakpoint (768px) that was enough to overflow
- * — invisible until this milestone could actually load the header signed
- * in. Both are tightened only at md (768–1023px, where the desktop nav
- * first appears and the row is tightest); lg+ keeps the original
- * gap-6/px-4.
+ * Desktop primary nav is `xl:flex` (not `lg:flex`). After login, extra
+ * items ("Məkan idarəsi", "Tədbir yarat") plus language/theme/AccountMenu
+ * overflow a 1024px row and paint on top of the language select. Hiding
+ * the link row until `xl` (hamburger until then) keeps the right cluster
+ * intact. Nav items are `whitespace-nowrap`; the right cluster is
+ * `shrink-0` except the profile trigger, which still ellipsizes.
  */
 export async function Header() {
   const t = await getTranslations('nav');
@@ -115,7 +110,7 @@ export async function Header() {
         {t('skipToContent')}
       </a>
       <header className="sticky top-0 z-40 overflow-visible border-b border-border bg-surface">
-        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-2 overflow-visible px-3 sm:gap-4 sm:px-4">
+        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-3 overflow-visible px-3 sm:gap-4 sm:px-4 xl:gap-6">
           <Link
             href="/"
             aria-label={t('home')}
@@ -132,12 +127,12 @@ export async function Header() {
             <Logo variant="wordmark" height={55} className="hidden sm:block" />
           </Link>
 
-          <nav aria-label={t('primaryNavigation')} className="hidden items-center gap-1 lg:flex xl:gap-4">
+          <nav aria-label={t('primaryNavigation')} className="hidden min-w-0 flex-1 items-center justify-end gap-x-2 xl:flex">
             {navItems.map((item) => (
               <Link
                 key={item.href}
                 href={item.href}
-                className="group relative inline-flex min-h-11 items-center whitespace-nowrap rounded-md px-2 text-nav text-text-secondary transition-[color,background-color,transform] duration-150 hover:-translate-y-px hover:bg-surface-elevated hover:text-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary after:absolute after:bottom-1 after:left-2 after:right-2 after:h-px after:origin-left after:scale-x-0 after:bg-accent after:transition-transform after:duration-200 hover:after:scale-x-100"
+                className="group relative inline-flex min-h-11 shrink-0 items-center whitespace-nowrap rounded-md px-2 text-nav text-text-secondary transition-[color,background-color,transform] duration-150 hover:-translate-y-px hover:bg-surface-elevated hover:text-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary after:absolute after:bottom-1 after:left-2 after:right-2 after:h-px after:origin-left after:scale-x-0 after:bg-accent after:transition-transform after:duration-200 hover:after:scale-x-100"
               >
                 {item.label}
               </Link>
@@ -145,7 +140,7 @@ export async function Header() {
             {isProvider === true && (
               <NextLink
                 href="/provider"
-                className="group relative inline-flex min-h-11 items-center whitespace-nowrap rounded-md px-2 text-nav font-semibold text-accent hover:bg-surface-elevated"
+                className="group relative inline-flex min-h-11 shrink-0 items-center whitespace-nowrap rounded-md px-2 text-nav font-semibold text-accent hover:bg-surface-elevated"
               >
                 {t('manageSpaces')}
               </NextLink>
@@ -153,16 +148,18 @@ export async function Header() {
             {isAuthenticated && (
               <NextLink
                 href="/events/create"
-                className="group relative inline-flex min-h-11 items-center whitespace-nowrap rounded-md px-2 text-nav font-semibold text-primary hover:bg-surface-elevated"
+                className="group relative inline-flex min-h-11 shrink-0 items-center whitespace-nowrap rounded-md px-2 text-nav font-semibold text-primary hover:bg-surface-elevated"
               >
                 {t('createEvent')}
               </NextLink>
             )}
           </nav>
 
-          <div className="flex min-w-0 items-center justify-end gap-1 sm:gap-2">
+          <div className="flex min-w-0 items-center justify-end gap-2 sm:gap-3">
             <LanguageSwitcher />
-            <ThemeToggle />
+            <div className="shrink-0">
+              <ThemeToggle />
+            </div>
             {isAuthenticated ? (
               <AccountMenu
                 label={accountLabel}

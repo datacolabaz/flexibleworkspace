@@ -739,7 +739,7 @@ export function EventCreateWizard() {
 
           {!state.ticketsEnabled && (
             <p className="rounded-md bg-info-bg p-4 text-small text-info">
-              {'Bilet satışını aktiv etməsəniz, sadə RSVP sistemi istifadə olunacaq. İstənilən vaxt sonradan aktivləşdirə bilərsiniz.'}
+              {'Bilet satışını aktiv etməsəniz, sadə iştirak təsdiqi istifadə olunacaq. İstənilən vaxt sonradan aktivləşdirə bilərsiniz.'}
             </p>
           )}
         </div>

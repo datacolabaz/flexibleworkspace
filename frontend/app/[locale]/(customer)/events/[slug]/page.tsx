@@ -362,7 +362,7 @@ export default function EventDetailPage() {
                 {/* RSVP button */}
                 {canRsvp && event.status !== 'sold_out' && (
                   <Button fullWidth onClick={() => setShowRsvp(true)}>
-                    {t('rsvpButtonLabel')}
+                    {event.visibility === 'public' ? t('rsvpButtonPublic') : t('rsvpButtonLabel')}
                   </Button>
                 )}
                 {event.status === 'sold_out' && (

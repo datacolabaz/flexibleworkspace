@@ -80,6 +80,9 @@ export function RsvpModal({ eventId, onClose }: RsvpModalProps) {
           <div className="text-center">
             <div className="mb-3 text-4xl">✅</div>
             <h3 className="font-display text-h3 text-text-primary">{t('rsvpSuccess')}</h3>
+            <p className="mt-2 text-small text-text-secondary">
+              {t('rsvpSuccessEmail', { email })}
+            </p>
             <p className="mt-2 rounded-md bg-surface-elevated px-4 py-2 font-mono text-label font-semibold text-text-primary">
               {t('confirmationCode', { code: confirmationCode })}
             </p>
@@ -96,9 +99,6 @@ export function RsvpModal({ eventId, onClose }: RsvpModalProps) {
                 <p className="text-small text-text-muted">{t('rsvpQrHint')}</p>
               </div>
             )}
-            <p className="mt-3 text-small text-text-muted">
-              {t('rsvpCodeNote')}
-            </p>
             <div className="mt-6 flex justify-center gap-3">
               <Button variant="secondary" onClick={onClose}>
                 {t('rsvpClose')}

@@ -10,7 +10,6 @@ import { Label } from '@/components/ui/Label';
 import { Select } from '@/components/ui/Select';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import { ROOM_TYPES, AMENITIES, AMENITY_CATEGORIES } from '@/lib/constants/taxonomy';
-import { VoiceSearchButton } from './VoiceSearchButton';
 
 // ---------------------------------------------------------------------------
 // Metro station name normalisation — strips line-2 suffixes so transfer
@@ -652,13 +651,6 @@ export function SearchFilters({ metroStations = [] }: { metroStations?: MetroSta
               </span>
             )}
           </Button>
-
-          <VoiceSearchButton
-            metroStations={metroStations}
-            roomTypes={ROOM_TYPES.map((rt) => rt.translationKey)}
-            currentDraft={mobileDraft}
-            onApply={apply}
-          />
         </div>
 
         <BottomSheet open={mobileOpen} onClose={() => setMobileOpen(false)} title={t('search.filtersTitle')} closeLabel={t('nav.closeMenu')}>

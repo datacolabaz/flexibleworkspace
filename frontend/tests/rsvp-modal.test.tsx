@@ -36,19 +36,25 @@ describe('RsvpModal success QR', () => {
     );
 
     renderModal();
+    expect(screen.getByRole('heading', { name: 'Event registration' })).toBeInTheDocument();
     const [nameInput, emailInput] = screen.getAllByRole('textbox');
     fireEvent.change(nameInput, { target: { value: 'Aysel' } });
     fireEvent.change(emailInput, { target: { value: 'aysel@example.com' } });
-    fireEvent.click(screen.getByRole('button', { name: /complete registration/i }));
+    fireEvent.click(screen.getByRole('button', { name: /confirm attendance/i }));
 
     await waitFor(() => {
-      expect(screen.getByText(/Confirmation code: 38F7A2C17DE0/)).toBeInTheDocument();
+      expect(screen.getByText('Your attendance is confirmed.')).toBeInTheDocument();
     });
+    expect(screen.getByText('A confirmation was sent to aysel@example.com.')).toBeInTheDocument();
 
-    const img = screen.getByAltText('Registration QR code') as HTMLImageElement;
+    const img = screen.getByAltText('Entry QR code') as HTMLImageElement;
     expect(img.src).toContain('api.qrserver.com');
     expect(img.src).toContain(encodeURIComponent('38F7A2C17DE0'));
     expect(img.width).toBe(200);
-    expect(screen.getByText('Show this QR code at the entrance')).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'Your QR entry code was created. Show this code at the door on the event day.',
+      ),
+    ).toBeInTheDocument();
   });
 });

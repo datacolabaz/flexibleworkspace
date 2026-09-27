@@ -41,4 +41,11 @@ describe('LanguageSwitcher', () => {
     fireEvent.change(screen.getByLabelText('Language'), { target: { value: 'ru' } });
     expect(replaceMock).toHaveBeenCalledWith('/login', { locale: 'ru' });
   });
+
+  it('keeps the language select capped so it cannot grow into neighbouring header controls', () => {
+    renderSwitcher();
+    const select = screen.getByLabelText('Language');
+    expect(select.className).toMatch(/sm:max-w-\[8\.5rem\]/);
+    expect(select.className).not.toMatch(/lg:max-w-none/);
+  });
 });

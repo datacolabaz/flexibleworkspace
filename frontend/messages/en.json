@@ -21,7 +21,7 @@
     "menuMyAccount": "My account",
     "menuMyBookings": "My bookings",
     "menuMyEvents": "My events",
-    "menuMyRsvps": "My RSVPs",
+    "menuMyRsvps": "My attendances",
     "menuMyFavorites": "My favorites",
     "menuBecomeProvider": "Become a provider / List a space",
     "menuProviderDashboard": "Provider dashboard",
@@ -368,8 +368,8 @@
       "emptyTitle": "You haven't created any events yet.",
       "emptyCta": "Create event",
       "loadError": "Failed to load events. Please try again.",
-      "rsvpCount": "{count} / {capacity} seats",
-      "rsvpCountUnlimited": "{count} registrations",
+      "rsvpCount": "{count} / {capacity} attendees",
+      "rsvpCountUnlimited": "{count} attendees",
       "editCta": "Edit",
       "viewCta": "View",
       "status": {
@@ -703,7 +703,7 @@
           "body": "Options matched by activity, district, time and group size."
         },
         "book": {
-          "title": "Book and RSVP",
+          "title": "Book and register",
           "body": "Clear price, policies, confirmation and calendar add."
         },
         "grow": {
@@ -794,7 +794,7 @@
   },
   "eventsPage": {
     "metaTitle": "Events and organizers — Spotva",
-    "metaDescription": "Connect workshops, training, seminars, podcasts and communities with spaces, RSVP and organizer tools.",
+    "metaDescription": "Connect workshops, training, seminars, podcasts and communities with spaces, registration and organizer tools.",
     "badge": "For organizers",
     "title": "From event idea to attendee check-in",
     "subtitle": "Find a venue, publish the event, manage registration and retain your audience for the next session.",
@@ -835,14 +835,14 @@
       },
       "publish": {
         "title": "Publish",
-        "body": "Publish with free RSVP and ticket types."
+        "body": "Publish with free attendance confirmation and ticket types."
       },
       "manage": {
         "title": "Manage",
         "body": "QR check-in, attendee list and analytics."
       }
     },
-    "betaNote": "Create an event, find a venue, take free tickets and RSVPs, and check attendees in with QR.",
+    "betaNote": "Create an event, find a venue, take free tickets and attendance confirmations, and check attendees in with QR.",
     "createEventCta": "Create event",
     "listTitle": "Upcoming events",
     "listEmpty": "No events yet.",
@@ -893,7 +893,7 @@
     "visibilityPrivate": "Private",
     "startAtLabel": "Start date & time",
     "endAtLabel": "End date & time",
-    "rsvpDeadlineLabel": "RSVP deadline (optional)",
+    "rsvpDeadlineLabel": "Registration deadline (optional)",
     "doorsOpenAtLabel": "Doors open (optional)",
     "timezoneNote": "All times in Asia/Baku timezone.",
     "venueOptionA": "I already have a venue",
@@ -924,19 +924,21 @@
     "publishError": "Failed to publish. Please check your info."
   },
   "eventDetail": {
-    "rsvpButtonLabel": "Free registration",
-    "rsvpSoldOut": "Sold out",
+    "rsvpButtonLabel": "Confirm attendance",
+    "rsvpButtonPublic": "Register for the event",
+    "rsvpSoldOut": "No seats left",
     "rsvpCancelled": "Cancelled",
-    "rsvpModalTitle": "Register",
+    "rsvpModalTitle": "Event registration",
     "nameLabel": "Your name",
     "emailLabel": "Email",
     "phoneLabel": "Phone (optional)",
-    "submitRsvp": "Complete registration",
+    "submitRsvp": "Confirm attendance",
     "submittingRsvp": "Submitting…",
-    "rsvpSuccess": "Registration complete!",
+    "rsvpSuccess": "Your attendance is confirmed.",
+    "rsvpSuccessEmail": "A confirmation was sent to {email}.",
     "rsvpCodeNote": "Save this code — you'll need it at check-in.",
-    "rsvpQrAlt": "Registration QR code",
-    "rsvpQrHint": "Show this QR code at the entrance",
+    "rsvpQrAlt": "Entry QR code",
+    "rsvpQrHint": "Your QR entry code was created. Show this code at the door on the event day.",
     "rsvpClose": "Close",
     "rsvpError": "Registration failed. Please try again.",
     "rsvpErrorGeneric": "Something went wrong. Please try again.",
@@ -958,7 +960,7 @@
     "dateTime": "Date & time",
     "doorsOpen": "Doors open",
     "format": "Format",
-    "rsvpDeadline": "RSVP deadline",
+    "rsvpDeadline": "Registration deadline",
     "notFound": "Event not found.",
     "notFoundHint": "This event does not exist or has been removed.",
     "backToEvents": "Back to events",
@@ -1020,7 +1022,7 @@
       "title": "Organizer and educator",
       "rows": {
         "free": {
-          "name": "Free RSVP",
+          "name": "Free registration",
           "price": "0 AZN",
           "includes": "Event page, capacity, waitlist and reminders",
           "why": "Accelerates community adoption."

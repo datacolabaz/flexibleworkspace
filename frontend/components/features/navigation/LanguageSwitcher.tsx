@@ -26,20 +26,17 @@ export function LanguageSwitcher() {
   }
 
   return (
-    <div>
+    <div className="shrink-0">
       <label htmlFor="language-switcher" className="sr-only">
         {t('language')}
       </label>
-      {/* Capped + truncated below `sm` (08_DESIGN_SYSTEM.md §8.6: no
-       * horizontal overflow at 390/375px) — the longest label
-       * ("Azərbaycanca") otherwise pushes the header wider than a phone
-       * viewport before the language switcher even shares space with the
-       * theme toggle and hamburger next to it. */}
+      {/* Always capped so "Azərbaycanca" cannot expand into AccountMenu
+       * or signed-in nav CTAs. Truncation stays below `sm` for 390px. */}
       <Select
         id="language-switcher"
         value={selected}
         onChange={handleChange}
-        className="max-w-[6.5rem] truncate pr-6 sm:max-w-[7.5rem] sm:pr-8 lg:max-w-none"
+        className="max-w-[6.5rem] truncate pr-6 sm:max-w-[8.5rem] sm:pr-8"
       >
         {SWITCHABLE_LOCALES.map((loc) => (
           <option key={loc} value={loc}>

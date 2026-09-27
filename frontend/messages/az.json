@@ -21,7 +21,7 @@
     "menuMyAccount": "Hesabım",
     "menuMyBookings": "Rezervasiyalarım",
     "menuMyEvents": "Tədbirlərim",
-    "menuMyRsvps": "RSVP-lərim",
+    "menuMyRsvps": "İştiraklarım",
     "menuMyFavorites": "Sevimlilərim",
     "menuBecomeProvider": "Provider olmaq / Məkan əlavə et",
     "menuProviderDashboard": "Provider paneli",
@@ -368,8 +368,8 @@
       "emptyTitle": "Hələ heç bir tədbir yaratmamısınız.",
       "emptyCta": "Tədbir yarat",
       "loadError": "Tədbirlər yüklənmədi. Zəhmət olmasa yenidən cəhd edin.",
-      "rsvpCount": "{count} / {capacity} yer",
-      "rsvpCountUnlimited": "{count} qeydiyyat",
+      "rsvpCount": "{count} / {capacity} iştirakçı",
+      "rsvpCountUnlimited": "{count} iştirakçı",
       "editCta": "Redaktə et",
       "viewCta": "Bax",
       "status": {
@@ -385,7 +385,7 @@
     },
     "tickets": {
       "title": "Biletlərim",
-      "buy": "Al",
+      "buy": "Bilet al",
       "free": "Pulsuz",
       "showQr": "QR kodu göstər",
       "hideQr": "Gizlət",
@@ -812,7 +812,7 @@
           "body": "Fəaliyyət, rayon, vaxt və iştirakçı sayına uyğun seçimlər."
         },
         "book": {
-          "title": "Bron və RSVP",
+          "title": "Bron və qeydiyyat",
           "body": "Aydın qiymət, qayda, təsdiq və təqvimə əlavə etmə."
         },
         "grow": {
@@ -903,7 +903,7 @@
   },
   "eventsPage": {
     "metaTitle": "Tədbirlər və təşkilatçılar — Spotva",
-    "metaDescription": "Workshop, təlim, seminar, podkast və icma formatlarını məkan, RSVP və təşkilatçı alətləri ilə birləşdirin.",
+    "metaDescription": "Workshop, təlim, seminar, podkast və icma formatlarını məkan, qeydiyyat və təşkilatçı alətləri ilə birləşdirin.",
     "badge": "Təşkilatçılar üçün",
     "title": "Tədbirin ideyasından iştirakçının check-in-inə qədər",
     "subtitle": "Məkanı tapın, tədbiri dərc edin, qeydiyyatı idarə edin və növbəti sessiya üçün auditoriyanızı qoruyun.",
@@ -944,14 +944,14 @@
       },
       "publish": {
         "title": "Dərc et",
-        "body": "Pulsuz RSVP və bilet tipləri ilə tədbiri dərc edin."
+        "body": "Pulsuz iştirak təsdiqi və bilet tipləri ilə tədbiri dərc edin."
       },
       "manage": {
         "title": "İdarə et",
         "body": "QR check-in, iştirakçı siyahısı və analitika."
       }
     },
-    "betaNote": "Tədbir yaradın, məkan tapın, pulsuz bilet və RSVP qəbul edin, QR check-in ilə girişə nəzarət edin.",
+    "betaNote": "Tədbir yaradın, məkan tapın, pulsuz bilet və iştirak təsdiqi qəbul edin, QR check-in ilə girişə nəzarət edin.",
     "createEventCta": "Tədbir yarat",
     "listTitle": "Yaxınlaşan tədbirlər",
     "listEmpty": "Hələ heç bir tədbir yoxdur.",
@@ -1052,19 +1052,21 @@
     "coverUrlError": "Şəkil linki düzgün deyil."
   },
   "eventDetail": {
-    "rsvpButtonLabel": "Pulsuz qeydiyyat",
-    "rsvpSoldOut": "Yerlər bitib",
+    "rsvpButtonLabel": "İştirakını təsdiqlə",
+    "rsvpButtonPublic": "Tədbirə qeydiyyatdan keç",
+    "rsvpSoldOut": "Yer qalmayıb",
     "rsvpCancelled": "Ləğv edildi",
-    "rsvpModalTitle": "Qeydiyyat",
+    "rsvpModalTitle": "Tədbir qeydiyyatı",
     "nameLabel": "Adınız",
     "emailLabel": "E-poçt",
     "phoneLabel": "Telefon (könüllü)",
-    "submitRsvp": "Qeydiyyatı tamamla",
+    "submitRsvp": "İştirakı təsdiqlə",
     "submittingRsvp": "Göndərilir…",
-    "rsvpSuccess": "Qeydiyyat tamamlandı!",
+    "rsvpSuccess": "İştirakınız təsdiqləndi.",
+    "rsvpSuccessEmail": "Təsdiq {email} ünvanına göndərildi.",
     "rsvpCodeNote": "Bu kodu yadda saxlayın — giriş zamanı lazım olacaq.",
-    "rsvpQrAlt": "Qeydiyyat QR kodu",
-    "rsvpQrHint": "Bu QR kodu girişdə göstərin",
+    "rsvpQrAlt": "Giriş QR kodu",
+    "rsvpQrHint": "QR giriş kodunuz yaradıldı. Tədbir günü bu kodu girişdə göstərin.",
     "rsvpClose": "Bağla",
     "rsvpError": "Qeydiyyat alınmadı. Yenidən cəhd edin.",
     "rsvpErrorGeneric": "Nəsə səhv getdi. Yenidən cəhd edin.",
@@ -1148,9 +1150,9 @@
       "title": "Təşkilatçı və müəllim",
       "rows": {
         "free": {
-          "name": "Pulsuz RSVP",
+          "name": "Pulsuz qeydiyyat",
           "price": "0 AZN",
-          "includes": "Tədbir səhifəsi, limit, waitlist və xatırlatma",
+          "includes": "Tədbir səhifəsi, tutum, gözləmə siyahısı və xatırlatma",
           "why": "İcmaların platformaya keçməsini sürətləndirir."
         },
         "paid": {
