@@ -35,6 +35,8 @@ import { LeadsModule } from './modules/leads/leads.module';
 import { PlanUpgradeRequestsModule } from './modules/plan-upgrade-requests/plan-upgrade-requests.module';
 import { EventsModule } from './modules/events/events.module';
 import { PromoModule } from './modules/promo/promo.module';
+import { ReferralsModule } from './modules/referrals/referral-links.module';
+import { RewardsModule } from './modules/rewards/rewards.module';
 
 @Module({
   imports: [
@@ -93,6 +95,8 @@ import { PromoModule } from './modules/promo/promo.module';
     PlanUpgradeRequestsModule,
     EventsModule,
     PromoModule,
+    ReferralsModule,
+    RewardsModule,
   ],
   controllers: [AppController],
   providers: [
