@@ -62,15 +62,15 @@ export function AccountMenu({
   }, [open]);
 
   return (
-    <div className="relative hidden sm:block" ref={containerRef}>
+    <div className="relative z-50 hidden overflow-visible sm:block" ref={containerRef}>
       <button
         type="button"
         aria-label={t('accountMenu')}
-        aria-haspopup="true"
+        aria-haspopup="menu"
         aria-expanded={open}
         aria-controls="account-menu-panel"
         onClick={() => setOpen((value) => !value)}
-        className="inline-flex min-h-11 max-w-[10rem] min-w-0 items-center gap-2 overflow-hidden rounded-md bg-accent px-3 text-label font-semibold text-accent-on hover:bg-accent-hover lg:px-4"
+        className="inline-flex min-h-11 max-w-[11rem] min-w-0 items-center gap-1.5 rounded-md bg-accent px-3 text-label font-semibold text-accent-on hover:bg-accent-hover lg:px-4"
       >
         {initials && (
           <span
@@ -81,12 +81,19 @@ export function AccountMenu({
           </span>
         )}
         <span className="min-w-0 truncate">{label}</span>
+        <span
+          aria-hidden="true"
+          className="shrink-0 text-xs leading-none transition-transform duration-200"
+          style={{ display: 'inline-block', transform: open ? 'rotate(180deg)' : 'rotate(0deg)' }}
+        >
+          ▾
+        </span>
       </button>
 
       {open && (
         <div
           id="account-menu-panel"
-          className="absolute right-0 top-full z-50 mt-2 w-64 max-w-[calc(100vw-1.5rem)] rounded-md border border-border bg-surface p-2 shadow-md"
+          className="absolute right-0 top-full z-[60] mt-2 w-64 max-w-[calc(100vw-1.5rem)] rounded-md border border-border bg-surface p-2 shadow-md"
         >
           <nav aria-label={t('accountMenu')} className="flex flex-col gap-1">
             {items.map((item, index) => {

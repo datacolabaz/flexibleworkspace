@@ -114,8 +114,8 @@ export async function Header() {
       >
         {t('skipToContent')}
       </a>
-      <header className="sticky top-0 z-40 border-b border-border bg-surface">
-        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-2 px-3 sm:gap-4 sm:px-4">
+      <header className="sticky top-0 z-40 overflow-visible border-b border-border bg-surface">
+        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-2 overflow-visible px-3 sm:gap-4 sm:px-4">
           <Link
             href="/"
             aria-label={t('home')}

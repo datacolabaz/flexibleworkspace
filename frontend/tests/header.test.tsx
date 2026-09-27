@@ -152,6 +152,10 @@ describe('Header', () => {
     accessTokenCookieValue = 'a-real-access-token';
     await renderHeader();
     expect(screen.queryByRole('link', { name: 'Log in' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Account' })).not.toBeInTheDocument();
+    const trigger = screen.getByRole('button', { name: 'Account menu' });
+    expect(trigger).toHaveTextContent('▾');
+    expect(trigger.tagName).toBe('BUTTON');
     openAccountMenu();
     expect(screen.getByRole('link', { name: 'My account' })).toHaveAttribute('href', '/account/profile');
     expect(screen.getByRole('link', { name: 'My bookings' })).toHaveAttribute('href', '/account/bookings');

@@ -44,6 +44,14 @@ describe('AccountMenu', () => {
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ success: true }), { status: 200 })));
   });
 
+  it('keeps a visible chevron on the trigger so it is not mistaken for a single Account link', () => {
+    renderMenu(false);
+    const trigger = screen.getByRole('button', { name: 'Account menu' });
+    expect(trigger).toHaveAttribute('aria-haspopup', 'menu');
+    expect(trigger).toHaveTextContent('▾');
+    expect(screen.queryByRole('link', { name: 'My bookings' })).not.toBeInTheDocument();
+  });
+
   it('does not render role-exclusive links while provider status is unknown (loading)', () => {
     renderMenu(undefined);
     fireEvent.click(screen.getByRole('button', { name: 'Account menu' }));
