@@ -32,8 +32,8 @@
     "createEvent": "Tədbir yarat"
   },
   "hero": {
-    "title": "Spotva — nə etmək istəyirsənsə, ona uyğun məkanı tap.",
-    "subtitle": "Foto çəkilişi, podcast, coworking, görüş, təlim, workshop və tədbirlər üçün məkanları kəşf et, müqayisə et və rezerv et.",
+    "title": "Nə etmək istəyirsən, ona uyğun məkanı tap.",
+    "subtitle": "Podcast, foto/video çəkilişi, görüş, coworking, təlim, workshop və tədbirlər üçün məkanları kəşf et, müqayisə et və rezerv et.",
     "searchPlaceholder": "Hansı məkana ehtiyacınız var?",
     "searchButton": "Axtar"
   },
@@ -762,13 +762,13 @@
     "metaTitle": "Spotva — Bakıda məkan, tədbir və icma kəşfi",
     "metaDescription": "Workshop, görüş, təlim, tədbir və podkast üçün məkan tapın; tədbirlərə qoşulun və ya öz fəaliyyətinizi təşkil edin.",
     "eyebrow": "Bakıdan başlayan real-həyat platforması",
-    "title": "Spotva — nə etmək istəyirsənsə, ona uyğun məkanı tap.",
-    "subtitle": "Foto çəkilişi, podcast, coworking, görüş, təlim, workshop və tədbirlər üçün məkanları kəşf et, müqayisə et və rezerv et.",
+    "title": "Nə etmək istəyirsən, ona uyğun məkanı tap.",
+    "subtitle": "Podcast, foto/video çəkilişi, görüş, coworking, təlim, workshop və tədbirlər üçün məkanları kəşf et, müqayisə et və rezerv et.",
     "quickLabel": "Tez axtarış:",
     "search": {
       "ariaLabel": "Spotva-da məkan axtar",
-      "purposeLabel": "Fəaliyyət",
-      "purposeAny": "Nə etmək istəyirsiniz?",
+      "purposeLabel": "Nə etmək istəyirsən?",
+      "purposeAny": "Məsələn: 10 nəfərlik podcast üçün məkan",
       "cityLabel": "Şəhər",
       "cityPlaceholder": "Bakı",
       "dateLabel": "Tarix",

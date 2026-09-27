@@ -24,14 +24,14 @@ describe('HomeSearchForm', () => {
   it('starts with the launch city while leaving intent, date and guests optional', () => {
     renderSearch();
     expect(screen.getByLabelText('City')).toHaveValue('Bakı');
-    expect(screen.getByLabelText('Activity')).toHaveValue('');
+    expect(screen.getByLabelText('What do you want to do?')).toHaveValue('');
     expect(screen.getByLabelText('Date')).toHaveValue('');
     expect(screen.getByLabelText('Guests')).toHaveValue(null);
   });
 
   it('hands purpose as marketplace category on the existing search URL contract', () => {
     renderSearch();
-    fireEvent.change(screen.getByLabelText('Activity'), { target: { value: 'PODCAST_RECORDING' } });
+    fireEvent.change(screen.getByLabelText('What do you want to do?'), { target: { value: 'PODCAST_RECORDING' } });
     fireEvent.change(screen.getByLabelText('City'), { target: { value: 'Baku' } });
     fireEvent.change(screen.getByLabelText('Date'), { target: { value: '2026-10-10' } });
     fireEvent.change(screen.getByLabelText('Guests'), { target: { value: '10' } });
