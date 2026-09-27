@@ -155,7 +155,7 @@
 
 :root {
   /* ---- Typography ---- */
-  --font-display: 'Fraunces', Georgia, 'Times New Roman', serif;   /* H1–H3, wordmark, hero */
+  --font-display: 'Fraunces', 'Golos Text', Georgia, 'Times New Roman', serif;   /* H1–H3, wordmark, hero */
   --font-body: 'Golos Text', system-ui, -apple-system, 'Segoe UI', sans-serif; /* everything else */
 
   --text-h1-size: 40px;   --text-h1-line: 48px;   --text-h1-weight: 600;

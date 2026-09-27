@@ -21,6 +21,9 @@ import { AdminDashboardController } from './admin-dashboard.controller';
 import { AdminPricingController } from './admin-pricing.controller';
 import { AdminCancellationPolicyController } from './admin-cancellation-policy.controller';
 import { AdminAnalyticsController } from './admin-analytics.controller';
+import { AdminAdsController } from './admin-ads.controller';
+import { AdminSiteSettingsController } from './admin-site-settings.controller';
+import { AdsModule } from '../ads/ads.module';
 
 import { AdminSearchService } from './admin-search.service';
 import { AdminUsersService } from './admin-users.service';
@@ -58,6 +61,7 @@ import { AdminCancellationPolicyService } from './admin-cancellation-policy.serv
     ]),
     AuditModule,
     AnalyticsModule,
+    AdsModule,
   ],
   controllers: [
     AdminSearchController,
@@ -69,6 +73,8 @@ import { AdminCancellationPolicyService } from './admin-cancellation-policy.serv
     AdminPricingController,
     AdminCancellationPolicyController,
     AdminAnalyticsController,
+    AdminAdsController,
+    AdminSiteSettingsController,
   ],
   providers: [
     AdminSearchService,

@@ -51,7 +51,12 @@
     "ecosystemTitle": "Ekosistem",
     "partners": "Tərəfdaşlar",
     "privacy": "Məxfilik",
-    "dataDeletion": "Məlumatların silinməsi"
+    "dataDeletion": "Məlumatların silinməsi",
+    "socialTitle": "Sosial şəbəkələr",
+    "socialInstagram": "Spotva Instagram",
+    "socialFacebook": "Spotva Facebook",
+    "socialTiktok": "Spotva TikTok",
+    "socialLinkedin": "Spotva LinkedIn"
   },
   "common": {
     "comingSoon": "Tezliklə."
@@ -873,8 +878,8 @@
         "noPhoto": "Şəkil yoxdur",
         "disclaimer": "Admin tərəfindən seçilmiş, canlı məkanlar.",
         "emptyEyebrow": "Məkan nümunələri",
-        "emptyTitle": "İlk seçilmiş məkanlar tezliklə burada",
-        "emptyBody": "Məkanınızı əlavə edin və ilk seçilmiş provayderlərdən biri olun.",
+        "emptyTitle": "Məkanlar tezliklə burada",
+        "emptyBody": "Bakıda podcast, workshop, görüş və tədbir üçün məkanlar tezliklə burada görünəcək. Məkanınızı əlavə edin və ilk provayderlərdən biri olun.",
         "emptyCta": "Məkanını əlavə et"
       },
       "upcoming": {
@@ -910,17 +915,23 @@
         }
       },
       "community": {
-        "eyebrow": "İcma fokusu",
+        "eyebrow": "İcma",
         "name": "Mentor və təşkilatçılar",
         "role": "Təlim · Yaradıcılıq · Bakı",
         "body": "Təsdiqlənmiş profillər, tədbir seriyaları və iştirakçı rəyləri eyni ekosistemdə.",
+        "compactTitle": "İcma və tərəfdaşlar",
         "cta": "Ekosistemi gör"
       },
       "map": {
-        "title": "Bakı xəritəsi",
-        "cta": "Xəritəni aç",
+        "eyebrow": "Xəritə",
+        "title": "Məkanları xəritədə tap",
+        "cta": "Axtarışa keç",
         "ariaLabel": "Bakı üzrə məkanların xəritəsini aç"
       }
+    },
+    "ads": {
+      "ariaLabel": "Sponsorlu yerləşdirmə",
+      "clickLabel": "{advertiser} reklamı"
     }
   },
   "eventsPage": {

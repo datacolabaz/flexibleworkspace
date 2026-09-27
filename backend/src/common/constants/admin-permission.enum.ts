@@ -84,6 +84,8 @@ export const ROLE_PERMISSIONS: Partial<Record<RoleName, AdminPermission[]>> = {
     AdminPermission.PARTNER_APPROVE,
     AdminPermission.CANCELLATION_POLICY_READ,
     AdminPermission.CANCELLATION_POLICY_UPDATE,
+    AdminPermission.CMS_UPDATE,
+    AdminPermission.SETTINGS_UPDATE,
     AdminPermission.AUDIT_READ,
   ],
   [RoleName.FINANCE_ADMIN]: [
@@ -102,6 +104,7 @@ export const ROLE_PERMISSIONS: Partial<Record<RoleName, AdminPermission[]>> = {
   [RoleName.CONTENT_ADMIN]: [
     AdminPermission.TAXONOMY_UPDATE,
     AdminPermission.CMS_UPDATE,
+    AdminPermission.SETTINGS_UPDATE,
     AdminPermission.AUDIT_READ,
   ],
   [RoleName.SUPPORT_ADMIN]: [

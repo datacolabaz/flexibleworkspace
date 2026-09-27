@@ -366,3 +366,102 @@ export async function downloadAdminProviderVerificationDocument(
     contentDisposition: response.headers.get('content-disposition'),
   };
 }
+
+export type AdminAdPlacement = {
+  id: string;
+  key: string;
+  name: string;
+  rotationIntervalSeconds: number;
+};
+
+export type AdminAdCampaign = {
+  id: string;
+  placementId: string;
+  placement?: { key: string; name: string };
+  active: boolean;
+  startsAt: string | null;
+  endsAt: string | null;
+  advertiserName: string;
+  creativeUrl: string;
+  clickUrl: string;
+  weight: number;
+  creativeSize: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type AdminAdAnalyticsRow = {
+  campaignId: string;
+  advertiserName: string;
+  placementKey: string;
+  active: boolean;
+  live: boolean;
+  impressions: number;
+  clicks: number;
+  ctr: number;
+};
+
+export type AdminSiteSetting = {
+  key: string;
+  value: string;
+  updatedAt: string | null;
+  updatedBy: string | null;
+};
+
+export function listAdminAdPlacements(accessToken: string) {
+  return adminFetch<AdminAdPlacement[]>(accessToken, 'admin/ads/placements');
+}
+
+export function updateAdminAdPlacement(
+  accessToken: string,
+  id: string,
+  rotationIntervalSeconds: number,
+) {
+  return adminFetch<AdminAdPlacement>(accessToken, `admin/ads/placements/${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ rotationIntervalSeconds }),
+  });
+}
+
+export function listAdminAdCampaigns(accessToken: string) {
+  return adminFetch<AdminAdCampaign[]>(accessToken, 'admin/ads/campaigns');
+}
+
+export function createAdminAdCampaign(accessToken: string, input: Record<string, unknown>) {
+  return adminFetch<AdminAdCampaign>(accessToken, 'admin/ads/campaigns', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
+export function updateAdminAdCampaign(accessToken: string, id: string, input: Record<string, unknown>) {
+  return adminFetch<AdminAdCampaign>(accessToken, `admin/ads/campaigns/${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    body: JSON.stringify(input),
+  });
+}
+
+export function deleteAdminAdCampaign(accessToken: string, id: string) {
+  return adminFetch<{ deleted: true }>(accessToken, `admin/ads/campaigns/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+  });
+}
+
+export function getAdminAdAnalytics(accessToken: string) {
+  return adminFetch<AdminAdAnalyticsRow[]>(accessToken, 'admin/ads/analytics');
+}
+
+export function listAdminSiteSettings(accessToken: string) {
+  return adminFetch<AdminSiteSetting[]>(accessToken, 'admin/site-settings');
+}
+
+export function updateAdminSiteSettings(
+  accessToken: string,
+  settings: Record<string, string>,
+  reason?: string,
+) {
+  return adminFetch<AdminSiteSetting[]>(accessToken, 'admin/site-settings', {
+    method: 'PATCH',
+    body: JSON.stringify({ settings, reason }),
+  });
+}
