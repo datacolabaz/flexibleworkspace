@@ -18,8 +18,14 @@ export function ProviderAnalyticsPanel({ analytics }: { analytics: ProviderAnaly
 
   const tiles = [
     { label: 'Baxışlar', value: analytics.views.toLocaleString('az-AZ') },
+    { label: 'Unikal ziyarətçi', value: (analytics.uniqueVisitors ?? 0).toLocaleString('az-AZ') },
     { label: 'Rezervasiya sorğuları', value: analytics.requests.toLocaleString('az-AZ') },
     { label: 'Təsdiq faizi', value: confirmationLabel },
+    { label: 'Gross (ledger)', value: `${((analytics.grossRevenueMinor ?? 0) / 100).toFixed(2)} AZN` },
+    { label: 'Spotva komissiyası', value: `${((analytics.spotvaCommissionMinor ?? 0) / 100).toFixed(2)} AZN` },
+    { label: 'Provider net', value: `${((analytics.providerNetMinor ?? 0) / 100).toFixed(2)} AZN` },
+    { label: 'Referral klik / bron', value: `${analytics.referralClicks ?? 0} / ${analytics.referralBookings ?? 0}` },
+    { label: 'Gözləyən / ödənilmiş payout', value: `${((analytics.pendingPayoutMinor ?? 0) / 100).toFixed(2)} / ${((analytics.paidPayoutMinor ?? 0) / 100).toFixed(2)} AZN` },
   ];
 
   return (

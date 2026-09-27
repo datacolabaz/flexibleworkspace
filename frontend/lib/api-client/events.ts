@@ -247,6 +247,29 @@ export function getMyEvents(accessToken: string) {
   });
 }
 
+export type OrganizerEventAnalytics = {
+  eventId: string;
+  eventPageViews: number;
+  locationClicks: number;
+  bookingRequests: number;
+  confirmedBookings: number;
+  rsvpCount: number;
+  referralClicks: number;
+  ticketSales: number;
+  conversionRate: number | null;
+};
+
+export function getOrganizerEventAnalytics(eventId: string, accessToken: string) {
+  return fetchJson<OrganizerEventAnalytics>(
+    `${BACKEND}/organizer/events/${eventId}/analytics`,
+    {
+      method: 'GET',
+      headers: authHeaders(accessToken),
+      cache: 'no-store',
+    },
+  );
+}
+
 export function createRsvp(eventId: string, body: CreateRsvpBody, accessToken?: string) {
   return fetchJson<RsvpRecord>(`${BACKEND}/events/${eventId}/rsvp`, {
     method: 'POST',

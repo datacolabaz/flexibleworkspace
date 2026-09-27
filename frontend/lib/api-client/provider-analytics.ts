@@ -11,8 +11,20 @@ export type ProviderAnalytics = {
   providerId: string;
   periodDays: number;
   views: number;
+  uniqueVisitors: number;
   requests: number;
   confirmed: number;
+  acceptedBookings: number;
+  paidBookings: number;
+  grossRevenueMinor: number;
+  spotvaCommissionMinor: number;
+  providerNetMinor: number;
+  referralClicks: number;
+  referralBookings: number;
+  marketplaceBookings: number;
+  pendingPayoutMinor: number;
+  paidPayoutMinor: number;
+  conversionRate: number | null;
   confirmationRate: number | null;
 };
 
