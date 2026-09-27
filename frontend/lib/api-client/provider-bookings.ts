@@ -47,6 +47,10 @@ export type ProviderBooking = {
   cancelledAt: string | null;
   completedAt: string | null;
   items: ProviderBookingItem[];
+  /** Signed ledger sums in minor units; null until commission is posted. */
+  ledgerGrossAmount?: string | null;
+  ledgerPlatformFeeAmount?: string | null;
+  ledgerProviderNetAmount?: string | null;
 };
 
 export type ProviderPayoutBalance = {

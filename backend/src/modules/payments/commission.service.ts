@@ -36,10 +36,8 @@ export class CommissionService {
    * purpose: every rule that could apply (provider-specific, promotional,
    * category, or platform-default) and is currently within its optional
    * time window is a candidate; the highest-priority candidate wins. This
-   * lets an admin express "provider override beats category beats
-   * platform default" (the documented order) by seeding priorities in that
-   * order, or override it deliberately for a specific promotion, without
-   * hardcoding scope precedence in code.
+   * `provider.commission_percentage` is not consulted (deprecated orphan
+   * column). Rates come only from `commission_rule`.
    */
   private async resolveCommissionRule(
     manager: EntityManager,

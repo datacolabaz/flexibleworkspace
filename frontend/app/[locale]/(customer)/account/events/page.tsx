@@ -2,7 +2,7 @@ import { cookies } from 'next/headers';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { Link } from '@/lib/i18n/navigation';
 import { readSession } from '@/lib/auth/session';
-import { getMyEvents } from '@/lib/api-client/events';
+import { getMyEvents, getOrganizerEventAnalytics } from '@/lib/api-client/events';
 import { Badge } from '@/components/ui/Badge';
 import type { BadgeVariant } from '@/components/ui/Badge';
 import { LinkButton } from '@/components/ui/LinkButton';
@@ -44,11 +44,20 @@ export default async function AccountEventsPage({
   const { accessToken } = readSession(store);
 
   let events: Awaited<ReturnType<typeof getMyEvents>> = [];
+  const analyticsByEvent: Record<string, Awaited<ReturnType<typeof getOrganizerEventAnalytics>>> = {};
   let loadError = false;
 
   if (accessToken) {
     try {
       events = await getMyEvents(accessToken);
+      const settled = await Promise.allSettled(
+        events.map((event) => getOrganizerEventAnalytics(event.id, accessToken)),
+      );
+      settled.forEach((result, index) => {
+        if (result.status === 'fulfilled') {
+          analyticsByEvent[events[index].id] = result.value;
+        }
+      });
     } catch {
       loadError = true;
     }
@@ -93,6 +102,14 @@ export default async function AccountEventsPage({
                     ? t('rsvpCount', { count: event.rsvpCount ?? 0, capacity: event.capacity })
                     : t('rsvpCountUnlimited', { count: event.rsvpCount ?? 0 })}
                 </p>
+                {analyticsByEvent[event.id] && (
+                  <p className="text-caption text-text-muted">
+                    Baxış: {analyticsByEvent[event.id].eventPageViews}
+                    {' · '}Bron: {analyticsByEvent[event.id].bookingRequests}
+                    {' · '}Təsdiq: {analyticsByEvent[event.id].confirmedBookings}
+                    {' · '}Referral klik: {analyticsByEvent[event.id].referralClicks}
+                  </p>
+                )}
               </div>
 
               <div className="flex shrink-0 gap-2">

@@ -10,6 +10,7 @@ import { PartnersService } from './partners.service';
 import { ReferralCampaignsService } from './referral-campaigns.service';
 import { ReferralTrackingService } from './referral-tracking.service';
 import { PartnerAnalyticsService } from './partner-analytics.service';
+import { ReferralsModule } from '../referrals/referral-links.module';
 
 import { AdminPartnersController } from './admin-partners.controller';
 import { ReferralTrackingController } from './referral-tracking.controller';
@@ -33,6 +34,7 @@ import { PayoutsModule } from '../payouts/payouts.module';
     ]),
     AuditModule,
     PayoutsModule, // PartnerAnalyticsService reuses PayoutsService.getBalance rather than re-deriving payout eligibility math
+    ReferralsModule,
   ],
   controllers: [AdminPartnersController, ReferralTrackingController],
   providers: [

@@ -14,6 +14,8 @@ import { AppUserEntity } from '../auth/entities/app-user.entity';
 import { NotificationsService } from '../notifications/notifications.service';
 import { ProvidersService } from '../providers/providers.service';
 import { PromoService } from '../promo/promo.service';
+import { BookingAttributionService } from './booking-attribution.service';
+import { RlsContextService } from '../../database/rls-context.service';
 import { ProviderVerificationStatus } from '../../common/constants/provider.enum';
 import { BookingRejectionReason } from '../../common/constants/booking-rejection-reason.enum';
 import {
@@ -56,6 +58,8 @@ export class BookingsService {
     private readonly notificationsService: NotificationsService,
     private readonly providersService: ProvidersService,
     private readonly promoService: PromoService,
+    private readonly bookingAttributionService: BookingAttributionService,
+    private readonly rlsContext: RlsContextService,
   ) {}
 
   /**
@@ -69,6 +73,7 @@ export class BookingsService {
     customerUserId: string | null,
     dto: CreateBookingDto,
     attributionToken?: string | null,
+    ownReferralToken?: string | null,
   ): Promise<BookingEntity> {
     const startAt = new Date(dto.startAt);
     const endAt = new Date(dto.endAt);
@@ -171,10 +176,21 @@ export class BookingsService {
       }
     }
 
+    const locationRows = await this.dataSource.query(
+      `SELECT id, provider_id AS "providerId" FROM location WHERE id = $1`,
+      [room.locationId],
+    );
+    const locationId: string = locationRows[0]?.id ?? room.locationId;
+    const providerId: string | null = locationRows[0]?.providerId ?? null;
+
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
     await queryRunner.startTransaction();
     try {
+      // Guest checkout has no JWT; RLS booking_insert requires current_user_id.
+      await this.rlsContext.applyToQueryRunner(queryRunner, {
+        userId: resolvedCustomerId,
+      });
       const now = new Date();
       const booking = queryRunner.manager.create(BookingEntity, {
         customerUserId: resolvedCustomerId,
@@ -221,6 +237,18 @@ export class BookingsService {
         savedBooking.id,
         attributionToken,
       );
+
+      if (providerId) {
+        await this.bookingAttributionService.snapshot(queryRunner.manager, {
+          bookingId: savedBooking.id,
+          locationId,
+          providerId,
+          partnerAttributionToken: attributionToken,
+          ownReferralToken,
+          claimedEventId: resolvedAttributionEventId,
+          claimedReferralSource: resolvedAttributionSource,
+        });
+      }
 
       await queryRunner.commitTransaction();
       savedBooking.items = [item];
@@ -556,7 +584,38 @@ export class BookingsService {
       relations: ['items'],
     });
     const byId = new Map(bookings.map((b) => [b.id, b]));
-    return ids.map((id) => byId.get(id)).filter((b): b is BookingEntity => !!b);
+    const ordered = ids
+      .map((id) => byId.get(id))
+      .filter((b): b is BookingEntity => !!b);
+
+    const ledgerRows: {
+      bookingId: string;
+      gross: string;
+      fee: string;
+      net: string;
+    }[] = await this.dataSource.query(
+      `SELECT booking_id AS "bookingId",
+              COALESCE(SUM(amount) FILTER (WHERE entry_type = 'GROSS'), 0)::text AS gross,
+              COALESCE(SUM(amount) FILTER (WHERE entry_type = 'PLATFORM_FEE'), 0)::text AS fee,
+              COALESCE(SUM(amount) FILTER (WHERE entry_type = 'PROVIDER_NET'), 0)::text AS net
+       FROM ledger_entry
+       WHERE booking_id = ANY($1::uuid[])
+         AND provider_id = $2
+       GROUP BY booking_id`,
+      [ids, providerId],
+    );
+    const ledgerByBooking = new Map(
+      ledgerRows.map((r) => [r.bookingId, r]),
+    );
+    for (const booking of ordered) {
+      const ledger = ledgerByBooking.get(booking.id);
+      Object.assign(booking, {
+        ledgerGrossAmount: ledger?.gross ?? null,
+        ledgerPlatformFeeAmount: ledger?.fee ?? null,
+        ledgerProviderNetAmount: ledger?.net ?? null,
+      });
+    }
+    return ordered;
   }
 
   /**

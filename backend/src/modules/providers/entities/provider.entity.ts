@@ -60,6 +60,11 @@ export class ProviderEntity {
   })
   verificationStatus: ProviderVerificationStatus;
 
+  /**
+   * Deprecated: commission is resolved from `commission_rule` via
+   * CommissionService, not this column. Kept for backward compatibility —
+   * do not delete without a dedicated migration review.
+   */
   @Column({
     name: 'commission_percentage',
     type: 'numeric',

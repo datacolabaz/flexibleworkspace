@@ -6,7 +6,8 @@ import { LedgerEntryType } from '../../../common/constants/payment.enum';
  * 32_PARTNER_REFERRAL_DDL.sql / ADR-010). Append-only — no updated_at, no
  * deleted_at (14_PAYOUT_LEDGER.md §14.2), and this service layer never
  * issues an UPDATE or DELETE against this table; a correction is always a
- * new offsetting row (REFUND/ADJUSTMENT).
+ * new offsetting row (REFUND/ADJUSTMENT). `provider.commission_percentage`
+ * is unused — CommissionService reads `commission_rule` only.
  *
  * Exactly one of `providerId` / `partnerId` is set on every row — enforced
  * by the DB's `chk_ledger_entry_payee_exclusive` CHECK constraint (ADR-010).

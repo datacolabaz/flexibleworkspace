@@ -15,6 +15,8 @@ import type { Request, Response } from 'express';
 import { ReferralTrackingService } from './referral-tracking.service';
 import { Public } from '../../common/decorators/public.decorator';
 import { REFERRAL_ATTRIBUTION_COOKIE_NAME } from '../../common/constants/partner.enum';
+import { OWN_REFERRAL_COOKIE_NAME } from '../../common/constants/attribution.enum';
+import { ReferralLinksService } from '../referrals/referral-links.service';
 
 /** Only a same-origin-relative path is ever honored — `to=https://evil.example` or `to=//evil.example` would turn a trusted marketplace link into an open redirect, so anything else falls back to the homepage. */
 function sanitizeLandingPath(to: unknown): string {
@@ -35,6 +37,7 @@ function sanitizeLandingPath(to: unknown): string {
 export class ReferralTrackingController {
   constructor(
     private readonly trackingService: ReferralTrackingService,
+    private readonly referralLinksService: ReferralLinksService,
     private readonly configService: ConfigService,
   ) {}
 
@@ -72,11 +75,21 @@ export class ReferralTrackingController {
         maxAge: result.attributionWindowDays * 86_400_000,
         path: '/',
       });
+    } else {
+      const own = await this.referralLinksService.trackClick({
+        code,
+        landingPath,
+      });
+      if (own) {
+        res.cookie(OWN_REFERRAL_COOKIE_NAME, own.attributionToken, {
+          httpOnly: true,
+          secure: this.configService.get<string>('nodeEnv') === 'production',
+          sameSite: 'lax',
+          maxAge: own.attributionWindowDays * 86_400_000,
+          path: '/',
+        });
+      }
     }
-    // An invalid/unknown code, a paused/ended campaign, or a suspended
-    // partner all fall through to here with `result === null` — no cookie
-    // set, but still a normal redirect to the marketplace rather than an
-    // error page (§31.4's flow step 2 doc comment on trackClick).
 
     const base = this.configService.get<string>('corsOrigin') ?? '/';
     res.redirect(HttpStatus.FOUND, `${base}${landingPath}`);
