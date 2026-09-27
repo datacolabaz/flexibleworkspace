@@ -5,6 +5,9 @@ import { Link } from '@/lib/i18n/navigation';
 import { HomeSearchForm } from '@/components/features/search/HomeSearchForm';
 import { LinkButton } from '@/components/ui/LinkButton';
 import { getFeaturedRooms } from '@/lib/api-client/featured';
+import { getAdSlot, HOMEPAGE_SIDEBAR_PLACEMENT } from '@/lib/api-client/ads';
+import { AdSlot } from '@/components/features/ads/AdSlot';
+import { CompactSidebarLink } from '@/components/features/home/CompactSidebarLink';
 import { roomTypeKeyFromTranslationKey } from '@/lib/constants/taxonomy';
 import { formatMoney } from '@/lib/format/money';
 
@@ -58,6 +61,7 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
   // (getFeaturedRooms() never throws); the section below simply doesn't
   // render until an admin features at least one room.
   const featuredRooms = await getFeaturedRooms(6);
+  const adSlot = await getAdSlot(HOMEPAGE_SIDEBAR_PLACEMENT);
 
   return (
     <main id="main-content" className="pb-8">
@@ -74,7 +78,7 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
         in) rather than a layout hack. Sidebar spacing tightened a bit
         (space-y-4, smaller map/card padding) to narrow the gap regardless.
       */}
-      <div className="mx-auto grid max-w-[1480px] gap-6 px-4 py-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_310px] lg:items-start">
+      <div className="mx-auto grid max-w-[1480px] gap-6 px-4 py-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-start">
         <div className="min-w-0 space-y-10">
           <section className="relative min-h-[360px] overflow-hidden rounded-lg border border-border bg-surface shadow-sm sm:min-h-[390px]">
             <Image src="/home/baku-skyline.webp" alt="" fill priority sizes="(max-width: 1024px) 100vw, 1100px" className="object-cover" />
@@ -156,7 +160,7 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
               // Keeping this slot occupied with a real, on-brand placeholder
               // restores that balance instead of leaving the section blank.
               <div className="mt-6 flex flex-col items-start gap-4 rounded-lg border border-dashed border-border bg-surface-elevated p-8 sm:flex-row sm:items-center sm:justify-between sm:p-10">
-                <div className="max-w-md">
+                <div className="max-w-xl">
                   <p className="text-body text-text-secondary">{t('dashboard.venues.emptyBody')}</p>
                 </div>
                 <LinkButton href="/for-businesses" variant="secondary" className="shrink-0">
@@ -188,7 +192,7 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
         </div>
 
         <aside className="space-y-4 lg:sticky lg:top-20 lg:self-start" aria-label={t('dashboard.sidebarLabel')}>
-          <section className="rounded-lg border border-border bg-surface p-4 shadow-sm">
+          <section className="hidden rounded-lg border border-border bg-surface p-4 shadow-sm lg:block">
             <div className="flex items-center justify-between gap-3">
               <h2 className="font-display text-h4 text-text-primary">{t('dashboard.calendar.title')}</h2>
               <Link href="/search" className="text-caption font-semibold text-primary">{t('dashboard.viewAll')}</Link>
@@ -212,42 +216,19 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
             </div>
           </section>
 
-          <section className="rounded-lg border border-border bg-surface p-4 shadow-sm">
-            <p className="text-caption font-semibold uppercase tracking-[0.14em] text-primary">{t('dashboard.community.eyebrow')}</p>
-            <div className="mt-4 flex items-center gap-4">
-              <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-primary font-display text-h4 text-primary-on">M</div>
-              <div>
-                <h2 className="font-display text-h4 text-text-primary">{t('dashboard.community.name')}</h2>
-                <p className="mt-1 text-caption text-text-secondary">{t('dashboard.community.role')}</p>
-              </div>
-            </div>
-            <p className="mt-4 text-small text-text-secondary">{t('dashboard.community.body')}</p>
-            <Link href="/partners" className="mt-4 inline-block text-label font-semibold text-primary">{t('dashboard.community.cta')} →</Link>
-          </section>
-
-          <section className="overflow-hidden rounded-lg border border-border bg-surface p-4 shadow-sm">
-            <div className="flex items-center justify-between gap-3">
-              <h2 className="font-display text-h4 text-text-primary">{t('dashboard.map.title')}</h2>
-              <Link href="/search" className="text-caption font-semibold text-primary">{t('dashboard.map.cta')}</Link>
-            </div>
-            <Link href="/search?city=Bakı" className="relative mt-4 block h-36 overflow-hidden rounded-md bg-info-bg" aria-label={t('dashboard.map.ariaLabel')}>
-              <span className="absolute -left-8 top-10 h-px w-80 rotate-12 bg-info/30" />
-              <span className="absolute -left-10 top-28 h-px w-80 -rotate-6 bg-info/30" />
-              <span className="absolute left-12 top-6 h-72 w-px rotate-[28deg] bg-info/30" />
-              <span className="absolute right-12 top-2 h-72 w-px -rotate-[20deg] bg-info/30" />
-              {['left-12 top-16', 'right-16 top-10', 'left-24 bottom-8', 'right-24 bottom-16'].map((position) => (
-                <span key={position} className={`absolute ${position} flex h-7 w-7 items-center justify-center rounded-full bg-accent text-caption font-bold text-accent-on shadow-sm`}>•</span>
-              ))}
-              <span className="absolute inset-0 flex items-center justify-center font-display text-h3 text-text-primary">Bakı</span>
-            </Link>
-          </section>
-
-          <section className="rounded-lg border border-warning bg-warning-bg p-4">
-            <span className="text-caption font-semibold uppercase tracking-wide text-warning">{t('sponsor.label')}</span>
-            <h2 className="mt-2 font-display text-h4 text-text-primary">{t('sponsor.title')}</h2>
-            <p className="mt-2 text-small text-text-secondary">{t('sponsor.body')}</p>
-            <Link href="/advertise" className="mt-4 inline-block text-label font-semibold text-primary">{t('sponsor.cta')} →</Link>
-          </section>
+          <CompactSidebarLink
+            eyebrow={t('dashboard.community.eyebrow')}
+            title={t('dashboard.community.compactTitle')}
+            href="/partners"
+            cta={t('dashboard.community.cta')}
+          />
+          <CompactSidebarLink
+            eyebrow={t('dashboard.map.eyebrow')}
+            title={t('dashboard.map.title')}
+            href="/search"
+            cta={t('dashboard.map.cta')}
+          />
+          <AdSlot slot={adSlot} />
         </aside>
       </div>
 

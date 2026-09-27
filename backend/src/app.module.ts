@@ -37,6 +37,7 @@ import { EventsModule } from './modules/events/events.module';
 import { PromoModule } from './modules/promo/promo.module';
 import { ReferralsModule } from './modules/referrals/referral-links.module';
 import { RewardsModule } from './modules/rewards/rewards.module';
+import { AdsModule } from './modules/ads/ads.module';
 
 @Module({
   imports: [
@@ -97,6 +98,7 @@ import { RewardsModule } from './modules/rewards/rewards.module';
     PromoModule,
     ReferralsModule,
     RewardsModule,
+    AdsModule,
   ],
   controllers: [AppController],
   providers: [

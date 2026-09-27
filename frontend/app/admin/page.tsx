@@ -8,8 +8,10 @@ import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { AdminAnalyticsCharts } from '@/components/features/admin/AdminAnalyticsCharts';
 import { AdminTotpSetup } from '@/components/features/auth/AdminTotpSetup';
+import { AdvertisingSection } from '@/components/features/admin/AdvertisingSection';
+import { SiteSettingsSection } from '@/components/features/admin/SiteSettingsSection';
 
-type Section = 'overview' | 'listings' | 'pricing' | 'providers' | 'users' | 'audit' | 'security';
+type Section = 'overview' | 'listings' | 'pricing' | 'providers' | 'users' | 'audit' | 'security' | 'advertising' | 'settings';
 type RoomStatus = 'DRAFT' | 'ACTIVE' | 'INACTIVE';
 
 type AdminRoom = {
@@ -64,6 +66,8 @@ const NAV_ITEMS: Array<{ id: Section; label: string; description: string }> = [
   { id: 'providers', label: 'Provider-lər', description: 'Doğrulama gözləyən və mövcud provider-lər' },
   { id: 'users', label: 'İstifadəçilər', description: 'Müştəri, provider və rollar' },
   { id: 'audit', label: 'Audit jurnalı', description: 'Kim nəyi və nə vaxt dəyişdi' },
+  { id: 'advertising', label: 'Reklam', description: 'Kampaniyalar, yerləşdirmə və analitika' },
+  { id: 'settings', label: 'Sayt ayarları', description: 'Footer sosial URL-ləri' },
   { id: 'security', label: '2FA Quraşdırması', description: 'İki faktorlu autentifikasiya (TOTP)' },
 ];
 
@@ -120,6 +124,11 @@ export default function AdminHome() {
         })
         .finally(() => setLoading(false));
       return () => controller.abort();
+    }
+
+    if (section === 'security' || section === 'advertising' || section === 'settings') {
+      setLoading(false);
+      return undefined;
     }
 
     if (section === 'providers') {
@@ -221,6 +230,8 @@ export default function AdminHome() {
           )}
           {section === 'users' && <UsersSection users={users} query={query} onQuery={setQuery} />}
           {section === 'audit' && <AuditSection entries={audit} />}
+          {section === 'advertising' && <AdvertisingSection />}
+          {section === 'settings' && <SiteSettingsSection />}
           {section === 'security' && <SecuritySection />}
         </main>
       </div>

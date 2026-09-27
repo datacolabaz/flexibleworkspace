@@ -13,6 +13,15 @@ import {
   listAdminRooms,
   listAdminUsers,
   listAdminProviders,
+  listAdminAdPlacements,
+  listAdminAdCampaigns,
+  getAdminAdAnalytics,
+  listAdminSiteSettings,
+  createAdminAdCampaign,
+  updateAdminAdCampaign,
+  deleteAdminAdCampaign,
+  updateAdminAdPlacement,
+  updateAdminSiteSettings,
   removeAdminRoom,
   removeAdminProvider,
   verifyAdminProvider,
@@ -122,6 +131,18 @@ export async function GET(
       await assertAdminAccess(accessToken);
       return NextResponse.json({ ok: true });
     }
+    if (key === 'ads/placements') {
+      return NextResponse.json(await listAdminAdPlacements(accessToken));
+    }
+    if (key === 'ads/campaigns') {
+      return NextResponse.json(await listAdminAdCampaigns(accessToken));
+    }
+    if (key === 'ads/analytics') {
+      return NextResponse.json(await getAdminAdAnalytics(accessToken));
+    }
+    if (key === 'site-settings') {
+      return NextResponse.json(await listAdminSiteSettings(accessToken));
+    }
     return NextResponse.json({ error: { code: 'NOT_FOUND', message: 'Admin endpoint not found.' } }, { status: 404 });
   } catch (error) {
     return errorResponse(error);
@@ -164,6 +185,17 @@ export async function PATCH(
       const body = (await request.json()) as { planTier: AdminProviderPlanTier };
       return NextResponse.json(await setAdminProviderPlanTier(accessToken, path[1], body.planTier));
     }
+    if (path.length === 3 && path[0] === 'ads' && path[1] === 'placements') {
+      const body = (await request.json()) as { rotationIntervalSeconds: number };
+      return NextResponse.json(await updateAdminAdPlacement(accessToken, path[2], body.rotationIntervalSeconds));
+    }
+    if (path.length === 3 && path[0] === 'ads' && path[1] === 'campaigns') {
+      return NextResponse.json(await updateAdminAdCampaign(accessToken, path[2], await request.json()));
+    }
+    if (path.length === 1 && path[0] === 'site-settings') {
+      const body = (await request.json()) as { settings: Record<string, string>; reason?: string };
+      return NextResponse.json(await updateAdminSiteSettings(accessToken, body.settings, body.reason));
+    }
     return NextResponse.json({ error: { code: 'NOT_FOUND', message: 'Admin endpoint not found.' } }, { status: 404 });
   } catch (error) {
     return errorResponse(error);
@@ -191,6 +223,9 @@ export async function DELETE(
       const body = (await request.json()) as { reason: string };
       return NextResponse.json(await removeAdminProvider(accessToken, path[1], body.reason));
     }
+    if (path.length === 3 && path[0] === 'ads' && path[1] === 'campaigns') {
+      return NextResponse.json(await deleteAdminAdCampaign(accessToken, path[2]));
+    }
     return NextResponse.json({ error: { code: 'NOT_FOUND', message: 'Admin endpoint not found.' } }, { status: 404 });
   } catch (error) {
     return errorResponse(error);
@@ -216,6 +251,9 @@ export async function POST(
     if (path.length === 3 && path[0] === 'plan-upgrade-requests' && path[2] === 'resolve') {
       const body = (await request.json()) as { grantPlanTier?: AdminProviderPlanTier };
       return NextResponse.json(await resolveAdminPlanUpgradeRequest(accessToken, path[1], body.grantPlanTier));
+    }
+    if (path.length === 2 && path[0] === 'ads' && path[1] === 'campaigns') {
+      return NextResponse.json(await createAdminAdCampaign(accessToken, await request.json()));
     }
     return NextResponse.json({ error: { code: 'NOT_FOUND', message: 'Admin endpoint not found.' } }, { status: 404 });
   } catch (error) {

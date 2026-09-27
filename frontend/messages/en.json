@@ -51,7 +51,12 @@
     "ecosystemTitle": "Ecosystem",
     "partners": "Partners",
     "privacy": "Privacy",
-    "dataDeletion": "Data deletion"
+    "dataDeletion": "Data deletion",
+    "socialTitle": "Social",
+    "socialInstagram": "Spotva on Instagram",
+    "socialFacebook": "Spotva on Facebook",
+    "socialTiktok": "Spotva on TikTok",
+    "socialLinkedin": "Spotva on LinkedIn"
   },
   "common": {
     "comingSoon": "Coming soon."
@@ -759,8 +764,8 @@
         "noPhoto": "No photo",
         "disclaimer": "Hand-picked, live spaces — curated by our team.",
         "emptyEyebrow": "Space previews",
-        "emptyTitle": "The first featured spaces are coming soon",
-        "emptyBody": "List your space and be one of our first featured providers.",
+        "emptyTitle": "Spaces coming soon",
+        "emptyBody": "Podcast studios, workshops, meetings and event spaces in Baku will appear here. List yours and be one of the first providers.",
         "emptyCta": "List your space"
       },
       "upcoming": {
@@ -796,17 +801,23 @@
         }
       },
       "community": {
-        "eyebrow": "Community focus",
+        "eyebrow": "Community",
         "name": "Mentors and organizers",
         "role": "Learning · Creative · Baku",
         "body": "Verified profiles, event series and attendee reviews in one ecosystem.",
+        "compactTitle": "Community and partners",
         "cta": "Explore the ecosystem"
       },
       "map": {
-        "title": "Baku map",
-        "cta": "Open map",
+        "eyebrow": "Map",
+        "title": "Find spaces on the map",
+        "cta": "Go to search",
         "ariaLabel": "Open the map of spaces across Baku"
       }
+    },
+    "ads": {
+      "ariaLabel": "Sponsored placement",
+      "clickLabel": "Advertisement from {advertiser}"
     }
   },
   "eventsPage": {
