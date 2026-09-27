@@ -41,10 +41,16 @@ const navItems = [
   { href: '/how-it-works', label: 'How it works' },
 ];
 
-function renderMenu(isAuthenticated = false) {
+function renderMenu(isAuthenticated = false, isProvider?: boolean) {
   return render(
     <NextIntlClientProvider locale="en" messages={messages}>
-      <MobileMenu navItems={navItems} loginHref="/login" loginLabel="Log in" isAuthenticated={isAuthenticated} />
+      <MobileMenu
+        navItems={navItems}
+        loginHref="/login"
+        loginLabel="Log in"
+        isAuthenticated={isAuthenticated}
+        isProvider={isProvider}
+      />
     </NextIntlClientProvider>,
   );
 }
@@ -112,12 +118,35 @@ describe('MobileMenu', () => {
   });
 
   it('shows a logout action when signed in, and logs out on click', async () => {
-    renderMenu(true);
+    renderMenu(true, false);
     fireEvent.click(screen.getByRole('button', { name: 'Open menu' }));
     fireEvent.click(screen.getByRole('button', { name: 'Log out' }));
 
     await waitFor(() => expect(mockPush).toHaveBeenCalledWith('/'));
     expect(fetch).toHaveBeenCalledWith('/api/auth/logout', { method: 'POST' });
     expect(mockRefresh).toHaveBeenCalled();
+  });
+
+  it('hides provider analytics for a customer and shows become-provider', () => {
+    renderMenu(true, false);
+    fireEvent.click(screen.getByRole('button', { name: 'Open menu' }));
+    expect(screen.getByRole('link', { name: 'My bookings' })).toHaveAttribute('href', '/account/bookings');
+    expect(screen.getByRole('link', { name: 'Become a provider / List a space' })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Analytics' })).not.toBeInTheDocument();
+  });
+
+  it('shows provider anchors for a real provider and hides become-provider', () => {
+    renderMenu(true, true);
+    fireEvent.click(screen.getByRole('button', { name: 'Open menu' }));
+    expect(screen.getByRole('link', { name: 'Analytics' })).toHaveAttribute('href', '/provider#provider-analytics');
+    expect(screen.queryByRole('link', { name: 'Become a provider / List a space' })).not.toBeInTheDocument();
+  });
+
+  it('does not show exclusive role links while provider status is unknown', () => {
+    renderMenu(true, undefined);
+    fireEvent.click(screen.getByRole('button', { name: 'Open menu' }));
+    expect(screen.getByRole('link', { name: 'My bookings' })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Analytics' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Become a provider / List a space' })).not.toBeInTheDocument();
   });
 });

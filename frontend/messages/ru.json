@@ -16,7 +16,20 @@
     "events": "События",
     "partners": "Партнёры",
     "pricing": "Цены",
-    "homeLink": "Главная"
+    "homeLink": "Главная",
+    "accountMenu": "Меню аккаунта",
+    "menuMyAccount": "Мой аккаунт",
+    "menuMyBookings": "Мои бронирования",
+    "menuMyEvents": "Мои события",
+    "menuMyRsvps": "Мои RSVP",
+    "menuMyFavorites": "Избранное",
+    "menuBecomeProvider": "Стать провайдером / Добавить площадку",
+    "menuProviderDashboard": "Панель провайдера",
+    "menuProviderAnalytics": "Аналитика",
+    "menuProviderPayouts": "Доходы и выплаты",
+    "menuMySpaces": "Мои площадки",
+    "manageSpaces": "Управление площадками",
+    "createEvent": "Создать событие"
   },
   "hero": {
     "title": "Найдите своё место.",

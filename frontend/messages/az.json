@@ -16,7 +16,20 @@
     "events": "Tədbirlər",
     "partners": "Tərəfdaşlar",
     "pricing": "Qiymətlər",
-    "homeLink": "Ana səhifə"
+    "homeLink": "Ana səhifə",
+    "accountMenu": "Hesab menyusu",
+    "menuMyAccount": "Hesabım",
+    "menuMyBookings": "Rezervasiyalarım",
+    "menuMyEvents": "Tədbirlərim",
+    "menuMyRsvps": "RSVP-lərim",
+    "menuMyFavorites": "Sevimlilərim",
+    "menuBecomeProvider": "Provider olmaq / Məkan əlavə et",
+    "menuProviderDashboard": "Provider paneli",
+    "menuProviderAnalytics": "Analitika",
+    "menuProviderPayouts": "Gəlirlər və payout",
+    "menuMySpaces": "Məkanlarım",
+    "manageSpaces": "Məkan idarəsi",
+    "createEvent": "Tədbir yarat"
   },
   "hero": {
     "title": "Öz yerini tap.",

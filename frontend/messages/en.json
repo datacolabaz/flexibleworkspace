@@ -16,7 +16,20 @@
     "events": "Events",
     "partners": "Partners",
     "pricing": "Pricing",
-    "homeLink": "Home"
+    "homeLink": "Home",
+    "accountMenu": "Account menu",
+    "menuMyAccount": "My account",
+    "menuMyBookings": "My bookings",
+    "menuMyEvents": "My events",
+    "menuMyRsvps": "My RSVPs",
+    "menuMyFavorites": "My favorites",
+    "menuBecomeProvider": "Become a provider / List a space",
+    "menuProviderDashboard": "Provider dashboard",
+    "menuProviderAnalytics": "Analytics",
+    "menuProviderPayouts": "Earnings and payouts",
+    "menuMySpaces": "My spaces",
+    "manageSpaces": "Manage spaces",
+    "createEvent": "Create event"
   },
   "hero": {
     "title": "Find your spot.",

@@ -5,9 +5,12 @@ import { Link } from '@/lib/i18n/navigation';
 import { Logo } from '@/components/ui/Logo';
 import { readSession } from '@/lib/auth/session';
 import { getMyProfile } from '@/lib/api-client/account';
+import { getMyProvider, ProviderApiError } from '@/lib/api-client/provider-dashboard';
 import { LanguageSwitcher } from './LanguageSwitcher';
 import { ThemeToggle } from './ThemeToggle';
 import { MobileMenu } from './MobileMenu';
+import { AccountMenu } from './AccountMenu';
+import type { ProviderNavState } from './account-menu-items';
 
 /**
  * The customer-facing site header — 06_INFORMATION_ARCHITECTURE.md §6.5's
@@ -21,6 +24,11 @@ import { MobileMenu } from './MobileMenu';
  * rather than shipping that check to the client. `search`/`how-it-works`/
  * `for-businesses` route to real (currently placeholder) pages rather
  * than dead links — see their page.tsx files' own comments.
+ *
+ * Provider vs customer in the account menu is `getMyProvider` success,
+ * not merely "has a session". `NOT_A_PROVIDER` is the customer/organizer
+ * menu plus onboarding; other API errors leave exclusive role links off
+ * so the header never flashes the wrong set.
  *
  * The desktop nav's `gap-4 md:flex lg:gap-6` and the Account/Login
  * button's `px-3 ... lg:px-4` (neither a flat `gap-6`/`px-4`) are a
@@ -58,6 +66,22 @@ export async function Header() {
     }
   }
 
+  let isProvider: ProviderNavState;
+  if (!accessToken) {
+    isProvider = false;
+  } else {
+    try {
+      await getMyProvider(accessToken);
+      isProvider = true;
+    } catch (error) {
+      if (error instanceof ProviderApiError && error.code === 'NOT_A_PROVIDER') {
+        isProvider = false;
+      } else {
+        isProvider = undefined;
+      }
+    }
+  }
+
   // First name only — avoids overflow at the md breakpoint where the
   // header is tightest. Initials (up to 2 chars) drive the avatar circle.
   const firstName = displayName ? displayName.split(' ')[0] : null;
@@ -78,8 +102,9 @@ export async function Header() {
     { href: '/for-businesses', label: t('forBusinesses') },
   ];
 
-  const loginHref = isAuthenticated ? '/account/bookings' : '/login';
-  const loginLabel = isAuthenticated ? (firstName ?? t('account')) : t('login');
+  const loginHref = '/login';
+  const loginLabel = t('login');
+  const accountLabel = firstName ?? t('account');
 
   return (
     <>
@@ -117,33 +142,43 @@ export async function Header() {
                 {item.label}
               </Link>
             ))}
-            {isAuthenticated && <NextLink href="/provider" className="group relative inline-flex min-h-11 items-center whitespace-nowrap rounded-md px-2 text-nav font-semibold text-accent hover:bg-surface-elevated">Məkan idarəsi</NextLink>}
-            {isAuthenticated && <NextLink href="/events/create" className="group relative inline-flex min-h-11 items-center whitespace-nowrap rounded-md px-2 text-nav font-semibold text-primary hover:bg-surface-elevated">Tədbir yarat</NextLink>}
+            {isProvider === true && (
+              <NextLink
+                href="/provider"
+                className="group relative inline-flex min-h-11 items-center whitespace-nowrap rounded-md px-2 text-nav font-semibold text-accent hover:bg-surface-elevated"
+              >
+                {t('manageSpaces')}
+              </NextLink>
+            )}
+            {isAuthenticated && (
+              <NextLink
+                href="/events/create"
+                className="group relative inline-flex min-h-11 items-center whitespace-nowrap rounded-md px-2 text-nav font-semibold text-primary hover:bg-surface-elevated"
+              >
+                {t('createEvent')}
+              </NextLink>
+            )}
           </nav>
 
           <div className="flex min-w-0 items-center gap-1 sm:gap-2">
             <LanguageSwitcher />
             <ThemeToggle />
-            <Link
-              href={loginHref}
-              className="hidden min-h-11 max-w-[10rem] min-w-0 items-center gap-2 overflow-hidden rounded-md bg-accent px-3 text-label font-semibold text-accent-on hover:bg-accent-hover sm:inline-flex lg:px-4"
-            >
-              {isAuthenticated && initials && (
-                <span
-                  aria-hidden="true"
-                  className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-accent-on/20 text-[0.6rem] font-bold leading-none"
-                >
-                  {initials}
-                </span>
-              )}
-              <span className="min-w-0 truncate">{loginLabel}</span>
-            </Link>
+            {isAuthenticated ? (
+              <AccountMenu label={accountLabel} initials={initials} isProvider={isProvider} />
+            ) : (
+              <Link
+                href={loginHref}
+                className="hidden min-h-11 max-w-[10rem] min-w-0 items-center gap-2 overflow-hidden rounded-md bg-accent px-3 text-label font-semibold text-accent-on hover:bg-accent-hover sm:inline-flex lg:px-4"
+              >
+                {loginLabel}
+              </Link>
+            )}
             <MobileMenu
               navItems={navItems}
               loginHref={loginHref}
               loginLabel={loginLabel}
               isAuthenticated={isAuthenticated}
-              isProvider={isAuthenticated}
+              isProvider={isProvider}
             />
           </div>
         </div>

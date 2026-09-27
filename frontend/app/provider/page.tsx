@@ -211,7 +211,7 @@ export default async function ProviderHome({
           <h1 className="font-display text-h3 text-text-primary">{provider.displayName}</h1>
           <p className="text-small text-text-secondary">Məkanlarınızı, rezervasiyalarınızı və planınızı buradan idarə edin.</p>
         </Card>
-        {analytics && <ProviderAnalyticsPanel analytics={analytics} />}
+        <div id="provider-analytics">{analytics && <ProviderAnalyticsPanel analytics={analytics} />}</div>
         <div id="provider-rooms">
           <ProviderRoomsPanel
             initialLocations={locations}
@@ -222,8 +222,12 @@ export default async function ProviderHome({
             planTier={provider.planTier}
           />
         </div>
-        <ProviderBookingsPanel initialBookings={providerBookings} />
-        <ProviderPayoutsPanel initialBalance={payoutBalance} initialPayouts={providerPayouts} />
+        <div id="provider-bookings">
+          <ProviderBookingsPanel initialBookings={providerBookings} />
+        </div>
+        <div id="provider-payouts">
+          <ProviderPayoutsPanel initialBalance={payoutBalance} initialPayouts={providerPayouts} />
+        </div>
         <ProviderPlanPanel planTier={provider.planTier} initialRequest={planUpgradeRequest} />
         <ProviderLeadsPanel initialLeads={leads} />
       </Shell>
