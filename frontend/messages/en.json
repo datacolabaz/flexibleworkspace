@@ -935,6 +935,8 @@
     "submittingRsvp": "Submitting…",
     "rsvpSuccess": "Registration complete!",
     "rsvpCodeNote": "Save this code — you'll need it at check-in.",
+    "rsvpQrAlt": "Registration QR code",
+    "rsvpQrHint": "Show this QR code at the entrance",
     "rsvpClose": "Close",
     "rsvpError": "Registration failed. Please try again.",
     "rsvpErrorGeneric": "Something went wrong. Please try again.",

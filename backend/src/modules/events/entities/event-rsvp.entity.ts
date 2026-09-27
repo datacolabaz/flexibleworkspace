@@ -39,6 +39,12 @@ export class EventRsvpEntity {
   @Column({ name: 'confirmation_code', type: 'varchar', length: 20, unique: true })
   confirmationCode: string;
 
+  @Column({ name: 'checked_in_at', type: 'timestamptz', nullable: true })
+  checkedInAt: Date | null;
+
+  @Column({ name: 'checked_in_by', type: 'uuid', nullable: true })
+  checkedInBy: string | null;
+
   @Column({ name: 'created_at', type: 'timestamptz' })
   createdAt: Date;
 

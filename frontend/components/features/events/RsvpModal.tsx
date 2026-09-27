@@ -83,6 +83,19 @@ export function RsvpModal({ eventId, onClose }: RsvpModalProps) {
             <p className="mt-2 rounded-md bg-surface-elevated px-4 py-2 font-mono text-label font-semibold text-text-primary">
               {t('confirmationCode', { code: confirmationCode })}
             </p>
+            {confirmationCode !== '' && (
+              <div className="mt-4 flex flex-col items-center gap-2">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(confirmationCode)}`}
+                  alt={t('rsvpQrAlt')}
+                  width={200}
+                  height={200}
+                  className="rounded-md"
+                />
+                <p className="text-small text-text-muted">{t('rsvpQrHint')}</p>
+              </div>
+            )}
             <p className="mt-3 text-small text-text-muted">
               {t('rsvpCodeNote')}
             </p>

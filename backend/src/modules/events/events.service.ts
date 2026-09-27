@@ -282,6 +282,8 @@ export class EventsService {
         phone: dto.phone?.trim() ? dto.phone.trim() : null,
         status: EventRsvpStatus.CONFIRMED,
         confirmationCode: this.generateConfirmationCode(),
+        checkedInAt: null,
+        checkedInBy: null,
         createdAt: now,
         updatedAt: now,
       });

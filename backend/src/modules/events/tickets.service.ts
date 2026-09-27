@@ -1,11 +1,12 @@
 import { HttpStatus, Injectable, ConflictException, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { IsNull, Not, Repository } from 'typeorm';
 import * as crypto from 'crypto';
 
 import { EventEntity, EventStatus } from './entities/event.entity';
 import { EventTicketTypeEntity } from './entities/event-ticket-type.entity';
 import { EventTicketEntity, EventTicketStatus } from './entities/event-ticket.entity';
+import { EventRsvpEntity, EventRsvpStatus } from './entities/event-rsvp.entity';
 import { TicketScanLog } from './entities/ticket-scan-log.entity';
 import { CreateTicketTypeDto } from './dto/create-ticket-type.dto';
 import { PurchaseTicketDto } from './dto/purchase-ticket.dto';
@@ -26,6 +27,8 @@ export class TicketsService {
     private readonly ticketsRepo: Repository<EventTicketEntity>,
     @InjectRepository(TicketScanLog)
     private readonly scanLogRepo: Repository<TicketScanLog>,
+    @InjectRepository(EventRsvpEntity)
+    private readonly rsvpsRepo: Repository<EventRsvpEntity>,
     private readonly notificationsService: NotificationsService,
   ) {}
 
@@ -317,13 +320,7 @@ export class TicketsService {
       where: { qrCode: tokenHash },
     });
     if (!ticketForAuth) {
-      // FIX 4: log failed scan attempt (no ticket — can't log event/ticket ids meaningfully)
-      // We skip log here since we don't have valid IDs; return error directly
-      throw new DomainException(
-        'TICKET_NOT_FOUND',
-        'Invalid QR code — ticket not found.',
-        HttpStatus.NOT_FOUND,
-      );
+      return this.checkInByRsvpCode(rawToken, checkerId);
     }
 
     const event = await this.findEventById(ticketForAuth.eventId);
@@ -387,6 +384,79 @@ export class TicketsService {
     };
   }
 
+  /**
+   * Public RSVP QR encodes confirmation_code (not a ticket token).
+   * Same organizer check-in endpoint so scanners do not need a second flow.
+   */
+  private async checkInByRsvpCode(
+    rawToken: string,
+    checkerId: string,
+  ): Promise<{ success: boolean; ticket: EventTicketEntity; attendeeName: string }> {
+    const code = rawToken.trim().toUpperCase();
+    if (!code) {
+      throw new DomainException(
+        'TICKET_NOT_FOUND',
+        'Invalid QR code — ticket not found.',
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    return this.rsvpsRepo.manager.transaction(async (em) => {
+      const rsvpsRepo = em.getRepository(EventRsvpEntity);
+      const eventsRepo = em.getRepository(EventEntity);
+
+      const rsvp = await rsvpsRepo.findOne({ where: { confirmationCode: code } });
+      if (!rsvp) {
+        throw new DomainException(
+          'TICKET_NOT_FOUND',
+          'Invalid QR code — ticket not found.',
+          HttpStatus.NOT_FOUND,
+        );
+      }
+
+      const event = await eventsRepo.findOne({ where: { id: rsvp.eventId } });
+      if (!event || event.deletedAt) throw new ResourceNotFoundException('Event');
+      this.assertOrganizer(event, checkerId);
+
+      if (rsvp.checkedInAt) {
+        throw new DomainException(
+          'ALREADY_CHECKED_IN',
+          'This ticket has already been used for check-in.',
+          HttpStatus.CONFLICT,
+        );
+      }
+      if (rsvp.status !== EventRsvpStatus.CONFIRMED) {
+        throw new DomainException(
+          'TICKET_NOT_CONFIRMED',
+          'This ticket is not in a confirmed state.',
+          HttpStatus.CONFLICT,
+        );
+      }
+
+      const now = new Date();
+      rsvp.checkedInAt = now;
+      rsvp.checkedInBy = checkerId;
+      rsvp.updatedAt = now;
+      const saved = await rsvpsRepo.save(rsvp);
+
+      const ticketView = Object.assign(new EventTicketEntity(), {
+        id: saved.id,
+        eventId: saved.eventId,
+        status: EventTicketStatus.USED,
+        checkedInAt: saved.checkedInAt,
+        checkedInBy: saved.checkedInBy,
+        buyerName: saved.name,
+        buyerEmail: saved.email,
+      });
+
+      return {
+        success: true,
+        ticket: ticketView,
+        attendeeName: saved.name,
+      };
+    });
+  }
+
   // ── Listings ──────────────────────────────────────────────────────────────
 
   /**
@@ -424,10 +494,17 @@ export class TicketsService {
       where: { eventId, status: EventTicketStatus.CONFIRMED },
     });
 
+    const rsvpChecked = await this.rsvpsRepo.count({
+      where: { eventId, checkedInAt: Not(IsNull()) },
+    });
+    const rsvpTotal = await this.rsvpsRepo.count({
+      where: { eventId, status: EventRsvpStatus.CONFIRMED },
+    });
+
     return {
       tickets,
-      checkedIn: used,
-      total: allConfirmed + used,
+      checkedIn: used + rsvpChecked,
+      total: allConfirmed + used + rsvpTotal,
     };
   }
 }

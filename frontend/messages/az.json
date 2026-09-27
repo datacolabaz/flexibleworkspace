@@ -1063,6 +1063,8 @@
     "submittingRsvp": "Göndərilir…",
     "rsvpSuccess": "Qeydiyyat tamamlandı!",
     "rsvpCodeNote": "Bu kodu yadda saxlayın — giriş zamanı lazım olacaq.",
+    "rsvpQrAlt": "Qeydiyyat QR kodu",
+    "rsvpQrHint": "Bu QR kodu girişdə göstərin",
     "rsvpClose": "Bağla",
     "rsvpError": "Qeydiyyat alınmadı. Yenidən cəhd edin.",
     "rsvpErrorGeneric": "Nəsə səhv getdi. Yenidən cəhd edin.",
