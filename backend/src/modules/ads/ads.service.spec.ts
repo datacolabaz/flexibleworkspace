@@ -1,5 +1,6 @@
 import { AdsService, isCampaignLive } from './ads.service';
 import { HOMEPAGE_SIDEBAR_PLACEMENT } from '../../common/constants/ads.enum';
+import { AdInquiryStatus } from '../../common/constants/ad-inquiry.enum';
 
 function makeRepoDouble<T extends { id?: string }>(rows: T[]) {
   let autoId = 0;
@@ -126,6 +127,7 @@ describe('AdsService', () => {
       placementRepo as never,
       campaignRepo as never,
       eventRepo as never,
+      makeRepoDouble([]) as never,
       { recordChange: jest.fn() } as never,
     );
 
@@ -158,6 +160,7 @@ describe('AdsService', () => {
       makeRepoDouble([]) as never,
       campaignRepo as never,
       eventRepo as never,
+      makeRepoDouble([]) as never,
       { recordChange: jest.fn() } as never,
     );
     const first = await service.recordEvent('c-1', {
@@ -178,6 +181,7 @@ describe('AdsService', () => {
     ]);
     const service = new AdsService(
       placementRepo as never,
+      makeRepoDouble([]) as never,
       makeRepoDouble([]) as never,
       makeRepoDouble([]) as never,
       { recordChange: jest.fn() } as never,
@@ -218,11 +222,131 @@ describe('AdsService', () => {
       makeRepoDouble([]) as never,
       campaignRepo as never,
       eventRepo as never,
+      makeRepoDouble([]) as never,
       { recordChange: jest.fn() } as never,
     );
     const rows = await service.analytics();
     expect(rows[0].impressions).toBe(10);
     expect(rows[0].clicks).toBe(2);
     expect(rows[0].ctr).toBe(20);
+  });
+
+  it('createInquiry trims fields, defaults empty optionals to null and status to NEW', async () => {
+    const inquiryRepo = makeRepoDouble([]);
+    const service = new AdsService(
+      makeRepoDouble([]) as never,
+      makeRepoDouble([]) as never,
+      makeRepoDouble([]) as never,
+      inquiryRepo as never,
+      { recordChange: jest.fn() } as never,
+    );
+
+    const saved = await service.createInquiry({
+      contactName: '  Aysel Məmmədova  ',
+      contactPhone: ' +994501234567 ',
+      contactEmail: '  ',
+      companyName: undefined,
+      message: undefined,
+    });
+
+    expect(saved.contactName).toBe('Aysel Məmmədova');
+    expect(saved.contactPhone).toBe('+994501234567');
+    expect(saved.contactEmail).toBeNull();
+    expect(saved.companyName).toBeNull();
+    expect(saved.message).toBeNull();
+    expect(saved.status).toBe(AdInquiryStatus.NEW);
+    expect(inquiryRepo.save).toHaveBeenCalledTimes(1);
+  });
+
+  it('listInquiries returns newest first', async () => {
+    const older = {
+      id: 'i-1',
+      contactName: 'A',
+      contactPhone: '1',
+      status: AdInquiryStatus.NEW,
+      createdAt: new Date('2026-09-01T00:00:00.000Z'),
+    };
+    const newer = {
+      id: 'i-2',
+      contactName: 'B',
+      contactPhone: '2',
+      status: AdInquiryStatus.NEW,
+      createdAt: new Date('2026-09-20T00:00:00.000Z'),
+    };
+    const inquiryRepo = makeRepoDouble([older, newer]);
+    const service = new AdsService(
+      makeRepoDouble([]) as never,
+      makeRepoDouble([]) as never,
+      makeRepoDouble([]) as never,
+      inquiryRepo as never,
+      { recordChange: jest.fn() } as never,
+    );
+
+    await service.listInquiries();
+    expect(inquiryRepo.find).toHaveBeenCalledWith({
+      order: { createdAt: 'DESC' },
+      take: 200,
+    });
+  });
+
+  it('updateInquiryStatus stamps contactedAt/contactedBy only on first CONTACTED transition', async () => {
+    const inquiry = {
+      id: 'i-1',
+      contactName: 'Aysel',
+      contactPhone: '+994501234567',
+      status: AdInquiryStatus.NEW,
+      contactedAt: null as Date | null,
+      contactedByUserId: null as string | null,
+    };
+    const inquiryRepo = makeRepoDouble([inquiry]);
+    const recordChange = jest.fn();
+    const service = new AdsService(
+      makeRepoDouble([]) as never,
+      makeRepoDouble([]) as never,
+      makeRepoDouble([]) as never,
+      inquiryRepo as never,
+      { recordChange } as never,
+    );
+
+    const saved = await service.updateInquiryStatus('i-1', 'admin-1', {
+      status: AdInquiryStatus.CONTACTED,
+    });
+    expect(saved.status).toBe(AdInquiryStatus.CONTACTED);
+    expect(saved.contactedAt).not.toBeNull();
+    expect(saved.contactedByUserId).toBe('admin-1');
+    expect(recordChange).toHaveBeenCalledWith(
+      expect.objectContaining({
+        entityType: 'AdInquiry',
+        action: 'ADMIN_AD_INQUIRY_STATUS_UPDATE',
+        beforeState: { status: AdInquiryStatus.NEW },
+        afterState: { status: AdInquiryStatus.CONTACTED },
+      }),
+    );
+
+    const firstContactedAt = saved.contactedAt;
+    const closed = await service.updateInquiryStatus('i-1', 'admin-2', {
+      status: AdInquiryStatus.CLOSED,
+    });
+    expect(closed.status).toBe(AdInquiryStatus.CLOSED);
+    // contactedAt/contactedBy are set once, on the first CONTACTED move —
+    // a later status change (here, straight to CLOSED) must not touch them.
+    expect(closed.contactedAt).toBe(firstContactedAt);
+    expect(closed.contactedByUserId).toBe('admin-1');
+  });
+
+  it('updateInquiryStatus throws when the inquiry does not exist', async () => {
+    const service = new AdsService(
+      makeRepoDouble([]) as never,
+      makeRepoDouble([]) as never,
+      makeRepoDouble([]) as never,
+      makeRepoDouble([]) as never,
+      { recordChange: jest.fn() } as never,
+    );
+
+    await expect(
+      service.updateInquiryStatus('missing', 'admin-1', {
+        status: AdInquiryStatus.CONTACTED,
+      }),
+    ).rejects.toBeInstanceOf(Error);
   });
 });

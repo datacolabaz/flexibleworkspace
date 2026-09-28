@@ -1222,7 +1222,28 @@
     "trustEyebrow": "Advertising policy",
     "trustTitle": "Money does not buy trust",
     "trustBody": "Sponsored placement never secretly changes organic results. Each ad must show its label, partner name, conditions and measurement method.",
-    "cta": "See the partner model"
+    "cta": "See the partner model",
+    "inquiryForm": {
+      "sectionTitle": "Submit your ad request",
+      "sectionBody": "Send us your ad details — our team will get back to you within 1 business day to confirm placement.",
+      "title": "Your contact details",
+      "subtitle": "Share your name, phone and (optionally) company — you can send the creative file once we're in touch.",
+      "nameLabel": "Full name",
+      "phoneLabel": "Phone",
+      "phoneHint": "We'll reach you on this number",
+      "emailLabel": "Email",
+      "optionalHint": "Optional",
+      "companyLabel": "Company / brand name",
+      "messageLabel": "Message",
+      "messageHint": "Which ad format interests you, budget and dates (optional)",
+      "messagePlaceholder": "E.g. I'm interested in a category sponsorship, a 2-week campaign...",
+      "requiredFieldsError": "Name and phone number are required.",
+      "genericError": "The request could not be sent. Please try again shortly.",
+      "submitButton": "Send request",
+      "submittingButton": "Sending...",
+      "successTitle": "Your request has been received",
+      "successBody": "Our team will get in touch with you shortly."
+    }
   },
   "provider": {
     "rooms": {

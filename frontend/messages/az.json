@@ -1350,7 +1350,28 @@
     "trustEyebrow": "Reklam siyasəti",
     "trustTitle": "Pul etibarı satın almır",
     "trustBody": "Sponsorlu yerləşdirmə üzvi nəticəni gizli dəyişmir. Hər reklamın etiketi, tərəfdaş adı, şərtləri və ölçmə metodu görünən olmalıdır.",
-    "cta": "Tərəfdaş modelinə bax"
+    "cta": "Tərəfdaş modelinə bax",
+    "inquiryForm": {
+      "sectionTitle": "Sifariş vermək üçün formu doldurun",
+      "sectionBody": "Reklamınızın detallarını bizə göndərin — komandamız 1 iş günü ərzində sizinlə əlaqə saxlayıb yerləşdirməni təsdiqləyəcək.",
+      "title": "Əlaqə məlumatlarınız",
+      "subtitle": "Ad, telefon və (istəyə görə) şirkət adını qeyd edin — kreativ faylını əlaqə saxlandıqdan sonra göndərə bilərsiniz.",
+      "nameLabel": "Ad, soyad",
+      "phoneLabel": "Telefon",
+      "phoneHint": "Sizinlə bu nömrə üzərindən əlaqə saxlanılacaq",
+      "emailLabel": "E-poçt",
+      "optionalHint": "İstəyə görə",
+      "companyLabel": "Şirkət / brend adı",
+      "messageLabel": "Mesaj",
+      "messageHint": "Hansı reklam formatı maraqlandırır, büdcə və tarixlər (istəyə görə)",
+      "messagePlaceholder": "Məsələn: Kateqoriya sponsoru istəyirəm, 2 həftəlik kampaniya...",
+      "requiredFieldsError": "Ad və telefon nömrəsi tələb olunur.",
+      "genericError": "Sorğu göndərilmədi. Zəhmət olmasa bir az sonra yenidən cəhd edin.",
+      "submitButton": "Sorğunu göndər",
+      "submittingButton": "Göndərilir...",
+      "successTitle": "Sorğunuz alındı",
+      "successBody": "Komandamız tezliklə sizinlə əlaqə saxlayacaq."
+    }
   },
   "admin": {
     "twoFactorSetup": "İki faktorlu autentifikasiya"

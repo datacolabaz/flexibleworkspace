@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { LinkButton } from '@/components/ui/LinkButton';
+import { AdInquiryForm } from '@/components/features/business/AdInquiryForm';
 
 const INVENTORY = ['featured', 'category', 'eventSponsor', 'native', 'referral'] as const;
 const AUDIENCES = ['education', 'technology', 'business', 'creative', 'hospitality'] as const;
@@ -58,6 +59,20 @@ export default async function AdvertisePage({ params }: { params: Promise<{ loca
             </div>
           ))}
         </dl>
+      </section>
+
+      {/* The piece that used to be missing entirely: everything above tells
+          an advertiser what's on offer and what a creative should look
+          like, but gave them no way to actually act on it. This form is
+          that action — it writes to the admin "Sorğular" inbox
+          (AdvertisingSection.tsx) rather than just a mailto: link, so a
+          submission is never silently lost in someone's inbox. */}
+      <section id="order" className="mt-14">
+        <h2 className="font-display text-h2 text-text-primary">{t('inquiryForm.sectionTitle')}</h2>
+        <p className="mt-3 max-w-2xl text-body text-text-secondary">{t('inquiryForm.sectionBody')}</p>
+        <div className="mt-8">
+          <AdInquiryForm />
+        </div>
       </section>
 
       <section className="mt-14 grid gap-10 lg:grid-cols-[0.9fr_1.1fr]">

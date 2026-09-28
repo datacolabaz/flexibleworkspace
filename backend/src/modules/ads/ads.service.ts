@@ -13,12 +13,18 @@ import {
 import { AdCampaignEntity } from './entities/ad-campaign.entity';
 import { AdEventEntity } from './entities/ad-event.entity';
 import { AdPlacementEntity } from './entities/ad-placement.entity';
+import { AdInquiryEntity } from './entities/ad-inquiry.entity';
 import {
   CreateAdCampaignDto,
   RecordAdEventDto,
   UpdateAdCampaignDto,
   UpdateAdPlacementDto,
 } from './dto/ads.dto';
+import {
+  CreateAdInquiryDto,
+  UpdateAdInquiryStatusDto,
+} from './dto/ad-inquiry.dto';
+import { AdInquiryStatus } from '../../common/constants/ad-inquiry.enum';
 import { AuditLogService } from '../audit/audit-log.service';
 
 export function isCampaignLive(
@@ -45,6 +51,8 @@ export class AdsService {
     private readonly campaignRepo: Repository<AdCampaignEntity>,
     @InjectRepository(AdEventEntity)
     private readonly eventRepo: Repository<AdEventEntity>,
+    @InjectRepository(AdInquiryEntity)
+    private readonly inquiryRepo: Repository<AdInquiryEntity>,
     private readonly auditLogService: AuditLogService,
   ) {}
 
@@ -287,6 +295,60 @@ export class AdsService {
         ctr: Number(ctr.toFixed(2)),
       };
     });
+  }
+
+  /**
+   * Public — no auth, no captcha (the `/advertise` form is the only
+   * caller; abuse is bounded by `AdsPublicController`'s own `@Throttle`,
+   * same posture as `AdsPublicController.recordEvent`). Never anything
+   * beyond a DB row: no email/SMS is sent, since neither is wired up
+   * anywhere in this codebase yet — an admin has to check the inbox
+   * (`listInquiries`) themselves.
+   */
+  async createInquiry(dto: CreateAdInquiryDto): Promise<AdInquiryEntity> {
+    return this.inquiryRepo.save(
+      this.inquiryRepo.create({
+        contactName: dto.contactName.trim(),
+        contactPhone: dto.contactPhone.trim(),
+        contactEmail: dto.contactEmail?.trim() || null,
+        companyName: dto.companyName?.trim() || null,
+        message: dto.message?.trim() || null,
+        status: AdInquiryStatus.NEW,
+        createdAt: new Date(),
+      }),
+    );
+  }
+
+  async listInquiries(): Promise<AdInquiryEntity[]> {
+    return this.inquiryRepo.find({
+      order: { createdAt: 'DESC' },
+      take: 200,
+    });
+  }
+
+  async updateInquiryStatus(
+    id: string,
+    adminUserId: string,
+    dto: UpdateAdInquiryStatusDto,
+  ): Promise<AdInquiryEntity> {
+    const inquiry = await this.inquiryRepo.findOne({ where: { id } });
+    if (!inquiry) throw new ResourceNotFoundException('Ad inquiry');
+    const before = { status: inquiry.status };
+    inquiry.status = dto.status;
+    if (dto.status === AdInquiryStatus.CONTACTED && !inquiry.contactedAt) {
+      inquiry.contactedAt = new Date();
+      inquiry.contactedByUserId = adminUserId;
+    }
+    const saved = await this.inquiryRepo.save(inquiry);
+    await this.auditLogService.recordChange({
+      actorUserId: adminUserId,
+      entityType: 'AdInquiry',
+      entityId: saved.id,
+      action: 'ADMIN_AD_INQUIRY_STATUS_UPDATE',
+      beforeState: before,
+      afterState: { status: saved.status },
+    });
+    return saved;
   }
 
   private async requirePlacementByKey(key: string) {

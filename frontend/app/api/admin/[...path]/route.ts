@@ -16,6 +16,8 @@ import {
   listAdminAdPlacements,
   listAdminAdCampaigns,
   getAdminAdAnalytics,
+  listAdminAdInquiries,
+  updateAdminAdInquiry,
   listAdminSiteSettings,
   createAdminAdCampaign,
   updateAdminAdCampaign,
@@ -140,6 +142,9 @@ export async function GET(
     if (key === 'ads/analytics') {
       return NextResponse.json(await getAdminAdAnalytics(accessToken));
     }
+    if (key === 'ads/inquiries') {
+      return NextResponse.json(await listAdminAdInquiries(accessToken));
+    }
     if (key === 'site-settings') {
       return NextResponse.json(await listAdminSiteSettings(accessToken));
     }
@@ -191,6 +196,10 @@ export async function PATCH(
     }
     if (path.length === 3 && path[0] === 'ads' && path[1] === 'campaigns') {
       return NextResponse.json(await updateAdminAdCampaign(accessToken, path[2], await request.json()));
+    }
+    if (path.length === 3 && path[0] === 'ads' && path[1] === 'inquiries') {
+      const body = (await request.json()) as { status: 'NEW' | 'CONTACTED' | 'CLOSED' };
+      return NextResponse.json(await updateAdminAdInquiry(accessToken, path[2], body.status));
     }
     if (path.length === 1 && path[0] === 'site-settings') {
       const body = (await request.json()) as { settings: Record<string, string>; reason?: string };

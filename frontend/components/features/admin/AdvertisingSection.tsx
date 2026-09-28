@@ -27,6 +27,24 @@ type AnalyticsRow = {
   clicks: number;
   ctr: number;
 };
+type InquiryStatus = 'NEW' | 'CONTACTED' | 'CLOSED';
+type Inquiry = {
+  id: string;
+  contactName: string;
+  contactPhone: string;
+  contactEmail: string | null;
+  companyName: string | null;
+  message: string | null;
+  status: InquiryStatus;
+  createdAt: string;
+  contactedAt: string | null;
+};
+
+const INQUIRY_STATUS_LABEL: Record<InquiryStatus, string> = {
+  NEW: 'Yeni',
+  CONTACTED: 'Əlaqə saxlanılıb',
+  CLOSED: 'Bağlanıb',
+};
 
 const EMPTY_FORM = {
   placementKey: 'homepage_sidebar',
@@ -53,20 +71,37 @@ export function AdvertisingSection() {
   const [placements, setPlacements] = useState<Placement[]>([]);
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [analytics, setAnalytics] = useState<AnalyticsRow[]>([]);
+  const [inquiries, setInquiries] = useState<Inquiry[]>([]);
   const [form, setForm] = useState(EMPTY_FORM);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [inquiryBusyId, setInquiryBusyId] = useState<string | null>(null);
 
   async function reload() {
-    const [placementRows, campaignRows, analyticsRows] = await Promise.all([
+    const [placementRows, campaignRows, analyticsRows, inquiryRows] = await Promise.all([
       requestJson<Placement[]>('/api/admin/ads/placements'),
       requestJson<Campaign[]>('/api/admin/ads/campaigns'),
       requestJson<AnalyticsRow[]>('/api/admin/ads/analytics'),
+      requestJson<Inquiry[]>('/api/admin/ads/inquiries'),
     ]);
     setPlacements(placementRows);
     setCampaigns(campaignRows);
     setAnalytics(analyticsRows);
+    setInquiries(inquiryRows);
+  }
+
+  async function updateInquiryStatus(id: string, status: InquiryStatus) {
+    setInquiryBusyId(id);
+    setError('');
+    try {
+      await requestJson(`/api/admin/ads/inquiries/${id}`, { method: 'PATCH', body: JSON.stringify({ status }) });
+      await reload();
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Sorğu uğursuz oldu.');
+    } finally {
+      setInquiryBusyId(null);
+    }
   }
 
   useEffect(() => {
@@ -102,6 +137,83 @@ export function AdvertisingSection() {
   return (
     <div className="space-y-6">
       {error && <p className="text-small text-error">{error}</p>}
+
+      <Card>
+        <h2 className="font-display text-h3">Sorğular</h2>
+        <p className="mt-2 text-small text-text-secondary">
+          &ldquo;/advertise&rdquo; formundan gələn sifariş sorğuları — müştəri kreativini (şəkil faylını) əlaqə saxladıqdan sonra özü göndərir, bura yalnız əlaqə məlumatı düşür.
+        </p>
+        <div className="mt-4 overflow-x-auto">
+          <table className="w-full text-left text-small">
+            <thead>
+              <tr className="text-caption text-text-muted">
+                <th className="pb-2">Tarix</th>
+                <th className="pb-2">Ad, soyad</th>
+                <th className="pb-2">Əlaqə</th>
+                <th className="pb-2">Şirkət</th>
+                <th className="pb-2">Mesaj</th>
+                <th className="pb-2">Status</th>
+                <th className="pb-2" />
+              </tr>
+            </thead>
+            <tbody>
+              {inquiries.length === 0 && (
+                <tr>
+                  <td colSpan={7} className="py-4 text-text-muted">Hələ heç bir sorğu yoxdur.</td>
+                </tr>
+              )}
+              {inquiries.map((inquiry) => (
+                <tr key={inquiry.id} className="border-t border-border align-top">
+                  <td className="py-3 whitespace-nowrap">{new Date(inquiry.createdAt).toLocaleDateString('az-AZ')}</td>
+                  <td className="py-3">{inquiry.contactName}</td>
+                  <td className="py-3">
+                    <div>{inquiry.contactPhone}</div>
+                    {inquiry.contactEmail && <div className="text-caption text-text-muted">{inquiry.contactEmail}</div>}
+                  </td>
+                  <td className="py-3">{inquiry.companyName ?? '—'}</td>
+                  <td className="py-3 max-w-xs">{inquiry.message ?? '—'}</td>
+                  <td className="py-3">
+                    <span
+                      className={
+                        inquiry.status === 'NEW'
+                          ? 'rounded-full bg-warning-bg px-2 py-0.5 text-caption font-semibold text-warning'
+                          : inquiry.status === 'CONTACTED'
+                            ? 'rounded-full bg-info-bg px-2 py-0.5 text-caption font-semibold text-info'
+                            : 'rounded-full bg-success-bg px-2 py-0.5 text-caption font-semibold text-success'
+                      }
+                    >
+                      {INQUIRY_STATUS_LABEL[inquiry.status]}
+                    </span>
+                  </td>
+                  <td className="py-3 text-right whitespace-nowrap">
+                    {inquiry.status !== 'CONTACTED' && (
+                      <button
+                        type="button"
+                        disabled={inquiryBusyId === inquiry.id}
+                        className="text-label text-primary disabled:opacity-50"
+                        onClick={() => updateInquiryStatus(inquiry.id, 'CONTACTED')}
+                      >
+                        Əlaqə saxlanıldı
+                      </button>
+                    )}
+                    {inquiry.status !== 'CLOSED' && (
+                      <button
+                        type="button"
+                        disabled={inquiryBusyId === inquiry.id}
+                        className="ml-3 text-label text-text-muted disabled:opacity-50"
+                        onClick={() => updateInquiryStatus(inquiry.id, 'CLOSED')}
+                      >
+                        Bağla
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+
       <Card>
         <h2 className="font-display text-h3">Yerləşdirmə</h2>
         <p className="mt-2 text-small text-text-secondary">Bir slot, bir anda bir kreativ. Rotasiya yalnız 30/45/60/90 saniyə ola bilər.</p>
