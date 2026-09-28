@@ -1258,6 +1258,13 @@ components:
         coverPhotoUrl: { type: string, format: uri }
         available: { type: boolean }
         relevanceScore: { type: number }
+        isPremium:
+          type: boolean
+          description: >-
+            Currently-active category-scoped premium ranking (admin-only,
+            offline-paid — 1700000000039-RoomPremium.ts). Drives the
+            "Seçilmiş məkan" badge. Never confuse with booking/payment
+            status — purely a search-visibility flag.
 
     Profile:
       # AccountService.getProfile()'s real shape — deliberately a

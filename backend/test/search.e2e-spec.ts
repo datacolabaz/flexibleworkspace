@@ -351,4 +351,320 @@ describe('Search (real Postgres, real SQL)', () => {
       ).rejects.toMatchObject({ status: 404 });
     });
   });
+
+  /**
+   * 1700000000039-RoomPremium.ts — category-scoped premium ranking.
+   * Isolated fixtures (own rooms, reusing the outer `verifiedProviderId`/
+   * `bakuLocationId`) so these don't disturb the organic-ordering
+   * assertions above. Covers: pin-to-top within category, no leakage
+   * across categories or into unfiltered browsing, expiry/not-yet-started
+   * windows reverting to organic order, multi-premium priority ordering,
+   * an explicit sort overriding the pin, `getFeaturedRooms()`'s pool, and
+   * that `premiumInternalNote` never reaches a public result shape.
+   */
+  describe('Premium ranking (1700000000039-RoomPremium)', () => {
+    let conferenceRoomTypeId: string;
+    let premiumHiRoomId: string; // meeting_room, priority=1, active, EXPENSIVE
+    let premiumLoRoomId: string; // meeting_room, priority=5, active, mid price
+    let expiredPremiumRoomId: string; // meeting_room, isPremium=true but ended in the past
+    let futurePremiumRoomId: string; // meeting_room, isPremium=true but starts in the future
+    let crossCategoryPremiumRoomId: string; // conference_room, active premium
+    let draftPremiumRoomId: string; // meeting_room, DRAFT + active premium — must never appear
+    let plainFeaturedRoomId: string; // meeting_room, is_featured=true, isPremium=false
+    const premiumRoomIds: string[] = [];
+
+    beforeAll(async () => {
+      const [conferenceRoomType] = await dataSource.query(
+        `SELECT id FROM room_type WHERE translation_key = 'room_type.conference_room'`,
+      );
+      conferenceRoomTypeId = conferenceRoomType.id;
+
+      const mk = async (
+        label: string,
+        roomTypeId: string,
+        price: number,
+        status: 'ACTIVE' | 'DRAFT',
+        premium: {
+          isPremium: boolean;
+          priority?: number | null;
+          startsAt?: Date | null;
+          endsAt?: Date | null;
+        },
+      ) => {
+        const [row] = await dataSource.query(
+          `INSERT INTO room (location_id, room_type_id, name, slug, capacity_min, capacity_max, base_price_amount, base_price_currency, status,
+                              average_rating, review_count, is_premium, premium_priority, premium_starts_at, premium_ends_at,
+                              created_at, updated_at)
+           VALUES ($1, $2, $3, $4, 1, 4, $5, 'AZN', $6, 4.0, 3, $7, $8, $9, $10, now(), now())
+           RETURNING id`,
+          [
+            bakuLocationId,
+            roomTypeId,
+            label,
+            `${suffix}-${label.toLowerCase().replace(/\s+/g, '-')}`,
+            price,
+            status,
+            premium.isPremium,
+            premium.priority ?? null,
+            premium.startsAt ?? null,
+            premium.endsAt ?? null,
+          ],
+        );
+        premiumRoomIds.push(row.id);
+        return row.id as string;
+      };
+
+      const past = new Date(Date.now() - 3_600_000);
+      const farPast = new Date(Date.now() - 30 * 86_400_000);
+      const recentPast = new Date(Date.now() - 86_400_000);
+      const future = new Date(Date.now() + 30 * 86_400_000);
+      const farFuture = new Date(Date.now() + 60 * 86_400_000);
+
+      premiumHiRoomId = await mk(
+        'Premium Hi Priority Room',
+        meetingRoomTypeId,
+        90000,
+        'ACTIVE',
+        { isPremium: true, priority: 1, startsAt: past, endsAt: future },
+      );
+      premiumLoRoomId = await mk(
+        'Premium Lo Priority Room',
+        meetingRoomTypeId,
+        8000,
+        'ACTIVE',
+        { isPremium: true, priority: 5, startsAt: past, endsAt: future },
+      );
+      expiredPremiumRoomId = await mk(
+        'Expired Premium Room',
+        meetingRoomTypeId,
+        8500,
+        'ACTIVE',
+        { isPremium: true, priority: 1, startsAt: farPast, endsAt: recentPast },
+      );
+      futurePremiumRoomId = await mk(
+        'Future Premium Room',
+        meetingRoomTypeId,
+        8600,
+        'ACTIVE',
+        { isPremium: true, priority: 1, startsAt: future, endsAt: farFuture },
+      );
+      crossCategoryPremiumRoomId = await mk(
+        'Cross Category Premium Room',
+        conferenceRoomTypeId,
+        8700,
+        'ACTIVE',
+        { isPremium: true, priority: 1, startsAt: past, endsAt: future },
+      );
+      draftPremiumRoomId = await mk(
+        'Draft Premium Room',
+        meetingRoomTypeId,
+        8800,
+        'DRAFT',
+        { isPremium: true, priority: 1, startsAt: past, endsAt: future },
+      );
+      plainFeaturedRoomId = await mk(
+        'Plain Featured Room',
+        meetingRoomTypeId,
+        9000,
+        'ACTIVE',
+        { isPremium: false },
+      );
+      await dataSource.query(
+        `UPDATE room SET is_featured = TRUE WHERE id = $1`,
+        [plainFeaturedRoomId],
+      );
+    }, 30_000);
+
+    afterAll(async () => {
+      await dataSource.query(`DELETE FROM room WHERE id = ANY($1::uuid[])`, [
+        premiumRoomIds,
+      ]);
+    });
+
+    it('pins an active premium room to the top of its own category under the default relevance sort, despite a much higher price', async () => {
+      const page = await searchService.search({
+        roomType: 'room_type.meeting_room',
+        page: 1,
+        pageSize: 50,
+      } as any);
+      expect(page.results[0].id).toBe(premiumHiRoomId);
+      expect(page.results[0].isPremium).toBe(true);
+    });
+
+    it('orders multiple active premium rooms by premium_priority ASC ahead of organic results', async () => {
+      const page = await searchService.search({
+        roomType: 'room_type.meeting_room',
+        page: 1,
+        pageSize: 50,
+      } as any);
+      const ids = page.results.map((r) => r.id);
+      const hiIndex = ids.indexOf(premiumHiRoomId); // priority 1
+      const loIndex = ids.indexOf(premiumLoRoomId); // priority 5
+      const organicIndex = ids.indexOf(cheapVerifiedRoomId); // not premium
+      expect(hiIndex).toBeGreaterThanOrEqual(0);
+      expect(loIndex).toBeGreaterThan(hiIndex);
+      expect(organicIndex).toBeGreaterThan(loIndex);
+    });
+
+    it('does NOT pin premium rooms when no category filter is active (never forces cross-category placement)', async () => {
+      const page = await searchService.search({
+        city: 'Baku',
+        page: 1,
+        pageSize: 50,
+      } as any);
+      // Premium Hi (90000 AZN) would be first if pinning applied unfiltered;
+      // instead, plain organic relevance ordering governs, so a far cheaper
+      // room outranks it.
+      const hiIndex = page.results.findIndex((r) => r.id === premiumHiRoomId);
+      const cheapIndex = page.results.findIndex(
+        (r) => r.id === cheapVerifiedRoomId,
+      );
+      expect(hiIndex).toBeGreaterThan(cheapIndex);
+    });
+
+    it("does NOT leak a premium room into a different category's results", async () => {
+      const page = await searchService.search({
+        roomType: 'room_type.meeting_room',
+        page: 1,
+        pageSize: 50,
+      } as any);
+      const ids = page.results.map((r) => r.id);
+      expect(ids).not.toContain(crossCategoryPremiumRoomId);
+    });
+
+    it('does not pin an active premium room from category B when searching category A, even though it IS active', async () => {
+      const page = await searchService.search({
+        roomType: 'room_type.conference_room',
+        page: 1,
+        pageSize: 50,
+      } as any);
+      expect(page.results[0].id).toBe(crossCategoryPremiumRoomId);
+      expect(page.results[0].isPremium).toBe(true);
+    });
+
+    it('reverts an EXPIRED premium room to normal (non-pinned) organic ranking', async () => {
+      const page = await searchService.search({
+        roomType: 'room_type.meeting_room',
+        page: 1,
+        pageSize: 50,
+      } as any);
+      const expired = page.results.find((r) => r.id === expiredPremiumRoomId);
+      expect(expired).toBeDefined();
+      expect(expired!.isPremium).toBe(false);
+      // Its price (8500) is cheaper than both active premium rooms, yet it
+      // must rank AFTER them since it is no longer active.
+      const ids = page.results.map((r) => r.id);
+      expect(ids.indexOf(expiredPremiumRoomId)).toBeGreaterThan(
+        ids.indexOf(premiumLoRoomId),
+      );
+    });
+
+    it('does not pin a premium room whose window has not started yet', async () => {
+      const page = await searchService.search({
+        roomType: 'room_type.meeting_room',
+        page: 1,
+        pageSize: 50,
+      } as any);
+      const future = page.results.find((r) => r.id === futurePremiumRoomId);
+      expect(future).toBeDefined();
+      expect(future!.isPremium).toBe(false);
+    });
+
+    it('does not override an explicit sort=price with premium pinning', async () => {
+      const page = await searchService.search({
+        roomType: 'room_type.meeting_room',
+        sort: 'price',
+        page: 1,
+        pageSize: 50,
+      } as any);
+      const prices = page.results.map((r) => r.pricePerHour.amount);
+      const sorted = [...prices].sort((a, b) => a - b);
+      expect(prices).toEqual(sorted);
+      // The expensive premium room (90000) must NOT be first under sort=price.
+      expect(page.results[0].id).not.toBe(premiumHiRoomId);
+    });
+
+    it('never returns a DRAFT room as premium (or at all), even with an active premium flag', async () => {
+      const page = await searchService.search({
+        roomType: 'room_type.meeting_room',
+        page: 1,
+        pageSize: 50,
+      } as any);
+      const ids = page.results.map((r) => r.id);
+      expect(ids).not.toContain(draftPremiumRoomId);
+    });
+
+    it('never exposes premiumInternalNote on a public search result', async () => {
+      const page = await searchService.search({
+        roomType: 'room_type.meeting_room',
+        page: 1,
+        pageSize: 50,
+      } as any);
+      for (const r of page.results) {
+        expect(Object.keys(r)).not.toContain('premiumInternalNote');
+      }
+    });
+
+    describe('getFeaturedRooms', () => {
+      /**
+       * Product decision 2026-09-28: this widget has NO category filter,
+       * so pinning EVERY active premium room here (unlike `search()`,
+       * which pins within one category) could let premium rooms from
+       * several categories fill the whole rail. Capped to AT MOST ONE
+       * pinned premium slot. This fixture pool has THREE simultaneously
+       * active premium rooms across two categories (premiumHiRoomId and
+       * crossCategoryPremiumRoomId both priority=1 in different
+       * categories; premiumLoRoomId priority=5) — proving the cap holds
+       * even when multiple candidates are otherwise eligible.
+       */
+      it('pins AT MOST ONE active premium room on the flat, category-less homepage pool, ranked first', async () => {
+        const rooms = await searchService.getFeaturedRooms(20);
+        const ids = rooms.map((r) => r.id);
+        // premiumHiRoomId and crossCategoryPremiumRoomId are tied on
+        // priority=1 (different categories) — exactly one of them wins
+        // the single slot; which one is an implementation-detail
+        // tie-break (recency/id), not asserted here.
+        const tiedTopCandidates = [premiumHiRoomId, crossCategoryPremiumRoomId];
+        const pinned = tiedTopCandidates.filter((id) => ids.includes(id));
+        expect(pinned).toHaveLength(1);
+        expect(ids[0]).toBe(pinned[0]);
+        expect(rooms[0].isPremium).toBe(true);
+        // premiumLoRoomId (priority=5, worse) never wins the single slot,
+        // and it isn't `is_featured` either, so it's absent entirely —
+        // proof the cap doesn't just reorder, it excludes the loser.
+        expect(ids).not.toContain(premiumLoRoomId);
+      });
+
+      it('fills the remaining slots with the pre-existing is_featured pool, unaffected by the premium cap', async () => {
+        const rooms = await searchService.getFeaturedRooms(20);
+        const ids = rooms.map((r) => r.id);
+        expect(ids).toContain(plainFeaturedRoomId);
+        const featuredEntry = rooms.find((r) => r.id === plainFeaturedRoomId);
+        expect(featuredEntry!.isPremium).toBe(false);
+      });
+
+      it('excludes an expired-premium, non-featured room from the featured pool', async () => {
+        const rooms = await searchService.getFeaturedRooms(20);
+        const ids = rooms.map((r) => r.id);
+        expect(ids).not.toContain(expiredPremiumRoomId);
+      });
+
+      it('never returns more than one room with isPremium=true', async () => {
+        const rooms = await searchService.getFeaturedRooms(20);
+        expect(rooms.filter((r) => r.isPremium)).toHaveLength(1);
+      });
+    });
+
+    describe('getRoomDetail', () => {
+      it('reflects isPremium=true for an active premium room', async () => {
+        const detail = await searchService.getRoomDetail(premiumHiRoomId);
+        expect(detail.isPremium).toBe(true);
+      });
+
+      it('reflects isPremium=false for an expired premium room', async () => {
+        const detail = await searchService.getRoomDetail(expiredPremiumRoomId);
+        expect(detail.isPremium).toBe(false);
+      });
+    });
+  });
 });

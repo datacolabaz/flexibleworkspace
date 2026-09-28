@@ -105,16 +105,33 @@ export function RoomListingCard({ room, highlighted = false, onHoverChange, init
             </div>
           )}
         </Link>
-        {room.verified && (
-          // The checkmark and label are separate spans (not one text run)
-          // so the label's own text content stays exactly the translated
-          // string — matches how tests/room-listing-card.test.tsx already
-          // queries for it by exact text, and keeps the glyph decorative
-          // (aria-hidden) rather than read aloud by a screen reader.
-          <Badge variant="verified" className="pointer-events-none absolute left-2 top-2 shadow-sm">
-            <span aria-hidden="true">✓</span>
-            <span>{t('search.verified')}</span>
-          </Badge>
+        {(room.verified || room.isPremium) && (
+          // Stacked, not two independently-positioned badges — a room can
+          // be both verified and premium at once, and stacking (instead of
+          // e.g. sharing the bookmark button's top-right corner) keeps
+          // each badge's own text un-clipped at narrow card widths.
+          <div className="pointer-events-none absolute left-2 top-2 flex flex-col items-start gap-1">
+            {room.isPremium && (
+              // 1700000000039-RoomPremium.ts — category-scoped premium
+              // ranking (admin-only, offline-paid). Purely a visibility
+              // label; never implies anything about booking/payment.
+              <Badge variant="accent" className="shadow-sm">
+                <span aria-hidden="true">★</span>
+                <span>{t('search.premium')}</span>
+              </Badge>
+            )}
+            {room.verified && (
+              // The checkmark and label are separate spans (not one text run)
+              // so the label's own text content stays exactly the translated
+              // string — matches how tests/room-listing-card.test.tsx already
+              // queries for it by exact text, and keeps the glyph decorative
+              // (aria-hidden) rather than read aloud by a screen reader.
+              <Badge variant="verified" className="shadow-sm">
+                <span aria-hidden="true">✓</span>
+                <span>{t('search.verified')}</span>
+              </Badge>
+            )}
+          </div>
         )}
         {room.id && (
           // Ghost circle (translucent, not a flat opaque fill) with a

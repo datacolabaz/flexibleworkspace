@@ -4,6 +4,7 @@ import {
   assertAdminAccess,
   correctAdminRoom,
   setAdminRoomFeatured,
+  setAdminRoomPremium,
   downloadAdminProviderVerificationDocument,
   getAdminPricing,
   getAdminCancellationPolicy,
@@ -35,6 +36,7 @@ import {
   updateAdminPricing,
   updateAdminCancellationPolicy,
   type CorrectRoomInput,
+  type SetRoomPremiumInput,
   type AdminProviderVerificationStatus,
   type AdminProviderPlanTier,
   type AdminPlanUpgradeRequestStatus,
@@ -175,6 +177,10 @@ export async function PATCH(
     if (path.length === 3 && path[0] === 'rooms' && path[2] === 'featured') {
       const body = (await request.json()) as { isFeatured: boolean };
       return NextResponse.json(await setAdminRoomFeatured(accessToken, path[1], body.isFeatured));
+    }
+    if (path.length === 3 && path[0] === 'rooms' && path[2] === 'premium') {
+      const body = (await request.json()) as SetRoomPremiumInput;
+      return NextResponse.json(await setAdminRoomPremium(accessToken, path[1], body));
     }
     if (path.length === 2 && path[0] === 'pricing' && path[1] === 'default') {
       return NextResponse.json(await updateAdminPricing(accessToken, await request.json()));

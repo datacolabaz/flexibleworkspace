@@ -28,6 +28,8 @@ export interface RoomSearchResult {
   coverPhotoUrl: string | null;
   available: boolean;
   relevanceScore: number;
+  /** Currently-active category-scoped premium ranking (1700000000039-RoomPremium.ts) — drives the "Seçilmiş məkan" badge. */
+  isPremium: boolean;
 }
 
 export interface SearchResultPage {
@@ -77,6 +79,23 @@ export class SearchService {
     private readonly configService: ConfigService,
     @Inject(STORAGE_PROVIDER) private readonly storageProvider: StorageProvider,
   ) {}
+
+  /**
+   * "Currently active" for `room.is_premium` (1700000000039-RoomPremium.ts)
+   * — the flag itself, plus its optional start/end window checked against
+   * the DB server's `now()` (never app-server time; same discipline as
+   * every other now()-based predicate in this query). A NULL bound means
+   * "no limit" on that side. Shared by `search()` (ranking within a
+   * category) and `getFeaturedRooms()` (the homepage pool) so both read
+   * "premium" the same way.
+   */
+  private premiumActiveExpr(alias = 'r'): string {
+    return `(
+      ${alias}.is_premium = TRUE
+      AND (${alias}.premium_starts_at IS NULL OR ${alias}.premium_starts_at <= now())
+      AND (${alias}.premium_ends_at IS NULL OR ${alias}.premium_ends_at > now())
+    )`;
+  }
 
   async search(dto: SearchQueryDto): Promise<SearchResultPage> {
     const pb = new ParamBuilder();
@@ -219,7 +238,9 @@ export class SearchService {
       );
     }
     if (dto.metroStationId) {
-      whereClauses.push(`l.nearest_metro_station_id = ${pb.add(dto.metroStationId)}`);
+      whereClauses.push(
+        `l.nearest_metro_station_id = ${pb.add(dto.metroStationId)}`,
+      );
     }
     if (hasAvailabilityCheck) {
       // "a room is never shown as a result if it can't actually be booked
@@ -274,6 +295,25 @@ export class SearchService {
       orderByExpr = 'r.average_rating DESC, r.review_count DESC';
     else orderByExpr = 'relevance_score DESC';
 
+    // Premium-first ranking (1700000000039-RoomPremium.ts) — ONLY when the
+    // caller is actually browsing a specific category (`dto.roomType` set)
+    // AND under the default relevance ordering. Two deliberate limits,
+    // both from the product decision this implements: (1) a room never
+    // gets pulled to the top of an UNFILTERED, all-categories list just
+    // for being premium elsewhere ("Digər kateqoriyalardan məcburi
+    // şəkildə məkan gətirmə" — premium only acts within its own category);
+    // (2) an explicit price/distance/rating sort is the visitor's own
+    // stated intent and must not be overridden by a paid placement (a
+    // premium room costing more than the visitor's budget staying pinned
+    // to the top of "cheapest first" would undermine that sort entirely).
+    // Composes with `orderByExpr`, so it plugs into whichever branch above
+    // was chosen — relevance is the only one reachable here since the
+    // other three branches return earlier.
+    const applyPremiumPinning = Boolean(dto.roomType) && sort === 'relevance';
+    if (applyPremiumPinning) {
+      orderByExpr = `(CASE WHEN ${this.premiumActiveExpr()} THEN 0 ELSE 1 END) ASC, r.premium_priority ASC NULLS LAST, ${orderByExpr}`;
+    }
+
     const page = dto.page ?? 1;
     const pageSize = dto.pageSize ?? 20;
     const limitParam = pb.add(pageSize);
@@ -307,6 +347,7 @@ export class SearchService {
         ) AS cover_photo_key,
         ${isAvailableExpr} AS available,
         ${relevanceExpr} AS relevance_score,
+        ${this.premiumActiveExpr()} AS is_premium_active,
         count(*) OVER() AS total_count
       FROM room r
       JOIN location l ON l.id = r.location_id
@@ -353,6 +394,7 @@ export class SearchService {
         : null,
       available: row.available,
       relevanceScore: Math.round(row.relevance_score * 1000) / 1000,
+      isPremium: Boolean(row.is_premium_active),
     };
   }
 
@@ -371,47 +413,60 @@ export class SearchService {
     return this.storageProvider.publicUrlFor(storageKey);
   }
 
+  /** Shared SELECT list for `getFeaturedRooms()`'s two queries below — kept as one string so both read the same row shape into `mapRow()`. */
+  private featuredRoomSelectExpr(): string {
+    return `
+      r.id,
+      r.name,
+      rt.translation_key AS room_type,
+      p.display_name AS provider_name,
+      true AS verified,
+      l.city,
+      l.district,
+      NULL::double precision AS lat,
+      NULL::double precision AS lng,
+      NULL::double precision AS distance_m,
+      r.capacity_min,
+      r.capacity_max,
+      r.base_price_amount::int AS price_amount,
+      r.base_price_currency AS price_currency,
+      r.average_rating::float AS average_rating,
+      r.review_count,
+      (
+        SELECT storage_key FROM photo ph
+        WHERE ph.room_id = r.id AND ph.moderation_status = 'APPROVED'
+        ORDER BY ph.is_cover DESC, ph.display_order ASC
+        LIMIT 1
+      ) AS cover_photo_key,
+      true AS available,
+      0 AS relevance_score,
+      ${this.premiumActiveExpr()} AS is_premium_active
+    `;
+  }
+
   /**
-   * `GET /spaces/featured` — Sprint 4 (Featured Listing). A small,
-   * admin-curated set of rooms (`room.is_featured = TRUE`, toggled from
-   * the admin panel's Listings section) for the public homepage's
-   * "Featured venues" section, which previously showed 3 hardcoded mock
-   * rooms. Deliberately a plain query, not `search()`'s full relevance/
-   * geo/availability machinery — the homepage just needs "whichever
-   * rooms are currently featured," most recently updated first, same
-   * visibility rules as regular search (active, verified provider, not
-   * deleted). Reuses `mapRow()`/`RoomSearchResult` so the frontend gets
-   * the exact same shape `searchRooms()` already returns.
+   * `GET /spaces/featured` — Sprint 4 (Featured Listing), extended by
+   * 1700000000039-RoomPremium.ts. Product decision 2026-09-28: this
+   * widget has NO category filter (unlike `search()`'s per-category
+   * pinning), so pinning every active premium room here — across every
+   * category at once — could let one advertiser (or a handful) fill the
+   * entire homepage rail. Capped instead to AT MOST ONE premium slot,
+   * chosen by `premium_priority ASC` (then `updated_at DESC`, then `id`
+   * as a stable tie-breaker) — the room a provider paid to rank first
+   * among premium rooms. The remaining slots are filled by the
+   * pre-existing `is_featured` mechanism, completely unchanged: same
+   * pool, same `updated_at DESC` order, so a site with zero premium data
+   * renders byte-for-byte what it always has (backward compatibility).
+   * Two small queries (not one combined one) because "at most 1 from
+   * pool A, then N-1 from pool B" doesn't reduce to a single ORDER BY +
+   * LIMIT — still cheap at this widget's tiny limit (≤12).
    */
   async getFeaturedRooms(limit = 6): Promise<RoomSearchResult[]> {
     const cappedLimit = Math.min(Math.max(limit, 1), 12);
-    const rows = await this.dataSource.query(
+
+    const premiumRows = await this.dataSource.query(
       `
-      SELECT
-        r.id,
-        r.name,
-        rt.translation_key AS room_type,
-        p.display_name AS provider_name,
-        true AS verified,
-        l.city,
-        l.district,
-        NULL::double precision AS lat,
-        NULL::double precision AS lng,
-        NULL::double precision AS distance_m,
-        r.capacity_min,
-        r.capacity_max,
-        r.base_price_amount::int AS price_amount,
-        r.base_price_currency AS price_currency,
-        r.average_rating::float AS average_rating,
-        r.review_count,
-        (
-          SELECT storage_key FROM photo ph
-          WHERE ph.room_id = r.id AND ph.moderation_status = 'APPROVED'
-          ORDER BY ph.is_cover DESC, ph.display_order ASC
-          LIMIT 1
-        ) AS cover_photo_key,
-        true AS available,
-        0 AS relevance_score
+      SELECT ${this.featuredRoomSelectExpr()}
       FROM room r
       JOIN location l ON l.id = r.location_id
       JOIN provider p ON p.id = l.provider_id
@@ -419,13 +474,39 @@ export class SearchService {
       WHERE r.deleted_at IS NULL AND r.status = 'ACTIVE'
         AND l.deleted_at IS NULL AND p.deleted_at IS NULL
         AND p.verification_status = 'VERIFIED'
-        AND r.is_featured = TRUE
-      ORDER BY r.updated_at DESC
-      LIMIT $1
+        AND ${this.premiumActiveExpr()}
+      ORDER BY r.premium_priority ASC NULLS LAST, r.updated_at DESC, r.id
+      LIMIT 1
       `,
-      [cappedLimit],
     );
-    return rows.map((row: any) => this.mapRow(row));
+
+    const remainingLimit = cappedLimit - premiumRows.length;
+    const pinnedPremiumId: string | null = premiumRows[0]?.id ?? null;
+
+    const featuredRows =
+      remainingLimit > 0
+        ? await this.dataSource.query(
+            `
+            SELECT ${this.featuredRoomSelectExpr()}
+            FROM room r
+            JOIN location l ON l.id = r.location_id
+            JOIN provider p ON p.id = l.provider_id
+            JOIN room_type rt ON rt.id = r.room_type_id
+            WHERE r.deleted_at IS NULL AND r.status = 'ACTIVE'
+              AND l.deleted_at IS NULL AND p.deleted_at IS NULL
+              AND p.verification_status = 'VERIFIED'
+              AND r.is_featured = TRUE
+              AND ($1::uuid IS NULL OR r.id <> $1)
+            ORDER BY r.updated_at DESC, r.id
+            LIMIT $2
+            `,
+            [pinnedPremiumId, remainingLimit],
+          )
+        : [];
+
+    return [...premiumRows, ...featuredRows].map((row: any) =>
+      this.mapRow(row),
+    );
   }
 
   /** `GET /spaces/:roomId` — full room detail, public (29_API_OPENAPI.yaml RoomDetail). */
@@ -445,7 +526,8 @@ export class SearchService {
         p.display_name AS provider_name,
         p.verification_status,
         l.city, l.district,
-        ST_Y(l.geo::geometry) AS lat, ST_X(l.geo::geometry) AS lng
+        ST_Y(l.geo::geometry) AS lat, ST_X(l.geo::geometry) AS lng,
+        ${this.premiumActiveExpr()} AS is_premium_active
       FROM room r
       JOIN location l ON l.id = r.location_id
       JOIN provider p ON p.id = l.provider_id
@@ -504,6 +586,7 @@ export class SearchService {
       lng: row.lng !== null ? Number(row.lng) : null,
       minBookingMinutes: row.min_booking_minutes,
       maxBookingMinutes: row.max_booking_minutes,
+      isPremium: Boolean(row.is_premium_active),
     };
   }
 }

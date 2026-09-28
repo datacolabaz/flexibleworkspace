@@ -73,6 +73,31 @@ describe('RoomListingCard', () => {
     expect(screen.queryByText('Verified')).not.toBeInTheDocument();
   });
 
+  // 1700000000039-RoomPremium.ts — category-scoped premium ranking's
+  // public label. Deliberately "Premium venue", not "Featured venue" —
+  // this placement is paid/promoted (product review 2026-09-28: an
+  // ambiguous "editorial pick"-sounding label would be misleading, same
+  // disclosure principle as e.g. Google Maps' "Sponsored" tag on paid
+  // placements). Admin-side nomenclature (isPremium, "Seçilmiş" in the
+  // admin table) is unchanged — only this public-facing string moved.
+  it('shows the premium ("Premium venue") badge when isPremium is true', () => {
+    renderCard({ ...BASE_ROOM, isPremium: true });
+    expect(screen.getByText('Premium venue')).toBeInTheDocument();
+  });
+
+  it('hides the premium badge when isPremium is false or omitted', () => {
+    renderCard({ ...BASE_ROOM, isPremium: false });
+    expect(screen.queryByText('Premium venue')).not.toBeInTheDocument();
+    renderCard(BASE_ROOM); // isPremium omitted entirely
+    expect(screen.queryByText('Premium venue')).not.toBeInTheDocument();
+  });
+
+  it('shows both the premium and verified badges together, stacked (not colliding with the bookmark button)', () => {
+    renderCard({ ...BASE_ROOM, isPremium: true, verified: true });
+    expect(screen.getByText('Premium venue')).toBeInTheDocument();
+    expect(screen.getByText('Verified')).toBeInTheDocument();
+  });
+
   it('shows a "New" label instead of a rating when there are no reviews yet', () => {
     renderCard({ ...BASE_ROOM, reviewCount: 0 });
     expect(screen.getByText('New')).toBeInTheDocument();

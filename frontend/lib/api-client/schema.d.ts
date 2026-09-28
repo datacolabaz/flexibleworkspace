@@ -2413,6 +2413,8 @@ export interface components {
             coverPhotoUrl?: string;
             available?: boolean;
             relevanceScore?: number;
+            /** @description Currently-active category-scoped premium ranking (admin-only, offline-paid — 1700000000039-RoomPremium.ts). Drives the "Seçilmiş məkan" badge. Never confuse with booking/payment status — purely a search-visibility flag. */
+            isPremium?: boolean;
         };
         Profile: {
             /** Format: uuid */

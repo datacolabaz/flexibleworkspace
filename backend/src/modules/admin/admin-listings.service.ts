@@ -5,6 +5,7 @@ import { Repository } from 'typeorm';
 import { RoomEntity } from '../rooms/entities/room.entity';
 import { CorrectRoomDto } from './dto/correct-room.dto';
 import { SetRoomFeaturedDto } from './dto/set-room-featured.dto';
+import { SetRoomPremiumDto } from './dto/set-room-premium.dto';
 import { AuditLogService } from '../audit/audit-log.service';
 import {
   DomainException,
@@ -52,6 +53,7 @@ export class AdminListingsService {
       .createQueryBuilder('room')
       .leftJoin('room.location', 'location')
       .leftJoin('location.provider', 'provider')
+      .leftJoin('room.roomType', 'roomType')
       .select([
         'room.id AS "id"',
         'room.name AS "name"',
@@ -61,6 +63,14 @@ export class AdminListingsService {
         'room.base_price_amount AS "basePriceAmount"',
         'room.base_price_currency AS "basePriceCurrency"',
         'room.is_featured AS "isFeatured"',
+        // Premium fields — surfaced so the admin table can show current
+        // state and which category (the room's own type) it applies to.
+        'room.is_premium AS "isPremium"',
+        'room.premium_priority AS "premiumPriority"',
+        'room.premium_starts_at AS "premiumStartsAt"',
+        'room.premium_ends_at AS "premiumEndsAt"',
+        'room.premium_internal_note AS "premiumInternalNote"',
+        'roomType.translation_key AS "roomType"',
         'room.updated_at AS "updatedAt"',
         'location.name AS "locationName"',
         'location.city AS "city"',
@@ -181,6 +191,78 @@ export class AdminListingsService {
       action: 'ADMIN_FEATURE_TOGGLE',
       beforeState: before,
       afterState: { isFeatured: saved.isFeatured },
+    });
+
+    return saved;
+  }
+
+  /**
+   * Category-scoped premium ranking — offline-paid, admin-only (product
+   * decision: no online subscription/auction/automatic ranking at this
+   * stage). Distinct from `setFeatured()` above: this carries a priority
+   * rank and an optional active window, and is implicitly scoped to the
+   * room's own category (`roomTypeId`) rather than a separate field.
+   * Every field besides `isPremium` is optional and left unchanged when
+   * omitted (see SetRoomPremiumDto's own doc comment). Never touches
+   * booking/payment state — this is a `Room` visibility flag only.
+   */
+  async setPremium(
+    roomId: string,
+    adminUserId: string,
+    dto: SetRoomPremiumDto,
+  ): Promise<RoomEntity> {
+    const room = await this.roomRepo.findOne({ where: { id: roomId } });
+    if (!room || room.deletedAt) throw new ResourceNotFoundException('Room');
+
+    const nextStartsAt =
+      dto.startsAt !== undefined
+        ? dto.startsAt
+          ? new Date(dto.startsAt)
+          : null
+        : room.premiumStartsAt;
+    const nextEndsAt =
+      dto.endsAt !== undefined
+        ? dto.endsAt
+          ? new Date(dto.endsAt)
+          : null
+        : room.premiumEndsAt;
+    if (nextStartsAt && nextEndsAt && nextEndsAt <= nextStartsAt) {
+      throw new DomainException(
+        'INVALID_PREMIUM_WINDOW',
+        'premiumEndsAt must be after premiumStartsAt.',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    const before = {
+      isPremium: room.isPremium,
+      premiumPriority: room.premiumPriority,
+      premiumStartsAt: room.premiumStartsAt,
+      premiumEndsAt: room.premiumEndsAt,
+      premiumInternalNote: room.premiumInternalNote,
+    };
+    room.isPremium = dto.isPremium;
+    if (dto.priority !== undefined) room.premiumPriority = dto.priority;
+    room.premiumStartsAt = nextStartsAt;
+    room.premiumEndsAt = nextEndsAt;
+    if (dto.internalNote !== undefined)
+      room.premiumInternalNote = dto.internalNote;
+    room.updatedAt = new Date();
+    const saved = await this.roomRepo.save(room);
+
+    await this.auditLogService.recordChange({
+      actorUserId: adminUserId,
+      entityType: 'Room',
+      entityId: roomId,
+      action: 'ADMIN_PREMIUM_UPDATE',
+      beforeState: before,
+      afterState: {
+        isPremium: saved.isPremium,
+        premiumPriority: saved.premiumPriority,
+        premiumStartsAt: saved.premiumStartsAt,
+        premiumEndsAt: saved.premiumEndsAt,
+        premiumInternalNote: saved.premiumInternalNote,
+      },
     });
 
     return saved;

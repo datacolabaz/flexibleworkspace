@@ -9,6 +9,17 @@ export type AdminRoom = {
   basePriceAmount: string;
   basePriceCurrency: string;
   isFeatured: boolean;
+  // Category-scoped premium ranking (1700000000039-RoomPremium.ts) —
+  // admin-only, offline-paid. `roomType` is the room's own category
+  // (same taxonomy `/search?roomType=` filters on), surfaced here purely
+  // so the admin table can show which category premium applies within —
+  // there is no separate "premium category" field.
+  isPremium: boolean;
+  premiumPriority: number | null;
+  premiumStartsAt: string | null;
+  premiumEndsAt: string | null;
+  premiumInternalNote: string | null;
+  roomType: string | null;
   updatedAt: string;
   locationName: string | null;
   city: string | null;
@@ -223,6 +234,29 @@ export function setAdminRoomFeatured(accessToken: string, roomId: string, isFeat
   return adminFetch<AdminRoom>(accessToken, `admin/rooms/${encodeURIComponent(roomId)}/featured`, {
     method: 'PATCH',
     body: JSON.stringify({ isFeatured }),
+  });
+}
+
+export type SetRoomPremiumInput = {
+  isPremium: boolean;
+  priority?: number;
+  /** ISO 8601, or `null` to explicitly clear. Omit to leave unchanged. */
+  startsAt?: string | null;
+  endsAt?: string | null;
+  /** Admin-only context (e.g. "paid via WhatsApp"). Never shown publicly. */
+  internalNote?: string | null;
+};
+
+/**
+ * `PATCH admin/rooms/:id/premium` — 1700000000039-RoomPremium.ts's
+ * category-scoped premium ranking. Same routine-toggle discipline as
+ * `setAdminRoomFeatured()` (no `reason` required) — distinct endpoint
+ * because premium also carries a priority and an optional active window.
+ */
+export function setAdminRoomPremium(accessToken: string, roomId: string, input: SetRoomPremiumInput) {
+  return adminFetch<AdminRoom>(accessToken, `admin/rooms/${encodeURIComponent(roomId)}/premium`, {
+    method: 'PATCH',
+    body: JSON.stringify(input),
   });
 }
 

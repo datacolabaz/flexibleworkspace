@@ -23,6 +23,16 @@ type AdminRoom = {
   basePriceAmount: string;
   basePriceCurrency: string;
   isFeatured: boolean;
+  // Category-scoped premium ranking (1700000000039-RoomPremium.ts) —
+  // admin-only, offline-paid. `roomType` (the room's own category) is
+  // surfaced here only so the table can show which category premium
+  // applies within — there's no separate "premium category" field.
+  isPremium: boolean;
+  premiumPriority: number | null;
+  premiumStartsAt: string | null;
+  premiumEndsAt: string | null;
+  premiumInternalNote: string | null;
+  roomType: string | null;
   updatedAt: string;
   locationName: string | null;
   city: string | null;
@@ -98,6 +108,7 @@ export default function AdminHome() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [editingRoom, setEditingRoom] = useState<AdminRoom | null>(null);
+  const [premiumEditingRoom, setPremiumEditingRoom] = useState<AdminRoom | null>(null);
   const [summary, setSummary] = useState<AdminSummary | null>(null);
   const [pricing, setPricing] = useState<AdminPricing | null>(null);
   const [cancellationPolicy, setCancellationPolicy] = useState<AdminCancellationPolicy | null>(null);
@@ -215,7 +226,7 @@ export default function AdminHome() {
           {loading && <div className="mb-5 rounded-md border border-border bg-surface px-4 py-3 text-small text-text-secondary">Məlumatlar yüklənir…</div>}
 
           {section === 'overview' && <Overview rooms={rooms} summary={summary} activeRooms={activeRooms} pendingRooms={pendingRooms} onNavigate={setSection} />}
-          {section === 'listings' && <Listings rooms={rooms} query={query} onQuery={setQuery} editingRoom={editingRoom} onEdit={setEditingRoom} onSaved={(room) => { setRooms((current) => current.map((item) => item.id === room.id ? room : item)); setEditingRoom(null); }} onDeleted={(roomId) => setRooms((current) => current.filter((item) => item.id !== roomId))} />}
+          {section === 'listings' && <Listings rooms={rooms} query={query} onQuery={setQuery} editingRoom={editingRoom} onEdit={setEditingRoom} premiumEditingRoom={premiumEditingRoom} onEditPremium={setPremiumEditingRoom} onSaved={(room) => { setRooms((current) => current.map((item) => item.id === room.id ? room : item)); setEditingRoom(null); }} onPremiumSaved={(room) => { setRooms((current) => current.map((item) => item.id === room.id ? room : item)); setPremiumEditingRoom(null); }} onDeleted={(roomId) => setRooms((current) => current.filter((item) => item.id !== roomId))} />}
           {section === 'pricing' && <PricingSection pricing={pricing} onSaved={setPricing} cancellationPolicy={cancellationPolicy} onCancellationPolicySaved={setCancellationPolicy} />}
           {section === 'providers' && (
             <ProvidersSection
@@ -261,7 +272,7 @@ function Overview({ rooms, summary, activeRooms, pendingRooms, onNavigate }: { r
   </div>;
 }
 
-function Listings({ rooms, query, onQuery, editingRoom, onEdit, onSaved, onDeleted }: { rooms: AdminRoom[]; query: string; onQuery: (value: string) => void; editingRoom: AdminRoom | null; onEdit: (room: AdminRoom | null) => void; onSaved: (room: AdminRoom) => void; onDeleted: (roomId: string) => void }) {
+function Listings({ rooms, query, onQuery, editingRoom, onEdit, premiumEditingRoom, onEditPremium, onSaved, onPremiumSaved, onDeleted }: { rooms: AdminRoom[]; query: string; onQuery: (value: string) => void; editingRoom: AdminRoom | null; onEdit: (room: AdminRoom | null) => void; premiumEditingRoom: AdminRoom | null; onEditPremium: (room: AdminRoom | null) => void; onSaved: (room: AdminRoom) => void; onPremiumSaved: (room: AdminRoom) => void; onDeleted: (roomId: string) => void }) {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [featuredError, setFeaturedError] = useState('');
   // Sprint 4 (Featured Listing) — admin-only on/off toggle, no reason
@@ -280,6 +291,20 @@ function Listings({ rooms, query, onQuery, editingRoom, onEdit, onSaved, onDelet
     } catch (caught) { setFeaturedError(caught instanceof Error ? caught.message : 'Əməliyyat uğursuz oldu.'); }
     finally { setBusyId(null); }
   }
+  // 1700000000039-RoomPremium.ts — a quick one-click deactivate (mirrors
+  // `toggleFeatured` above) for the common "turn it off" case; turning
+  // premium ON always opens `PremiumEditor` below, since activating needs
+  // a priority (and usually a paid window), unlike the plain on/off
+  // `isFeatured` flag.
+  async function deactivatePremium(room: AdminRoom) {
+    setBusyId(room.id);
+    setFeaturedError('');
+    try {
+      const updated = await requestJson<AdminRoom>(`/api/admin/rooms/${room.id}/premium`, { method: 'PATCH', body: JSON.stringify({ isPremium: false }) });
+      onPremiumSaved({ ...room, isPremium: updated.isPremium });
+    } catch (caught) { setFeaturedError(caught instanceof Error ? caught.message : 'Əməliyyat uğursuz oldu.'); }
+    finally { setBusyId(null); }
+  }
   async function removeRoom(room: AdminRoom) {
     const reason = window.prompt(`“${room.name}” elanının silinmə səbəbi:`);
     if (!reason || reason.trim().length < 3) return;
@@ -295,8 +320,9 @@ function Listings({ rooms, query, onQuery, editingRoom, onEdit, onSaved, onDelet
   return <section className="space-y-5" aria-labelledby="listings-title">
     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><h2 id="listings-title" className="font-display text-h3">Məkan kataloqu</h2><Input value={query} onChange={(event) => onQuery(event.target.value)} placeholder="Məkan, provider və ya şəhər axtar" className="sm:max-w-xs" /></div>
     {featuredError && <p className="text-small text-error">{featuredError}</p>}
-    <Card className="overflow-hidden p-0"><div className="overflow-x-auto"><table className="w-full min-w-[900px] text-left text-small"><thead className="border-b border-border bg-surface-elevated text-label text-text-secondary"><tr><th className="px-5 py-3">Məkan</th><th className="px-5 py-3">Provider</th><th className="px-5 py-3">Status</th><th className="px-5 py-3">Qiymət</th><th className="px-5 py-3">Featured</th><th className="px-5 py-3">Əməliyyat</th></tr></thead><tbody>{rooms.map((room) => <tr key={room.id} className="border-b border-border last:border-0"><td className="px-5 py-4"><strong className="block">{room.name}</strong><span className="text-caption text-text-muted">{room.locationName ?? room.city ?? '—'}</span></td><td className="px-5 py-4 text-text-secondary">{room.providerName ?? '—'}</td><td className="px-5 py-4"><span className={`rounded-full px-2.5 py-1 text-caption ${room.status === 'ACTIVE' ? 'bg-success-bg text-success' : room.status === 'DRAFT' ? 'bg-warning-bg text-warning' : 'bg-surface-elevated text-text-secondary'}`}>{room.status}</span></td><td className="px-5 py-4">{formatPrice(room.basePriceAmount, room.basePriceCurrency)}<span className="block text-caption text-text-muted">{room.capacityMin}–{room.capacityMax} nəfər</span></td><td className="px-5 py-4">{room.isFeatured ? <span className="rounded-full bg-success-bg px-2.5 py-1 text-caption text-success">Featured</span> : <span className="text-caption text-text-muted">—</span>}</td><td className="px-5 py-4"><div className="flex flex-wrap gap-2"><Button type="button" variant="secondary" size="sm" onClick={() => onEdit(room)}>Düzəliş et</Button><Button type="button" variant="secondary" size="sm" disabled={busyId === room.id} onClick={() => toggleFeatured(room)}>{room.isFeatured ? 'Featured-i ləğv et' : 'Featured et'}</Button><Button type="button" variant="secondary" size="sm" disabled={busyId === room.id} onClick={() => removeRoom(room)}>Elanı sil</Button></div></td></tr>)}</tbody></table></div>{rooms.length === 0 && <p className="p-5 text-small text-text-secondary">Nəticə tapılmadı.</p>}</Card>
+    <Card className="overflow-hidden p-0"><div className="overflow-x-auto"><table className="w-full min-w-[1080px] text-left text-small"><thead className="border-b border-border bg-surface-elevated text-label text-text-secondary"><tr><th className="px-5 py-3">Məkan</th><th className="px-5 py-3">Provider</th><th className="px-5 py-3">Status</th><th className="px-5 py-3">Qiymət</th><th className="px-5 py-3">Featured</th><th className="px-5 py-3">Premium</th><th className="px-5 py-3">Əməliyyat</th></tr></thead><tbody>{rooms.map((room) => <tr key={room.id} className="border-b border-border last:border-0"><td className="px-5 py-4"><strong className="block">{room.name}</strong><span className="text-caption text-text-muted">{room.locationName ?? room.city ?? '—'}</span></td><td className="px-5 py-4 text-text-secondary">{room.providerName ?? '—'}</td><td className="px-5 py-4"><span className={`rounded-full px-2.5 py-1 text-caption ${room.status === 'ACTIVE' ? 'bg-success-bg text-success' : room.status === 'DRAFT' ? 'bg-warning-bg text-warning' : 'bg-surface-elevated text-text-secondary'}`}>{room.status}</span></td><td className="px-5 py-4">{formatPrice(room.basePriceAmount, room.basePriceCurrency)}<span className="block text-caption text-text-muted">{room.capacityMin}–{room.capacityMax} nəfər</span></td><td className="px-5 py-4">{room.isFeatured ? <span className="rounded-full bg-success-bg px-2.5 py-1 text-caption text-success">Featured</span> : <span className="text-caption text-text-muted">—</span>}</td><td className="px-5 py-4">{room.isPremium ? <span className="rounded-full bg-accent px-2.5 py-1 text-caption text-accent-on">Seçilmiş {room.premiumPriority !== null ? `(#${room.premiumPriority})` : ''}</span> : <span className="text-caption text-text-muted">—</span>}<span className="block text-caption text-text-muted">{room.roomType?.replace('room_type.', '').replace(/_/g, ' ') ?? '—'}</span></td><td className="px-5 py-4"><div className="flex flex-wrap gap-2"><Button type="button" variant="secondary" size="sm" onClick={() => onEdit(room)}>Düzəliş et</Button><Button type="button" variant="secondary" size="sm" disabled={busyId === room.id} onClick={() => toggleFeatured(room)}>{room.isFeatured ? 'Featured-i ləğv et' : 'Featured et'}</Button><Button type="button" variant="secondary" size="sm" onClick={() => onEditPremium(room)}>{room.isPremium ? 'Premiumu redaktə et' : 'Premium et'}</Button>{room.isPremium && <Button type="button" variant="secondary" size="sm" disabled={busyId === room.id} onClick={() => deactivatePremium(room)}>Premiumu söndür</Button>}<Button type="button" variant="secondary" size="sm" disabled={busyId === room.id} onClick={() => removeRoom(room)}>Elanı sil</Button></div></td></tr>)}</tbody></table></div>{rooms.length === 0 && <p className="p-5 text-small text-text-secondary">Nəticə tapılmadı.</p>}</Card>
     {editingRoom && <RoomEditor room={editingRoom} onCancel={() => onEdit(null)} onSaved={onSaved} />}
+    {premiumEditingRoom && <PremiumEditor room={premiumEditingRoom} onCancel={() => onEditPremium(null)} onSaved={onPremiumSaved} />}
   </section>;
 }
 
@@ -321,6 +347,131 @@ function RoomEditor({ room, onCancel, onSaved }: { room: AdminRoom; onCancel: ()
   }
 
   return <Card className="border-primary/40 bg-surface-elevated"><div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-caption uppercase tracking-[0.12em] text-accent">Canlı düzəliş</p><h3 className="mt-1 font-display text-h3">{room.name}</h3></div><button type="button" onClick={onCancel} className="text-small text-text-secondary hover:text-text-primary">Bağla</button></div><div className="mt-5 grid gap-4 sm:grid-cols-3"><label className="flex flex-col gap-2 text-label">Saatlıq qiymət (AZN)<Input type="number" min="0.01" step="0.01" value={price} onChange={(event) => setPrice(event.target.value)} /></label><label className="flex flex-col gap-2 text-label">Maks. tutum<Input type="number" min="1" value={capacityMax} onChange={(event) => setCapacityMax(event.target.value)} /></label><label className="flex flex-col gap-2 text-label">Status<select className="min-h-11 rounded-md border border-border-strong bg-surface px-3" value={status} onChange={(event) => setStatus(event.target.value as RoomStatus)}><option value="DRAFT">DRAFT</option><option value="ACTIVE">ACTIVE</option><option value="INACTIVE">INACTIVE</option></select></label></div><label className="mt-4 flex flex-col gap-2 text-label">Dəyişiklik səbəbi<Input value={reason} onChange={(event) => setReason(event.target.value)} placeholder="Məs. Provider təsdiqlədi" /></label>{error && <p className="mt-3 text-small text-error">{error}</p>}<div className="mt-5 flex gap-3"><Button type="button" onClick={save} disabled={saving}>{saving ? 'Yadda saxlanır…' : 'Yadda saxla'}</Button><Button type="button" variant="secondary" onClick={onCancel}>Ləğv et</Button></div></Card>;
+}
+
+// ISO 8601 <-> `<input type="datetime-local">`'s local-wall-clock string
+// (no timezone/seconds — "YYYY-MM-DDTHH:mm"). Round-tripped through
+// `Date`, so this deliberately reads/writes the admin's OWN browser
+// timezone, same as every other admin-panel timestamp control in this
+// file — the backend stores premiumStartsAt/EndsAt as `timestamptz`.
+function isoToDatetimeLocal(iso: string | null): string {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+function datetimeLocalToIso(value: string): string | null {
+  if (!value) return null;
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? null : d.toISOString();
+}
+
+/**
+ * 1700000000039-RoomPremium.ts — category-scoped premium ranking. Same
+ * "live edit card" pattern as `RoomEditor` above, but no `reason` field
+ * (matches `setPremium()`'s own routine-toggle discipline, like
+ * `isFeatured`) and no `roomTypeId`/category picker — premium is
+ * implicitly scoped to whichever category (`room.roomType`) this room
+ * already belongs to, shown here read-only for context.
+ */
+function PremiumEditor({ room, onCancel, onSaved }: { room: AdminRoom; onCancel: () => void; onSaved: (room: AdminRoom) => void }) {
+  const [isPremium, setIsPremium] = useState(true);
+  const [priority, setPriority] = useState(room.premiumPriority !== null ? String(room.premiumPriority) : '');
+  const [startsAt, setStartsAt] = useState(isoToDatetimeLocal(room.premiumStartsAt));
+  const [endsAt, setEndsAt] = useState(isoToDatetimeLocal(room.premiumEndsAt));
+  const [internalNote, setInternalNote] = useState(room.premiumInternalNote ?? '');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  async function save() {
+    if (priority.trim() && (!Number.isInteger(Number(priority)) || Number(priority) < 0)) {
+      setError('Prioritet mənfi olmayan tam ədəd olmalıdır.');
+      return;
+    }
+    const startsIso = datetimeLocalToIso(startsAt);
+    const endsIso = datetimeLocalToIso(endsAt);
+    if (startsIso && endsIso && new Date(endsIso) <= new Date(startsIso)) {
+      setError('Bitmə tarixi başlama tarixindən sonra olmalıdır.');
+      return;
+    }
+    setSaving(true);
+    setError('');
+    try {
+      const updated = await requestJson<AdminRoom>(`/api/admin/rooms/${room.id}/premium`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          isPremium,
+          priority: priority.trim() ? Number(priority) : undefined,
+          startsAt: startsIso,
+          endsAt: endsIso,
+          internalNote: internalNote.trim() ? internalNote.trim() : null,
+        }),
+      });
+      // Same partial-merge discipline as `toggleFeatured` above — the
+      // backend response is the raw Room entity (no joined
+      // location/provider/roomType columns).
+      onSaved({
+        ...room,
+        isPremium: updated.isPremium,
+        premiumPriority: updated.premiumPriority,
+        premiumStartsAt: updated.premiumStartsAt,
+        premiumEndsAt: updated.premiumEndsAt,
+        premiumInternalNote: updated.premiumInternalNote,
+      });
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Yadda saxlamaq mümkün olmadı.');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Card className="border-accent/40 bg-surface-elevated">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="text-caption uppercase tracking-[0.12em] text-accent">Premium (Seçilmiş məkan)</p>
+          <h3 className="mt-1 font-display text-h3">{room.name}</h3>
+          <p className="mt-1 text-caption text-text-muted">
+            Kateqoriya: {room.roomType?.replace('room_type.', '').replace(/_/g, ' ') ?? '—'} — premium yalnız bu kateqoriya daxilində üstünlük verir.
+          </p>
+        </div>
+        <button type="button" onClick={onCancel} className="text-small text-text-secondary hover:text-text-primary">Bağla</button>
+      </div>
+      <label className="mt-5 flex items-center gap-2 text-label">
+        <input type="checkbox" checked={isPremium} onChange={(event) => setIsPremium(event.target.checked)} className="h-4 w-4" />
+        Premium aktivdir
+      </label>
+      <div className="mt-4 grid gap-4 sm:grid-cols-3">
+        <label className="flex flex-col gap-2 text-label">
+          Prioritet (kiçik = daha yuxarıda)
+          <Input type="number" min="0" step="1" value={priority} onChange={(event) => setPriority(event.target.value)} placeholder="Məs. 1" />
+        </label>
+        <label className="flex flex-col gap-2 text-label">
+          Başlama tarixi
+          <Input type="datetime-local" value={startsAt} onChange={(event) => setStartsAt(event.target.value)} />
+        </label>
+        <label className="flex flex-col gap-2 text-label">
+          Bitmə tarixi
+          <Input type="datetime-local" value={endsAt} onChange={(event) => setEndsAt(event.target.value)} />
+        </label>
+      </div>
+      <label className="mt-4 flex flex-col gap-2 text-label">
+        Daxili qeyd (məs. “WhatsApp ilə ödənildi, invoice #123”) — yalnız admin görür
+        <textarea
+          className="min-h-20 rounded-md border border-border-strong bg-surface px-3 py-2 text-body"
+          value={internalNote}
+          onChange={(event) => setInternalNote(event.target.value)}
+          maxLength={500}
+        />
+      </label>
+      {error && <p className="mt-3 text-small text-error">{error}</p>}
+      <div className="mt-5 flex gap-3">
+        <Button type="button" onClick={save} disabled={saving}>{saving ? 'Yadda saxlanır…' : 'Yadda saxla'}</Button>
+        <Button type="button" variant="secondary" onClick={onCancel}>Ləğv et</Button>
+      </div>
+    </Card>
+  );
 }
 
 function PricingSection({ pricing, onSaved, cancellationPolicy, onCancellationPolicySaved }: { pricing: AdminPricing | null; onSaved: (value: AdminPricing) => void; cancellationPolicy: AdminCancellationPolicy | null; onCancellationPolicySaved: (value: AdminCancellationPolicy) => void }) {

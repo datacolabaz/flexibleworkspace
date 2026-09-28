@@ -23,6 +23,13 @@ export type FeaturedRoom = {
   averageRating: number;
   reviewCount: number;
   coverPhotoUrl: string | null;
+  /**
+   * Currently-active category-scoped premium ranking (admin-only,
+   * offline-paid — 1700000000039-RoomPremium.ts). Drives the "Seçilmiş
+   * məkan" badge on this card. Purely a visibility flag — never touches
+   * booking/payment.
+   */
+  isPremium: boolean;
 };
 
 function backendUrl(path: string) {

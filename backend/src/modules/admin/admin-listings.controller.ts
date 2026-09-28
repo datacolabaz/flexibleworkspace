@@ -13,6 +13,7 @@ import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { AdminListingsService } from './admin-listings.service';
 import { CorrectRoomDto } from './dto/correct-room.dto';
 import { SetRoomFeaturedDto } from './dto/set-room-featured.dto';
+import { SetRoomPremiumDto } from './dto/set-room-premium.dto';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { RequirePermission } from '../../common/decorators/require-permission.decorator';
@@ -60,6 +61,20 @@ export class AdminListingsController {
     @Body() dto: SetRoomFeaturedDto,
   ) {
     return this.adminListingsService.setFeatured(id, user.userId, dto);
+  }
+
+  @Patch(':id/premium')
+  @RequirePermission(AdminPermission.LISTING_UPDATE)
+  @ApiOperation({
+    summary:
+      "Set/update a room's category-scoped premium ranking (priority, active window) — offline-paid, admin-only",
+  })
+  async setPremium(
+    @Param('id') id: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: SetRoomPremiumDto,
+  ) {
+    return this.adminListingsService.setPremium(id, user.userId, dto);
   }
 
   @Delete(':id')

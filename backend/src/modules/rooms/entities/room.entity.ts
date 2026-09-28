@@ -133,6 +133,29 @@ export class RoomEntity {
   @Column({ name: 'is_featured', type: 'boolean', default: false })
   isFeatured: boolean;
 
+  // Category-scoped premium ranking — admin-only, offline-paid (see
+  // 1700000000039-RoomPremium.ts). Distinct from `isFeatured` above: no
+  // separate category column, since this is implicitly scoped to the
+  // room's own `roomTypeId`. Read by SearchService's `premiumActiveExpr()`
+  // to rank this room first within its category on `/search` and boost it
+  // into the homepage's featured pool, whenever active.
+  @Column({ name: 'is_premium', type: 'boolean', default: false })
+  isPremium: boolean;
+
+  /** Lower = ranked higher among simultaneously-active premium rooms. NULL sorts after any explicit priority. */
+  @Column({ name: 'premium_priority', type: 'int', nullable: true })
+  premiumPriority: number | null;
+
+  @Column({ name: 'premium_starts_at', type: 'timestamptz', nullable: true })
+  premiumStartsAt: Date | null;
+
+  @Column({ name: 'premium_ends_at', type: 'timestamptz', nullable: true })
+  premiumEndsAt: Date | null;
+
+  /** Admin-only context (e.g. "paid via WhatsApp, invoice #123") — never exposed through any public endpoint. */
+  @Column({ name: 'premium_internal_note', type: 'text', nullable: true })
+  premiumInternalNote: string | null;
+
   /** Task 1 — provider-authored usage rules shown to customers before booking. NULL = no rules set. */
   @Column({ type: 'text', nullable: true })
   rules: string | null;

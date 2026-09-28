@@ -9,6 +9,7 @@ import { getAdSlot, HOMEPAGE_SIDEBAR_PLACEMENT } from '@/lib/api-client/ads';
 import { AdSlot } from '@/components/features/ads/AdSlot';
 import { roomTypeKeyFromTranslationKey } from '@/lib/constants/taxonomy';
 import { formatMoney } from '@/lib/format/money';
+import { Badge } from '@/components/ui/Badge';
 
 const UPCOMING_FORMATS = [
   { key: 'workshop', image: '/home/workshop-space.webp', href: '/search?roomType=room_type.workshop_space' },
@@ -53,6 +54,9 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
   setRequestLocale(locale);
   const t = await getTranslations('home');
   const tTaxonomy = await getTranslations('taxonomy');
+  // Reuses `search.premium` (RoomListingCard's own premium badge string)
+  // rather than a second "home"-namespace translation for the same label.
+  const tSearch = await getTranslations('search');
   const calendar = currentMonthCalendar(locale);
   const weekdays = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'] as const;
   // Sprint 4 (Featured Listing) — admin-curated rooms (`is_featured`),
@@ -138,6 +142,16 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
                           <span className="absolute left-3 top-3 rounded-full bg-surface/95 px-3 py-1 text-caption font-semibold text-text-primary shadow-sm">
                             {roomTypeLabel}
                           </span>
+                          {room.isPremium && (
+                            // 1700000000039-RoomPremium.ts — admin-only,
+                            // offline-paid, category-scoped ranking. This
+                            // card's own room type (top-left) IS that
+                            // category — no separate category label needed.
+                            <Badge variant="accent" className="absolute right-3 top-3 shadow-sm">
+                              <span aria-hidden="true">★</span>
+                              <span>{tSearch('premium')}</span>
+                            </Badge>
+                          )}
                         </div>
                         <div className="p-4">
                           <h3 className="font-display text-h4 text-text-primary">{room.name}</h3>
