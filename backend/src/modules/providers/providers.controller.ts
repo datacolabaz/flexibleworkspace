@@ -19,6 +19,7 @@ import type { Response } from 'express';
 import { ProvidersService } from './providers.service';
 import { CreateProviderDto } from './dto/create-provider.dto';
 import { VerifyProviderDto } from './dto/verify-provider.dto';
+import { SetBookingModeDto } from './dto/set-booking-mode.dto';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { RequirePermission } from '../../common/decorators/require-permission.decorator';
@@ -77,6 +78,22 @@ export class ProvidersController {
   async me(@CurrentUser() user: AuthenticatedUser) {
     const provider = await this.providersService.findMine(
       currentProviderId(user),
+    );
+    return this.withLogoUrl(provider);
+  }
+
+  @Patch('providers/me/booking-mode')
+  @ApiOperation({
+    summary:
+      'Opt in/out of REQUEST_BASED bookings (default is PAYMENT_BASED — payment capture auto-confirms)',
+  })
+  async setBookingMode(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: SetBookingModeDto,
+  ) {
+    const provider = await this.providersService.setBookingModePreference(
+      currentProviderId(user),
+      dto.requestBasedEnabled,
     );
     return this.withLogoUrl(provider);
   }

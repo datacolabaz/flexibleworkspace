@@ -148,21 +148,6 @@ export class BookingsService {
     }
     const totalAmount = Math.max(0, subtotal - promoDiscountAmount);
 
-    // T4 — which mode this NEW booking gets, and thus which hold window it
-    // gets (see configuration.ts's `booking.paymentsEnabled` doc comment for
-    // why this must be set explicitly rather than left to the DB column
-    // default). Never reinterprets an existing booking's mode.
-    const paymentsEnabled =
-      this.configService.get<boolean>('booking.paymentsEnabled') ?? true;
-    const mode = paymentsEnabled
-      ? BookingMode.PAYMENT_BASED
-      : BookingMode.REQUEST_BASED;
-    const holdMinutes =
-      mode === BookingMode.REQUEST_BASED
-        ? (this.configService.get<number>('booking.requestBasedHoldMinutes') ??
-          120)
-        : (this.configService.get<number>('booking.holdMinutes') ?? 15);
-
     // Feature 5 — validate attribution event ID before opening the transaction.
     // We accept referralSource='spotva_event' as attributionSource.
     // Invalid event UUIDs are silently dropped (never fail the booking itself).
@@ -181,12 +166,47 @@ export class BookingsService {
       }
     }
 
+    // T4 — also pulls the owning provider's REQUEST_BASED opt-in flag in
+    // the same round trip (2026-09-26 product decision, below) — one query
+    // instead of a second lookup just for that boolean.
     const locationRows = await this.dataSource.query(
-      `SELECT id, provider_id AS "providerId" FROM location WHERE id = $1`,
+      `SELECT l.id, l.provider_id AS "providerId", p.request_based_enabled AS "requestBasedEnabled"
+       FROM location l
+       LEFT JOIN provider p ON p.id = l.provider_id
+       WHERE l.id = $1`,
       [room.locationId],
     );
     const locationId: string = locationRows[0]?.id ?? room.locationId;
     const providerId: string | null = locationRows[0]?.providerId ?? null;
+
+    // T4 / product decision (2026-09-26, the owner's explicit ask) — which
+    // mode this NEW booking gets, and thus which hold window it gets (see
+    // configuration.ts's `booking.paymentsEnabled` doc comment for why this
+    // must be set explicitly rather than left to the DB column default).
+    // Never reinterprets an existing booking's mode.
+    //
+    // PAYMENTS_ENABLED is a platform-wide KILL SWITCH, not the mode
+    // selector: false forces REQUEST_BASED for every booking regardless of
+    // any provider's own preference — for a deployment with no payment
+    // gateway credentials configured yet, where nothing can legitimately be
+    // PAYMENT_BASED. When it's true (the normal case), the real selector is
+    // the room's own provider's opt-in flag (ProviderEntity.
+    // requestBasedEnabled, fetched above alongside providerId): REQUEST_BASED
+    // must never be the default — PAYMENT_BASED (payment capture
+    // auto-confirms; the provider only gets a notification) is, for every
+    // provider, unless they've explicitly turned REQUEST_BASED on for
+    // themselves (PATCH providers/me/booking-mode).
+    const paymentsEnabled =
+      this.configService.get<boolean>('booking.paymentsEnabled') ?? true;
+    const mode =
+      paymentsEnabled && !locationRows[0]?.requestBasedEnabled
+        ? BookingMode.PAYMENT_BASED
+        : BookingMode.REQUEST_BASED;
+    const holdMinutes =
+      mode === BookingMode.REQUEST_BASED
+        ? (this.configService.get<number>('booking.requestBasedHoldMinutes') ??
+          120)
+        : (this.configService.get<number>('booking.holdMinutes') ?? 15);
 
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();

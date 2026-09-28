@@ -4,6 +4,7 @@ import { Throttle } from '@nestjs/throttler';
 import { Public } from '../../common/decorators/public.decorator';
 import { AdsService } from './ads.service';
 import { RecordAdEventDto } from './dto/ads.dto';
+import { CreateAdInquiryDto } from './dto/ad-inquiry.dto';
 
 @ApiTags('Ads')
 @Controller('ads')
@@ -23,5 +24,18 @@ export class AdsPublicController {
   @ApiOperation({ summary: 'Record a visible impression or a click' })
   recordEvent(@Param('id') id: string, @Body() dto: RecordAdEventDto) {
     return this.adsService.recordEvent(id, dto);
+  }
+
+  // Stricter limit than recordEvent — this writes a row an admin will act
+  // on (a click/impression ping is cheap to ignore; a fake inquiry isn't).
+  @Public()
+  @Throttle({ default: { limit: 5, ttl: 600_000 } })
+  @Post('inquiries')
+  @ApiOperation({
+    summary:
+      '/advertise form submission — a prospective advertiser asking to place an order',
+  })
+  createInquiry(@Body() dto: CreateAdInquiryDto) {
+    return this.adsService.createInquiry(dto);
   }
 }

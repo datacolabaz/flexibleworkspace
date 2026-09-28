@@ -138,6 +138,22 @@ export class ProvidersService {
     return this.findById(callerProviderId);
   }
 
+  /**
+   * `PATCH providers/me/booking-mode` — self-service opt-in/opt-out
+   * (2026-09-26 product decision). No admin approval, no audit log (same
+   * discipline as any other self-service field the provider fully owns —
+   * unlike verify()/setSuspended(), which are trust/compliance decisions).
+   */
+  async setBookingModePreference(
+    callerProviderId: string | null,
+    requestBasedEnabled: boolean,
+  ): Promise<ProviderEntity> {
+    const provider = await this.findMine(callerProviderId);
+    provider.requestBasedEnabled = requestBasedEnabled;
+    provider.updatedAt = new Date();
+    return this.providerRepo.save(provider);
+  }
+
   async listForAdmin(
     verificationStatus?: ProviderVerificationStatus,
   ): Promise<ProviderEntity[]> {

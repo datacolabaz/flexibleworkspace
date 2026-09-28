@@ -101,6 +101,18 @@ export class ProviderEntity {
   })
   logoStorageKey: string | null;
 
+  /**
+   * Product decision (2026-09-26): REQUEST_BASED (no-payment, manual
+   * accept/reject) is an explicit per-provider opt-in — PAYMENT_BASED
+   * (payment capture auto-confirms) is the default for every provider.
+   * Self-service, set via `PATCH providers/me/booking-mode`.
+   * BookingsService.create() reads this (joined off the room's location)
+   * for every NEW booking whenever the platform-wide PAYMENTS_ENABLED kill
+   * switch is on. See migration *-ProviderRequestBasedOptIn.ts.
+   */
+  @Column({ name: 'request_based_enabled', type: 'boolean', default: false })
+  requestBasedEnabled: boolean;
+
   @Column({ name: 'created_at', type: 'timestamptz' })
   createdAt: Date;
 

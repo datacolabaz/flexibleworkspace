@@ -1333,6 +1333,16 @@
         "pricing": "Platforma haqqının 10–25%-i"
       }
     },
+    "creativeSpecs": {
+      "title": "Kreativ (şəkil) tələbləri",
+      "intro": "Sifariş vermədən əvvəl reklam şəklinizi bu ölçülərə uyğun hazırlayın — əks halda yerləşdirmə gecikə bilər.",
+      "sizesLabel": "Qəbul olunan ölçülər",
+      "sizes": "336 × 280 px (standart) və ya 300 × 250 px",
+      "formatLabel": "Fayl formatı",
+      "format": "JPG, PNG və ya WebP — mətn oxunaqlı qalması üçün faylı sıxılmamış saxlayın (tövsiyə olunan max. 500 KB)",
+      "linkLabel": "Keçid (click URL)",
+      "link": "Reklam kliklənəndə açılacaq tam səhifə ünvanını (https://...) da bizimlə paylaşın"
+    },
     "audienceTitle": "Kimlər reklam verə bilər?",
     "audienceBody": "Yalnız Spotva-nın real fəaliyyət və biznes kontekstinə uyğun kateqoriyalar qəbul edilməlidir.",
     "audiences": {
@@ -1345,7 +1355,28 @@
     "trustEyebrow": "Reklam siyasəti",
     "trustTitle": "Pul etibarı satın almır",
     "trustBody": "Sponsorlu yerləşdirmə üzvi nəticəni gizli dəyişmir. Hər reklamın etiketi, tərəfdaş adı, şərtləri və ölçmə metodu görünən olmalıdır.",
-    "cta": "Tərəfdaş modelinə bax"
+    "cta": "Tərəfdaş modelinə bax",
+    "inquiryForm": {
+      "sectionTitle": "Sifariş vermək üçün formu doldurun",
+      "sectionBody": "Reklamınızın detallarını bizə göndərin — komandamız 1 iş günü ərzində sizinlə əlaqə saxlayıb yerləşdirməni təsdiqləyəcək.",
+      "title": "Əlaqə məlumatlarınız",
+      "subtitle": "Ad, telefon və (istəyə görə) şirkət adını qeyd edin — kreativ faylını əlaqə saxlandıqdan sonra göndərə bilərsiniz.",
+      "nameLabel": "Ad, soyad",
+      "phoneLabel": "Telefon",
+      "phoneHint": "Sizinlə bu nömrə üzərindən əlaqə saxlanılacaq",
+      "emailLabel": "E-poçt",
+      "optionalHint": "İstəyə görə",
+      "companyLabel": "Şirkət / brend adı",
+      "messageLabel": "Mesaj",
+      "messageHint": "Hansı reklam formatı maraqlandırır, büdcə və tarixlər (istəyə görə)",
+      "messagePlaceholder": "Məsələn: Kateqoriya sponsoru istəyirəm, 2 həftəlik kampaniya...",
+      "requiredFieldsError": "Ad və telefon nömrəsi tələb olunur.",
+      "genericError": "Sorğu göndərilmədi. Zəhmət olmasa bir az sonra yenidən cəhd edin.",
+      "submitButton": "Sorğunu göndər",
+      "submittingButton": "Göndərilir...",
+      "successTitle": "Sorğunuz alındı",
+      "successBody": "Komandamız tezliklə sizinlə əlaqə saxlayacaq."
+    }
   },
   "admin": {
     "twoFactorSetup": "İki faktorlu autentifikasiya"

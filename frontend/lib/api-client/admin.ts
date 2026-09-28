@@ -408,6 +408,21 @@ export type AdminSiteSetting = {
   updatedBy: string | null;
 };
 
+export type AdminAdInquiryStatus = 'NEW' | 'CONTACTED' | 'CLOSED';
+
+export type AdminAdInquiry = {
+  id: string;
+  contactName: string;
+  contactPhone: string;
+  contactEmail: string | null;
+  companyName: string | null;
+  message: string | null;
+  status: AdminAdInquiryStatus;
+  createdAt: string;
+  contactedAt: string | null;
+  contactedByUserId: string | null;
+};
+
 export function listAdminAdPlacements(accessToken: string) {
   return adminFetch<AdminAdPlacement[]>(accessToken, 'admin/ads/placements');
 }
@@ -449,6 +464,21 @@ export function deleteAdminAdCampaign(accessToken: string, id: string) {
 
 export function getAdminAdAnalytics(accessToken: string) {
   return adminFetch<AdminAdAnalyticsRow[]>(accessToken, 'admin/ads/analytics');
+}
+
+export function listAdminAdInquiries(accessToken: string) {
+  return adminFetch<AdminAdInquiry[]>(accessToken, 'admin/ads/inquiries');
+}
+
+export function updateAdminAdInquiry(
+  accessToken: string,
+  id: string,
+  status: AdminAdInquiryStatus,
+) {
+  return adminFetch<AdminAdInquiry>(accessToken, `admin/ads/inquiries/${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ status }),
+  });
 }
 
 export function listAdminSiteSettings(accessToken: string) {

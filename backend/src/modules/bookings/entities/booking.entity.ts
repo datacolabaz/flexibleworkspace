@@ -18,11 +18,20 @@ export class BookingEntity {
   @Column({ type: 'enum', enum: BookingStatus, default: BookingStatus.DRAFT })
   status: BookingStatus;
 
-  /** REQUEST_BASED (new, no-payment) vs PAYMENT_BASED (existing, untouched flow). T1. */
+  /**
+   * REQUEST_BASED (no-payment, provider accept/reject) vs PAYMENT_BASED
+   * (payment capture auto-confirms — the default). Product decision
+   * (2026-09-26): REQUEST_BASED must never be the platform-wide default —
+   * it's an explicit per-provider opt-in (`ProviderEntity.requestBasedEnabled`).
+   * BookingsService.create() always sets this column explicitly on every
+   * insert, so this `default` is schema documentation only (synchronize is
+   * false) — see migration *-ProviderRequestBasedOptIn.ts for the actual
+   * DB column default.
+   */
   @Column({
     type: 'enum',
     enum: BookingMode,
-    default: BookingMode.REQUEST_BASED,
+    default: BookingMode.PAYMENT_BASED,
   })
   mode: BookingMode;
 

@@ -1,9 +1,11 @@
 import type { Metadata } from 'next';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { LinkButton } from '@/components/ui/LinkButton';
+import { AdInquiryForm } from '@/components/features/business/AdInquiryForm';
 
 const INVENTORY = ['featured', 'category', 'eventSponsor', 'native', 'referral'] as const;
 const AUDIENCES = ['education', 'technology', 'business', 'creative', 'hospitality'] as const;
+const CREATIVE_SPECS = ['sizes', 'format', 'link'] as const;
 
 export async function generateMetadata({ params }: { params: Promise<{ locale: string }> }): Promise<Metadata> {
   const { locale } = await params;
@@ -37,6 +39,39 @@ export default async function AdvertisePage({ params }: { params: Promise<{ loca
               <p className="text-small font-semibold text-text-primary">{t(`inventory.${item}.pricing`)}</p>
             </article>
           ))}
+        </div>
+      </section>
+
+      {/* Otherwise the pricing table above is the only content on this page
+          before a prospective advertiser has to click through and ask what
+          image to actually send — this states the two sizes the ad slot
+          (AdSlot.tsx / AD_CREATIVE_SIZES on the backend) accepts up front. */}
+      <section className="mt-14 rounded-lg border border-border bg-surface-elevated p-6 sm:p-8">
+        <h2 className="font-display text-h3 text-text-primary">{t('creativeSpecs.title')}</h2>
+        <p className="mt-2 max-w-2xl text-small text-text-secondary">{t('creativeSpecs.intro')}</p>
+        <dl className="mt-6 grid gap-6 sm:grid-cols-3">
+          {CREATIVE_SPECS.map((spec) => (
+            <div key={spec}>
+              <dt className="text-caption font-semibold uppercase tracking-wide text-text-muted">
+                {t(`creativeSpecs.${spec}Label`)}
+              </dt>
+              <dd className="mt-1.5 text-small text-text-primary">{t(`creativeSpecs.${spec}`)}</dd>
+            </div>
+          ))}
+        </dl>
+      </section>
+
+      {/* The piece that used to be missing entirely: everything above tells
+          an advertiser what's on offer and what a creative should look
+          like, but gave them no way to actually act on it. This form is
+          that action — it writes to the admin "Sorğular" inbox
+          (AdvertisingSection.tsx) rather than just a mailto: link, so a
+          submission is never silently lost in someone's inbox. */}
+      <section id="order" className="mt-14">
+        <h2 className="font-display text-h2 text-text-primary">{t('inquiryForm.sectionTitle')}</h2>
+        <p className="mt-3 max-w-2xl text-body text-text-secondary">{t('inquiryForm.sectionBody')}</p>
+        <div className="mt-8">
+          <AdInquiryForm />
         </div>
       </section>
 

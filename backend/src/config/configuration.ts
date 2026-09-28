@@ -111,13 +111,23 @@ export interface AppConfig {
   booking: {
     holdMinutes: number;
     serviceFeePercentage: number;
-    // T4 (Phase 1A — Request-Based Booking, provider accept/reject) —
-    // decides which mode a NEWLY created booking gets when create() doesn't
-    // set one explicitly. Defaults to true (PAYMENT_BASED), preserving the
-    // existing checkout-everywhere behavior for any deployment that hasn't
-    // opted into the no-payment flow. This NEVER reinterprets an
-    // already-created booking's mode — only booking.mode column's own value
-    // (read at transition() time) governs an existing row.
+    // T4 (Phase 1A — Request-Based Booking, provider accept/reject) — a
+    // PLATFORM-WIDE KILL SWITCH, not the per-booking mode selector. Defaults
+    // to true. false forces EVERY new booking through REQUEST_BASED
+    // regardless of any provider's own preference (ProviderEntity.
+    // requestBasedEnabled) — for a deployment with no payment gateway
+    // credentials configured yet, where nothing can legitimately be
+    // PAYMENT_BASED. This NEVER reinterprets an already-created booking's
+    // mode — only booking.mode column's own value (read at transition()
+    // time) governs an existing row.
+    //
+    // Product decision (2026-09-26): when this is true (the normal case),
+    // PAYMENT_BASED is the default for every provider — REQUEST_BASED only
+    // applies to a provider that has explicitly opted in via
+    // `PATCH providers/me/booking-mode` (BookingsService.create() reads
+    // ProviderEntity.requestBasedEnabled, joined off the room's location).
+    // Before this decision, true meant "REQUEST_BASED for literally every
+    // booking on the platform"; that global all-or-nothing behavior is gone.
     //
     // NOTE: T1's migration (1700000000017-BookingMode.ts) set the
     // `mode` column's DB-level default to REQUEST_BASED, intending
@@ -127,8 +137,10 @@ export interface AppConfig {
     // PAYMENT_BASED checkout flow (PENDING -> PAYMENT_PENDING is not a
     // legal REQUEST_BASED_TRANSITIONS edge), failing payments/partners/
     // payouts/reviews/bookings-concurrency e2e suites. create() below now
-    // always sets `mode` explicitly from this flag, so the DB column
-    // default is no longer read for any booking the app itself creates.
+    // always sets `mode` explicitly from this flag (and the provider's
+    // preference), so the DB column default (flipped back to
+    // PAYMENT_BASED by *-ProviderRequestBasedOptIn.ts) is never read for
+    // any booking the app itself creates.
     paymentsEnabled: boolean;
     // Hold window for a PENDING REQUEST_BASED booking, giving the provider
     // real time to accept/reject (vs. holdMinutes' short PAYMENT_BASED

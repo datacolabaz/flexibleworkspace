@@ -10,6 +10,7 @@ import { LanguageSwitcher } from './LanguageSwitcher';
 import { ThemeToggle } from './ThemeToggle';
 import { MobileMenu } from './MobileMenu';
 import { AccountMenu } from './AccountMenu';
+import { ManageSpacesLink } from './ManageSpacesLink';
 import type { ProviderNavState } from './account-menu-items';
 
 /**
@@ -35,9 +36,24 @@ import type { ProviderNavState } from './account-menu-items';
  * overflow a 1024px row. Hiding the link row until `xl` (hamburger until
  * then) keeps the right cluster intact. Nav starts after the wordmark
  * (`justify-start`, `min-w-0`) so "Ana səhifə" cannot paint under the logo.
- * The row is `overflow-visible` so "Tədbir yarat" is not clipped and the
- * account dropdown can paint below the 64px bar. The profile trigger
- * ellipsizes; language stays a short AZ/EN/RU control.
+ * The outer row stays `overflow-visible` so the account dropdown can paint
+ * below the 64px bar.
+ *
+ * The row's own max-width is `max-w-[1600px]` — wider than the page
+ * content's `max-w-6xl` — on purpose (bug report, 2026-09-27): on RU
+ * (labels run noticeably longer than az/en — e.g. "Управление
+ * площадками") combined with the two authenticated-only items, the nav's
+ * children needed ~875px against a ~725px box *whenever the row was
+ * capped at 1152px*, regardless of viewport width — a wider screen never
+ * helped. Decoupling the header's own max-width from the content
+ * column's gives the nav the room those combinations actually need on any
+ * real desktop viewport. The primary <nav> keeps `overflow-x-auto` as a
+ * fallback for whatever's still too tight (a very narrow window, a
+ * locale/name combination longer than RU) — but with a real, visible
+ * scrollbar now, not a hidden one: hiding it fixed the overlap but
+ * silently clipped the last link with no way to tell more content was
+ * there. The profile trigger ellipsizes; language stays a short AZ/EN/RU
+ * control.
  */
 export async function Header() {
   const t = await getTranslations('nav');
@@ -112,7 +128,7 @@ export async function Header() {
         {t('skipToContent')}
       </a>
       <header className="sticky top-0 z-40 overflow-visible border-b border-border bg-surface">
-        <div className="mx-auto flex h-16 max-w-6xl min-w-0 items-center gap-3 overflow-visible px-3 sm:gap-4 sm:px-4 xl:gap-5">
+        <div className="mx-auto flex h-16 max-w-[1600px] min-w-0 items-center justify-between gap-3 overflow-visible px-3 sm:gap-4 sm:px-4 xl:gap-5">
           <Link
             href="/"
             aria-label={t('home')}
@@ -129,7 +145,10 @@ export async function Header() {
             <Logo variant="wordmark" height={55} className="hidden sm:block" />
           </Link>
 
-          <nav aria-label={t('primaryNavigation')} className="hidden min-w-0 flex-1 items-center justify-start gap-x-1 overflow-visible xl:flex">
+          <nav
+            aria-label={t('primaryNavigation')}
+            className="hidden min-w-0 flex-1 items-center justify-start gap-x-1 overflow-x-auto overscroll-x-contain pb-1 [scrollbar-width:thin] xl:flex [&::-webkit-scrollbar]:h-1 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-border-strong"
+          >
             {navItems.map((item) => (
               <Link
                 key={item.href}
@@ -139,14 +158,7 @@ export async function Header() {
                 {item.label}
               </Link>
             ))}
-            {isProvider === true && (
-              <NextLink
-                href="/provider"
-                className="group relative inline-flex min-h-11 shrink-0 items-center whitespace-nowrap rounded-md px-1.5 text-nav font-semibold text-accent hover:bg-surface-elevated"
-              >
-                {t('manageSpaces')}
-              </NextLink>
-            )}
+            {isProvider === true && <ManageSpacesLink label={t('manageSpaces')} />}
             {isAuthenticated && (
               <NextLink
                 href="/events/create"

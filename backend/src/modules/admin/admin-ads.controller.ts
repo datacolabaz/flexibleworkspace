@@ -14,6 +14,7 @@ import {
   UpdateAdCampaignDto,
   UpdateAdPlacementDto,
 } from '../ads/dto/ads.dto';
+import { UpdateAdInquiryStatusDto } from '../ads/dto/ad-inquiry.dto';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { AuthenticatedUser } from '../../common/guards/jwt-auth.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -90,5 +91,23 @@ export class AdminAdsController {
   @ApiOperation({ summary: 'Campaign impression, click and CTR totals' })
   analytics() {
     return this.adsService.analytics();
+  }
+
+  @Get('inquiries')
+  @RequirePermission(AdminPermission.CMS_UPDATE)
+  @ApiOperation({ summary: '/advertise form submissions, newest first' })
+  listInquiries() {
+    return this.adsService.listInquiries();
+  }
+
+  @Patch('inquiries/:id')
+  @RequirePermission(AdminPermission.CMS_UPDATE)
+  @ApiOperation({ summary: 'Mark an ad inquiry contacted/closed' })
+  updateInquiry(
+    @Param('id') id: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: UpdateAdInquiryStatusDto,
+  ) {
+    return this.adsService.updateInquiryStatus(id, user.userId, dto);
   }
 }
