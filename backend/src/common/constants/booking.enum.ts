@@ -76,22 +76,26 @@ export const BOOKING_TRANSITIONS: Record<BookingStatus, BookingStatus[]> = {
  * as PENDING (no DRAFT row is ever persisted). No DRAFT -> CANCELLED_BY_USER
  * edge exists — an abandoned, never-submitted request has no row to cancel.
  *
- * CONFIRMED -> CANCELLED_BY_PROVIDER has no cancellation-reason/actor
- * column to record yet (BookingEntity has none, and neither does the
- * existing PAYMENT_BASED cancellation path in refunds.service.ts /
- * payments.service.ts) — tracked as a follow-up gap for the task that
- * builds the actual confirm/reject/cancel endpoints, not solved here.
+ * P0 pay-after-accept: PENDING is provider review (not payable). Accept
+ * moves PENDING -> PAYMENT_PENDING (same enum as the PAYMENT_BASED
+ * awaiting-payment state). Only a successful payment webhook may move
+ * PAYMENT_PENDING -> CONFIRMED. PENDING -> CONFIRMED is illegal here so
+ * accept cannot skip payment.
  */
 export const REQUEST_BASED_TRANSITIONS: Record<BookingStatus, BookingStatus[]> =
   {
     [BookingStatus.DRAFT]: [BookingStatus.PENDING],
     [BookingStatus.PENDING]: [
-      BookingStatus.CONFIRMED,
+      BookingStatus.PAYMENT_PENDING,
       BookingStatus.REJECTED,
       BookingStatus.EXPIRED,
       BookingStatus.CANCELLED_BY_USER,
     ],
-    [BookingStatus.PAYMENT_PENDING]: [],
+    [BookingStatus.PAYMENT_PENDING]: [
+      BookingStatus.CONFIRMED,
+      BookingStatus.EXPIRED,
+      BookingStatus.CANCELLED_BY_USER,
+    ],
     [BookingStatus.CONFIRMED]: [
       BookingStatus.COMPLETED,
       BookingStatus.NO_SHOW,
@@ -115,3 +119,6 @@ export const ACTIVE_BOOKING_STATUSES = [
   BookingStatus.PAYMENT_PENDING,
   BookingStatus.CONFIRMED,
 ];
+
+/** Customer may start checkout only in this status (after provider accept). */
+export const PAYABLE_BOOKING_STATUSES = [BookingStatus.PAYMENT_PENDING];

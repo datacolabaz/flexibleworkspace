@@ -20,7 +20,7 @@ type LoadState =
   | { kind: 'notFound' }
   | { kind: 'error' };
 
-const PAYABLE_STATUSES = new Set(['PENDING', 'PAYMENT_PENDING']);
+const PAYABLE_STATUSES = new Set(['PAYMENT_PENDING']);
 
 /**
  * `payments.errorUrlTemplate`'s redirect target — reached when the hosted

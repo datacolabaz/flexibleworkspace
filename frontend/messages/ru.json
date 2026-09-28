@@ -296,10 +296,12 @@
     "purposePlaceholder": "напр. Командный воркшоп",
     "priceSubtotal": "Промежуточный итог",
     "submitCta": "Перейти к оплате",
+    "submitRequestCta": "Отправить запрос",
     "submittingCta": "Бронирование…",
     "retryPaymentCta": "Повторить оплату",
     "requestSubmitted": "Ваш запрос на бронирование отправлен. Ожидается подтверждение владельца.",
     "backToRoom": "Вернуться к помещению",
+    "whatsappCta": "Написать в WhatsApp",
     "errors": {
       "slotUnavailable": "К сожалению, этот интервал времени только что забронировал кто-то другой. Пожалуйста, выберите другое время.",
       "roomNotActive": "Это помещение сейчас недоступно для бронирования.",
@@ -355,7 +357,7 @@
       "emptyCta": "Найти пространство",
       "statusLabel": {
         "DRAFT": "Черновик",
-        "PENDING": "Ожидает оплаты",
+        "PENDING": "Ожидает подтверждения",
         "PAYMENT_PENDING": "Ожидает оплаты",
         "CONFIRMED": "Подтверждено",
         "COMPLETED": "Завершено",
@@ -363,7 +365,10 @@
         "EXPIRED": "Истекло",
         "NO_SHOW": "Неявка",
         "REFUND_PENDING": "Возврат ожидается",
-        "REFUNDED": "Возвращено"
+        "REFUNDED": "Возвращено",
+        "REJECTED": "Отклонено",
+        "CANCELLED_BY_USER": "Отменено",
+        "CANCELLED_BY_PROVIDER": "Отменено хозяином"
       },
       "roomUnavailable": "Это пространство больше не в списке",
       "moreSpaces": "+ещё {count}",

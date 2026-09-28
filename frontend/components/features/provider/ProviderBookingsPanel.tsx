@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { Alert } from '@/components/ui/Alert';
+import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Skeleton } from '@/components/ui/Skeleton';
 import type { ProviderBooking, ProviderBookingStatus } from '@/lib/api-client/provider-bookings';
@@ -10,7 +11,7 @@ import type { ProviderBooking, ProviderBookingStatus } from '@/lib/api-client/pr
 
 const BOOKING_STATUS_LABEL: Record<ProviderBookingStatus, string> = {
   DRAFT: 'Qaralama',
-  PENDING: 'Ödəniş gözlənilir',
+  PENDING: 'Sorğu gözlənilir',
   PAYMENT_PENDING: 'Ödəniş gözlənilir',
   CONFIRMED: 'Təsdiqləndi',
   COMPLETED: 'Tamamlandı',
@@ -39,6 +40,26 @@ const BOOKING_STATUS_TONE: Record<ProviderBookingStatus, string> = {
   CANCELLED_BY_USER: 'bg-surface-elevated text-text-muted',
   CANCELLED_BY_PROVIDER: 'bg-surface-elevated text-text-muted',
 };
+
+const REJECT_REASONS: { value: string; label: string }[] = [
+  { value: 'ROOM_UNAVAILABLE', label: 'Otaq əlçatan deyil' },
+  { value: 'SCHEDULE_CONFLICT', label: 'Cədvəl toqquşması' },
+  { value: 'MAINTENANCE', label: 'Təmir' },
+  { value: 'INVALID_REQUEST_DETAILS', label: 'Sorğu detalları yanlışdır' },
+  { value: 'PRICING_ISSUE', label: 'Qiymət məsələsi' },
+  { value: 'CAPACITY_MISMATCH', label: 'Tutum uyğun gəlmir' },
+  { value: 'DUPLICATE_REQUEST', label: 'Təkrar sorğu' },
+  { value: 'OTHER', label: 'Digər' },
+];
+
+async function readErrorMessage(response: Response): Promise<string> {
+  try {
+    const body = (await response.json()) as { error?: { message?: string } };
+    return body.error?.message ?? 'Əməliyyat alınmadı.';
+  } catch {
+    return 'Əməliyyat alınmadı.';
+  }
+}
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -92,11 +113,70 @@ function BookingSkeleton() {
 
 // ── Row ───────────────────────────────────────────────────────────────────────
 
-function BookingRow({ booking }: { booking: ProviderBooking }) {
+function BookingRow({
+  booking,
+  onUpdated,
+}: {
+  booking: ProviderBooking;
+  onUpdated: (next: ProviderBooking) => void;
+}) {
   const item = booking.items[0];
   const gross = ledgerAmount(booking.ledgerGrossAmount);
   const fee = ledgerAmount(booking.ledgerPlatformFeeAmount);
   const net = ledgerAmount(booking.ledgerProviderNetAmount);
+  const [busy, setBusy] = useState(false);
+  const [actionError, setActionError] = useState<string | undefined>();
+  const [rejectOpen, setRejectOpen] = useState(false);
+  const [reason, setReason] = useState('ROOM_UNAVAILABLE');
+  const [note, setNote] = useState('');
+
+  async function accept() {
+    setBusy(true);
+    setActionError(undefined);
+    try {
+      const res = await fetch(`/api/provider/bookings/${booking.id}/accept`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: '{}',
+      });
+      if (!res.ok) {
+        setActionError(await readErrorMessage(res));
+        return;
+      }
+      const updated = (await res.json()) as ProviderBooking;
+      onUpdated(updated);
+    } catch {
+      setActionError('Əməliyyat alınmadı.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function reject() {
+    if (reason === 'OTHER' && !note.trim()) {
+      setActionError('“Digər” üçün qeyd tələb olunur.');
+      return;
+    }
+    setBusy(true);
+    setActionError(undefined);
+    try {
+      const res = await fetch(`/api/provider/bookings/${booking.id}/reject`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason, note: note.trim() || undefined }),
+      });
+      if (!res.ok) {
+        setActionError(await readErrorMessage(res));
+        return;
+      }
+      const updated = (await res.json()) as ProviderBooking;
+      onUpdated(updated);
+    } catch {
+      setActionError('Əməliyyat alınmadı.');
+    } finally {
+      setBusy(false);
+    }
+  }
 
   return (
     <li className="flex flex-col gap-3 rounded-md border border-border p-4">
@@ -162,6 +242,58 @@ function BookingRow({ booking }: { booking: ProviderBooking }) {
           <dd className="text-text-secondary">{formatDate(booking.createdAt)}</dd>
         </div>
       </dl>
+
+      {booking.status === 'PENDING' && (
+        <div className="flex flex-col gap-2 border-t border-border pt-3">
+          {actionError && <Alert variant="error">{actionError}</Alert>}
+          <div className="flex flex-wrap gap-2">
+            <Button type="button" variant="primary" size="sm" disabled={busy} isLoading={busy} onClick={() => void accept()}>
+              Qəbul et
+            </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              disabled={busy}
+              onClick={() => setRejectOpen((open) => !open)}
+            >
+              Rədd et
+            </Button>
+          </div>
+          {rejectOpen && (
+            <div className="flex flex-col gap-2">
+              <label className="text-caption text-text-muted" htmlFor={`reject-reason-${booking.id}`}>
+                Səbəb
+              </label>
+              <select
+                id={`reject-reason-${booking.id}`}
+                className="min-h-11 rounded-md border border-border bg-surface px-3 text-small"
+                value={reason}
+                disabled={busy}
+                onChange={(event) => setReason(event.target.value)}
+              >
+                {REJECT_REASONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+              {reason === 'OTHER' && (
+                <input
+                  className="min-h-11 rounded-md border border-border bg-surface px-3 text-small"
+                  value={note}
+                  disabled={busy}
+                  onChange={(event) => setNote(event.target.value)}
+                  placeholder="Qeyd"
+                />
+              )}
+              <Button type="button" variant="secondary" size="sm" disabled={busy} isLoading={busy} onClick={() => void reject()}>
+                Rədd etməni təsdiqlə
+              </Button>
+            </div>
+          )}
+        </div>
+      )}
     </li>
   );
 }
@@ -219,7 +351,15 @@ export function ProviderBookingsPanel({ initialBookings }: { initialBookings: Pr
       {!loading && bookings !== null && bookings.length > 0 && (
         <ul className="flex flex-col gap-3">
           {bookings.map((booking) => (
-            <BookingRow key={booking.id} booking={booking} />
+            <BookingRow
+              key={booking.id}
+              booking={booking}
+              onUpdated={(updated) =>
+                setBookings((current) =>
+                  (current ?? []).map((row) => (row.id === updated.id ? { ...row, ...updated } : row)),
+                )
+              }
+            />
           ))}
         </ul>
       )}

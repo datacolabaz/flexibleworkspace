@@ -49,7 +49,28 @@ describe('BookingConfirmingView', () => {
 
     expect(await screen.findByText('Booking confirmed!')).toBeInTheDocument();
     expect(screen.getByText('33 AZN')).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Message on WhatsApp' })).not.toBeInTheDocument();
     expect(fetchMock.mock.calls[0][0]).toBe('/api/bookings/booking-1');
+  });
+
+  it('shows WhatsApp after confirmation when the booking includes whatsappUrl', async () => {
+    const fetchMock = fetch as unknown as ReturnType<typeof vi.fn>;
+    fetchMock.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          id: 'booking-1',
+          status: 'CONFIRMED',
+          whatsappUrl: 'https://wa.me/994501112233',
+          items: [],
+        }),
+        { status: 200 },
+      ),
+    );
+
+    renderView();
+
+    const wa = await screen.findByRole('link', { name: 'Message on WhatsApp' });
+    expect(wa).toHaveAttribute('href', 'https://wa.me/994501112233');
   });
 
   it('shows a "not found" state on a 404', async () => {
@@ -94,5 +115,46 @@ describe('BookingConfirmingView', () => {
 
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(screen.getByText('Booking confirmed!')).toBeInTheDocument();
+  });
+
+  it('shows a staging simulate-payment control that POSTs fake-complete, then WhatsApp after confirm', async () => {
+    const fetchMock = fetch as unknown as ReturnType<typeof vi.fn>;
+    fetchMock
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ id: 'booking-1', status: 'PAYMENT_PENDING', items: [] }), { status: 200 }),
+      )
+      .mockResolvedValueOnce(new Response(JSON.stringify({ paymentStatus: 'CAPTURED' }), { status: 200 }))
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            id: 'booking-1',
+            status: 'CONFIRMED',
+            whatsappUrl: 'https://wa.me/994501112233',
+            items: [],
+          }),
+          { status: 200 },
+        ),
+      );
+
+    render(
+      <NextIntlClientProvider locale="en" messages={messages}>
+        <BookingConfirmingView
+          bookingId="booking-1"
+          fakeComplete={{ paymentId: 'payment-1', signature: 'abc' }}
+        />
+      </NextIntlClientProvider>,
+    );
+
+    expect(await screen.findByRole('button', { name: 'Simulate payment (staging)' })).toBeInTheDocument();
+    await act(async () => {
+      screen.getByRole('button', { name: 'Simulate payment (staging)' }).click();
+    });
+
+    expect(await screen.findByRole('link', { name: 'Message on WhatsApp' })).toHaveAttribute(
+      'href',
+      'https://wa.me/994501112233',
+    );
+    expect(fetchMock.mock.calls[1][0]).toBe('/api/payments/payment-1/fake-complete');
+    expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toEqual({ signature: 'abc' });
   });
 });

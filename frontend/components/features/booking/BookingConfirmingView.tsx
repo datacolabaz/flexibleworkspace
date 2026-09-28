@@ -5,24 +5,41 @@ import { useLocale, useTranslations } from 'next-intl';
 import { Link } from '@/lib/i18n/navigation';
 import { Alert } from '@/components/ui/Alert';
 import { Spinner } from '@/components/ui/Spinner';
+import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { formatMoney } from '@/lib/format/money';
 import type { BookingSummary } from '@/lib/api-client/bookings';
 
+type BookingWithWhatsapp = BookingSummary & { whatsappUrl?: string | null };
+
 export interface BookingConfirmingViewProps {
   bookingId: string;
+  /** Present only on FakePaymentAdapter checkout URLs (staging/test). */
+  fakeComplete?: {
+    paymentId: string;
+    signature: string;
+  };
 }
 
 type ViewState =
   | { kind: 'polling'; slow: boolean }
-  | { kind: 'confirmed'; booking: BookingSummary }
-  | { kind: 'notCompleted'; booking: BookingSummary }
+  | { kind: 'confirmed'; booking: BookingWithWhatsapp }
+  | { kind: 'notCompleted'; booking: BookingWithWhatsapp }
   | { kind: 'notFound' }
   | { kind: 'error' };
 
 const POLL_INTERVAL_MS = 3000;
 const SLOW_AFTER_MS = 20000;
-const TERMINAL_NOT_CONFIRMED = new Set(['CANCELLED', 'EXPIRED', 'NO_SHOW', 'REFUND_PENDING', 'REFUNDED']);
+const TERMINAL_NOT_CONFIRMED = new Set([
+  'CANCELLED',
+  'EXPIRED',
+  'NO_SHOW',
+  'REFUND_PENDING',
+  'REFUNDED',
+  'REJECTED',
+  'CANCELLED_BY_USER',
+  'CANCELLED_BY_PROVIDER',
+]);
 const CONFIRMED_LIKE = new Set(['CONFIRMED', 'COMPLETED']);
 
 /**
@@ -37,10 +54,13 @@ const CONFIRMED_LIKE = new Set(['CONFIRMED', 'COMPLETED']);
  * `GET /bookings/{bookingId}` — the same endpoint the `bookings.controller.ts`
  * guest-access fix exists for — rather than trusting anything in the URL.
  */
-export function BookingConfirmingView({ bookingId }: BookingConfirmingViewProps) {
+export function BookingConfirmingView({ bookingId, fakeComplete }: BookingConfirmingViewProps) {
   const t = useTranslations('booking.confirming');
+  const tBooking = useTranslations('booking');
   const locale = useLocale();
   const [state, setState] = useState<ViewState>({ kind: 'polling', slow: false });
+  const [fakeBusy, setFakeBusy] = useState(false);
+  const [fakeError, setFakeError] = useState<string | undefined>();
   const startedAtRef = useRef(Date.now());
 
   useEffect(() => {
@@ -61,7 +81,7 @@ export function BookingConfirmingView({ bookingId }: BookingConfirmingViewProps)
           return;
         }
 
-        const booking = (await res.json()) as BookingSummary;
+        const booking = (await res.json()) as BookingWithWhatsapp;
         if (CONFIRMED_LIKE.has(booking.status ?? '')) {
           setState({ kind: 'confirmed', booking });
           return;
@@ -87,6 +107,37 @@ export function BookingConfirmingView({ bookingId }: BookingConfirmingViewProps)
     };
   }, [bookingId]);
 
+  async function simulateFakePayment() {
+    if (!fakeComplete) return;
+    setFakeBusy(true);
+    setFakeError(undefined);
+    try {
+      const res = await fetch(`/api/payments/${fakeComplete.paymentId}/fake-complete`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ signature: fakeComplete.signature }),
+      });
+      if (!res.ok) {
+        setFakeError('Staging payment could not be completed. Try again or check the booking status.');
+        setFakeBusy(false);
+        return;
+      }
+      const bookingRes = await fetch(`/api/bookings/${bookingId}`, { cache: 'no-store' });
+      if (bookingRes.ok) {
+        const booking = (await bookingRes.json()) as BookingWithWhatsapp;
+        if (CONFIRMED_LIKE.has(booking.status ?? '')) {
+          setState({ kind: 'confirmed', booking });
+          setFakeBusy(false);
+          return;
+        }
+      }
+      setFakeBusy(false);
+    } catch {
+      setFakeError('Staging payment could not be completed. Try again or check the booking status.');
+      setFakeBusy(false);
+    }
+  }
+
   if (state.kind === 'polling') {
     return (
       <Card className="flex flex-col items-center gap-4 text-center">
@@ -97,6 +148,20 @@ export function BookingConfirmingView({ bookingId }: BookingConfirmingViewProps)
             {state.slow ? t('stillProcessingMessage') : t('waitingMessage')}
           </p>
         </div>
+        {fakeComplete && (
+          <div className="flex w-full flex-col gap-2">
+            {fakeError && <Alert variant="error">{fakeError}</Alert>}
+            <Button
+              type="button"
+              variant="secondary"
+              fullWidth
+              isLoading={fakeBusy}
+              onClick={() => void simulateFakePayment()}
+            >
+              Simulate payment (staging)
+            </Button>
+          </div>
+        )}
       </Card>
     );
   }
@@ -134,6 +199,16 @@ export function BookingConfirmingView({ bookingId }: BookingConfirmingViewProps)
         >
           {t('backHomeCta')}
         </Link>
+        {booking.whatsappUrl && (
+          <a
+            href={booking.whatsappUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex min-h-11 items-center justify-center rounded-md border border-border-strong bg-surface px-5 text-label font-semibold text-text-primary"
+          >
+              {tBooking('whatsappCta')}
+          </a>
+        )}
       </Card>
     );
   }

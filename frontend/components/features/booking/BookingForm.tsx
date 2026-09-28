@@ -25,7 +25,7 @@ interface BffErrorBody {
   error?: { code?: string };
 }
 type BookingMode = 'REQUEST_BASED' | 'PAYMENT_BASED';
-type CreatedBooking = { id: string; mode?: BookingMode };
+type CreatedBooking = { id: string; mode?: BookingMode; status?: string };
 
 /**
  * Only the machine-readable `code` is read off the error envelope — the
@@ -195,7 +195,7 @@ export function BookingForm({
       const booking = (await res.json()) as CreatedBooking;
       track(AnalyticsEvent.BookingSubmitted, { location_id: roomId, booking_id: booking.id });
       setCreatedBookingId(booking.id);
-      if (booking.mode === 'REQUEST_BASED') {
+      if (booking.mode === 'REQUEST_BASED' || booking.status === 'PENDING') {
         setRequestSubmitted(true);
         return;
       }
@@ -332,10 +332,10 @@ export function BookingForm({
 
       {!requestSubmitted && <div>
         <Label className="sr-only" htmlFor="booking-submit">
-          {t('submitCta')}
+          {t('submitRequestCta')}
         </Label>
         <Button id="booking-submit" type="submit" variant="primary" fullWidth isLoading={isSubmitting}>
-          {isSubmitting ? t('submittingCta') : createdBookingId ? t('retryPaymentCta') : t('submitCta')}
+          {isSubmitting ? t('submittingCta') : createdBookingId ? t('retryPaymentCta') : t('submitRequestCta')}
         </Button>
       </div>}
     </form>

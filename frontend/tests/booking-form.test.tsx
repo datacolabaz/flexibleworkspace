@@ -70,7 +70,7 @@ describe('BookingForm', () => {
     const fetchMock = fetch as unknown as ReturnType<typeof vi.fn>;
     renderForm();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Continue to payment' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Send booking request' }));
 
     expect(await screen.findByText('Enter an email or phone number so we can reach you.')).toBeInTheDocument();
     expect(fetchMock).not.toHaveBeenCalled();
@@ -79,7 +79,11 @@ describe('BookingForm', () => {
   it('creates the booking, then the checkout session, then redirects to checkoutUrl', async () => {
     const fetchMock = fetch as unknown as ReturnType<typeof vi.fn>;
     fetchMock
-      .mockResolvedValueOnce(new Response(JSON.stringify({ id: 'booking-1', status: 'PENDING' }), { status: 201 }))
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ id: 'booking-1', status: 'PAYMENT_PENDING', mode: 'PAYMENT_BASED' }), {
+          status: 201,
+        }),
+      )
       .mockResolvedValueOnce(
         new Response(JSON.stringify({ checkoutUrl: 'https://checkout.example/session', paymentId: 'payment-1' }), {
           status: 200,
@@ -88,7 +92,7 @@ describe('BookingForm', () => {
 
     renderForm();
     fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'guest@example.com' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Continue to payment' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Send booking request' }));
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
     expect(fetchMock.mock.calls[0][0]).toBe('/api/bookings');
@@ -112,7 +116,7 @@ describe('BookingForm', () => {
 
     renderForm();
     fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'guest@example.com' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Continue to payment' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Send booking request' }));
 
     expect(
       await screen.findByText("Your booking request was sent. It is waiting for the provider's confirmation."),
@@ -133,7 +137,7 @@ describe('BookingForm', () => {
 
     renderForm();
     fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'guest@example.com' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Continue to payment' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Send booking request' }));
 
     expect(
       await screen.findByText('Sorry, this time slot was just booked by someone else. Please choose another time.'),
@@ -141,21 +145,18 @@ describe('BookingForm', () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
-  it('omits the customer object entirely when signed in', async () => {
+  it('omits the customer object entirely when signed in, and does not start payment for a PENDING request', async () => {
     const fetchMock = fetch as unknown as ReturnType<typeof vi.fn>;
-    fetchMock
-      .mockResolvedValueOnce(new Response(JSON.stringify({ id: 'booking-2', status: 'PENDING' }), { status: 201 }))
-      .mockResolvedValueOnce(
-        new Response(JSON.stringify({ checkoutUrl: 'https://checkout.example/session-2', paymentId: 'payment-2' }), {
-          status: 200,
-        }),
-      );
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify({ id: 'booking-2', status: 'PENDING', mode: 'REQUEST_BASED' }), { status: 201 }),
+    );
 
     renderForm({ isAuthenticated: true });
-    fireEvent.click(screen.getByRole('button', { name: 'Continue to payment' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Send booking request' }));
 
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
     const bookingBody = JSON.parse(fetchMock.mock.calls[0][1].body);
     expect(bookingBody.customer).toBeUndefined();
+    expect(fetchMock.mock.calls[0][0]).toBe('/api/bookings');
   });
 });

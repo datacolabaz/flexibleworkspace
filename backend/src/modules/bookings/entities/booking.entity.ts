@@ -112,4 +112,10 @@ export class BookingEntity {
 
   @OneToMany(() => BookingItemEntity, (item) => item.booking, { cascade: true })
   items: BookingItemEntity[];
+
+  /** Response-only: true when the customer may start checkout (PAYMENT_PENDING). */
+  payable?: boolean;
+
+  /** Response-only: wa.me link after CONFIRMED + captured payment. */
+  whatsappUrl?: string | null;
 }

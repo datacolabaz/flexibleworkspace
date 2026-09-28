@@ -9,6 +9,7 @@ import {
   HttpStatus,
   Param,
   Post,
+  Query,
   Req,
 } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
@@ -48,6 +49,28 @@ export class PaymentsController {
     return this.paymentsService.createCheckoutSession(
       user?.userId ?? null,
       dto,
+    );
+  }
+
+  /**
+   * Staging/test only. HMAC-signed server-side capture. Hidden (404) when
+   * fake payments are disabled — including every `NODE_ENV=production` deploy.
+   */
+  @Public()
+  @Post('payments/:paymentId/fake-complete')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary:
+      'STAGING ONLY — complete a FakePaymentAdapter checkout (never available in production)',
+  })
+  async fakeComplete(
+    @Param('paymentId') paymentId: string,
+    @Query('sig') sig: string | undefined,
+    @Body() body: { signature?: string } | undefined,
+  ) {
+    return this.paymentsService.completeFakePayment(
+      paymentId,
+      body?.signature ?? sig,
     );
   }
 

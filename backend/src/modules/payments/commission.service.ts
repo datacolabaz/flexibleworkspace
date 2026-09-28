@@ -107,6 +107,8 @@ export class CommissionService {
       grossAmount: number; // the full customer charge — Booking.totalAmount (§14.2's "full customer charge")
       currency: string;
       paymentAdapter: PaymentAdapterName;
+      /** Freeform ledger tag (ledger_entry.referral_source). Used to mark fake/staging rows so they are not reported as live GMV. */
+      ledgerSourceTag?: string | null;
     },
   ): Promise<LedgerWriteResult> {
     const rule = await this.resolveCommissionRule(
@@ -136,6 +138,7 @@ export class CommissionService {
       entry.amount = String(amount);
       entry.currency = params.currency;
       entry.commissionRuleId = opts.commissionRuleId ?? null;
+      entry.referralSource = params.ledgerSourceTag ?? null;
       entry.createdAt = now;
       return entry;
     };
@@ -159,6 +162,7 @@ export class CommissionService {
       platformFeeAmount,
       params.currency,
       now,
+      params.ledgerSourceTag ?? null,
     );
     if (partnerEntry) entries.push(partnerEntry);
 
@@ -187,6 +191,7 @@ export class CommissionService {
     platformFeeAmount: number,
     currency: string,
     now: Date,
+    ledgerSourceTag: string | null,
   ): Promise<LedgerEntryEntity | null> {
     const rows = await manager.query(
       `SELECT bra.partner_id, p.default_commission_type, p.default_commission_value,
@@ -225,6 +230,7 @@ export class CommissionService {
     entry.entryType = LedgerEntryType.PARTNER_COMMISSION;
     entry.amount = String(amount); // positive — mirrors PROVIDER_NET's sign convention (§31.3: "mirrors PROVIDER_NET being written at confirmation")
     entry.currency = currency;
+    entry.referralSource = ledgerSourceTag;
     entry.createdAt = now;
     return entry;
   }

@@ -318,10 +318,12 @@
     "promoCodeApplied": "Promo code applied",
     "priceSubtotal": "Subtotal",
     "submitCta": "Continue to payment",
+    "submitRequestCta": "Send booking request",
     "submittingCta": "Booking…",
     "retryPaymentCta": "Try payment again",
     "requestSubmitted": "Your booking request was sent. It is waiting for the provider's confirmation.",
     "backToRoom": "Back to room",
+    "whatsappCta": "Message on WhatsApp",
     "errors": {
       "slotUnavailable": "Sorry, this time slot was just booked by someone else. Please choose another time.",
       "roomNotActive": "This room isn't currently bookable.",
@@ -428,7 +430,7 @@
       "emptyCta": "Find a space",
       "statusLabel": {
         "DRAFT": "Draft",
-        "PENDING": "Awaiting payment",
+        "PENDING": "Awaiting confirmation",
         "PAYMENT_PENDING": "Awaiting payment",
         "CONFIRMED": "Confirmed",
         "COMPLETED": "Completed",
@@ -436,7 +438,10 @@
         "EXPIRED": "Expired",
         "NO_SHOW": "No-show",
         "REFUND_PENDING": "Refund pending",
-        "REFUNDED": "Refunded"
+        "REFUNDED": "Refunded",
+        "REJECTED": "Rejected",
+        "CANCELLED_BY_USER": "Cancelled",
+        "CANCELLED_BY_PROVIDER": "Cancelled by host"
       },
       "roomUnavailable": "This space is no longer listed",
       "moreSpaces": "+{count} more space",
